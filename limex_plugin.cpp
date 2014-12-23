@@ -1,21 +1,29 @@
-// created by Sebastian Reiter
-// s.b.reiter@googlemail.com
-// 12.09.2011 (m,d,y)
+// created by Arne Naegel
 
+#include <string>
+
+// bridge
 #include "bridge/util.h"
-
+#include "bridge/util_overloaded.h"
+#include "bridge/util_domain_algebra_dependent.h"
 // replace this with util_domain_dependent.h or util_algebra_dependent.h
 // to speed up compilation time
-#include "bridge/util_domain_algebra_dependent.h"
-#include "bridge/util_overloaded.h"
 
+
+// ug
+#include "lib_disc/function_spaces/grid_function.h"
+#include "common/ug_config.h"
+#include "common/error.h"
+
+
+// plugin
+#include "time_disc/time_integrator.hpp"
 #include "time_disc/time_extrapolation.h"
 #include "time_disc/linear_implicit_timestep.h"
 
-#include "common/ug_config.h"
-#include "common/error.h"
-#include <string>
 
+
+// include for plugins
 using namespace std;
 using namespace ug::bridge;
 
@@ -24,60 +32,7 @@ using namespace ug::bridge;
 #endif
 
 namespace ug{
-namespace Sample{
-
-/** 
- *  \defgroup sample_plugin Sample
- *  \ingroup plugins_experimental
- *  This is just a sample plugin.
- *  \{
- */
-
-void PluginSaysHello()
-{
-#ifdef UG_PARALLEL
-	pcl::SynchronizeProcesses();
-	cout << "Hello, I'm your plugin on proc " <<
-				pcl::ProcRank() << "." << endl;
-	pcl::SynchronizeProcesses();
-#else
-	UG_LOG("Hello, I'm your personal plugin in serial environment!\n");
-#endif
-}
-
-void CrashFct(const string& reason)
-{
-	UG_THROW("I Crash because: "<< reason);
-}
-
-void CrashFctFatal(const string& reason)
-{
-	UG_THROW("I Crash fatal because: "<< reason);
-}
-
-void PluginCrashes()
-{
-	try{
-		CrashFct("Some funny reason");
-	}
-	catch(bad_alloc& err)
-	{
-		UG_LOG("Bad Alloc");
-	}
-	UG_CATCH_THROW("Something wrong in PluginCrashes");
-}
-
-void PluginCrashesFatal()
-{
-	try{
-		CrashFctFatal("Some fatal reason");
-	}
-	catch(bad_alloc& err)
-	{
-		UG_LOG("Bad Alloc");
-	}
-	UG_CATCH_THROW("Something wrong in PluginCrashesFatal");
-}
+namespace Limex{
 
 /**
  * Class exporting the functionality of the plugin. All functionality that is to
@@ -98,9 +53,59 @@ struct Functionality
 template <typename TDomain, typename TAlgebra>
 static void DomainAlgebra(Registry& reg, string grp)
 {
-//	useful defines
+	//	useful defines
 	string suffix = GetDomainAlgebraSuffix<TDomain,TAlgebra>();
 	string tag = GetDomainAlgebraTag<TDomain,TAlgebra>();
+
+	typedef ApproximationSpace<TDomain> TApproximationSpace;
+	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
+
+	{
+		// ITimeIntegrator
+		typedef ITimeIntegrator<TDomain, TAlgebra> T;
+		string name = string("ITimeIntegrator").append(suffix);
+		reg.add_class_<T>(name, grp)
+						   .add_method("set_time_step", &T::set_time_step)
+						   .add_method("set_theta", &T::set_theta)
+						   .add_method("set_linear_solver", &T::set_linear_solver)
+						   .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","");
+		reg.add_class_to_group(name, "ITimeIntegrator", tag);
+	}
+
+	{
+		// LinearTimeIntegrator
+		// (e.g., implicit Euler for linear problem)
+		typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
+		typedef LinearTimeIntegrator<TDomain, TAlgebra> T;
+		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+
+		string name = string("LinearTimeIntegrator").append(suffix);
+		reg.add_class_<T,TBase>(name, grp)
+							.template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+							// .add_method("apply", &T::apply)
+							.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
+							.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
+							.add_method("get_time_disc", &T::get_time_disc)
+							.set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "LinearTimeIntegrator", tag);
+
+	}
+
+	{
+		// Adaptive LinearTimeIntegrator
+		typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
+		typedef TimeIntegratorLinearAdaptive<TDomain, TAlgebra> T;
+		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+
+		string name = string("TimeIntegratorLinearAdaptive").append(suffix);
+		reg.add_class_<T,TBase>(name, grp)
+							.template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+							.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
+							.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
+							.add_method("get_time_disc", &T::get_time_disc)
+							.set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "TimeIntegratorLinearAdaptive", tag);
+	}
 
 }
 
@@ -168,10 +173,7 @@ static void Algebra(Registry& reg, string parentGroup)
 				typedef LinearImplicitEuler<TAlgebra> T;
 				string name = string("LinearImplicitEuler").append(suffix);
 				reg.add_class_<T, TBase>(name, grp)
-						.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >)>("Domain Discretization")
-					//	.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >,int)>("Domain Discretization#Order")
-						//.add_method("set_order", &T::set_order, "", "Order")
-						//.add_method("set_stage", &T::set_stage, "", "Stage")
+						.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >)>("LinearImplicitEuler")
 						.set_construct_as_smart_pointer(true);
 				reg.add_class_to_group(name, "LinearImplicitEuler", tag);
 		}
@@ -253,9 +255,7 @@ static void Algebra(Registry& reg, string parentGroup)
  */
 static void Common(Registry& reg, string grp)
 {
-	reg.add_function("PluginSaysHello", &PluginSaysHello, grp)
-		.add_function("PluginCrashes", &PluginCrashes, grp)
-		.add_function("PluginCrashesFatal", &PluginCrashesFatal, grp);
+
 }
 
 }; // end Functionality
@@ -270,10 +270,10 @@ static void Common(Registry& reg, string grp)
  * This function is called when the plugin is loaded.
  */
 extern "C" void
-InitUGPlugin_Sample(Registry* reg, string grp)
+InitUGPlugin_limex(Registry* reg, string grp)
 {
 	grp.append("/Sample");
-	typedef Sample::Functionality Functionality;
+	typedef Limex::Functionality Functionality;
 
 	try{
 		RegisterCommon<Functionality>(*reg,grp);
@@ -286,7 +286,7 @@ InitUGPlugin_Sample(Registry* reg, string grp)
 }
 
 extern "C" UG_API void
-FinalizeUGPlugin_Sample()
+FinalizeUGPlugin_limex()
 {
 }
 

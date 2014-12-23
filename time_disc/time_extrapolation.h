@@ -1,4 +1,8 @@
 // external libraries
+
+#ifndef TIME_EXTRAPOLATION_H_
+#define TIME_EXTRAPOLATION_H_
+
 #include <vector>
 #include <cmath>
 
@@ -366,3 +370,4 @@ private:
 */
 
 }
+#endif

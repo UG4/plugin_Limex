@@ -184,11 +184,13 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, numb
 	 number dt_assembled = -1.0;   // invalid
 	 int step = 1;
 
+	 number currdt = base_type::m_dt;
+
 	 while(t<t1)
 	 {
 		 UG_LOG("+++ Timestep +++" << step++ << "\n");
 		 // determine step size
-		 number dt = std::min(base_type::m_dt, t1-t);
+		 number dt = std::min(currdt, t1-t);
 
 		 // prepare step
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
@@ -207,13 +209,23 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, numb
 		 }
 
 		 // execute step
-		 base_type::m_spLinearSolver->apply(u1, *b);
-		 t += base_type::m_dt;
+		 if (base_type::m_spLinearSolver->apply(u1, *b))
+		 {
+			 // ACCEPTING:
+			 // push updated solution into time series
+			 t += currdt;
+			 SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
+			 VecAssign(*tmp, u1);
+			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
+		 }
+		 else
+		 {
+			 // DISCARDING
+			 currdt *= 0.5;
+		 }
 
-		// push updated solution into time series
-		SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-		VecAssign(*tmp, u1);
-		m_spSolTimeSeries->push_discard_oldest(tmp, t);
+
+
 
 	 }
 

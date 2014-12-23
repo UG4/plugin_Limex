@@ -6,6 +6,9 @@
  *
  */
 
+#ifndef LIMEX_H_
+#define LIMEX_H_
+
 // extern libraries
 #include <vector>
 #include <cmath>
@@ -138,3 +141,4 @@ protected:
 };
 
 }  // namespace ug
+#endif
