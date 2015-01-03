@@ -270,7 +270,7 @@ static void Common(Registry& reg, string grp)
  * This function is called when the plugin is loaded.
  */
 extern "C" void
-InitUGPlugin_limex(Registry* reg, string grp)
+InitUGPlugin_LIMEX(Registry* reg, string grp)
 {
 	grp.append("/Sample");
 	typedef Limex::Functionality Functionality;
@@ -286,7 +286,7 @@ InitUGPlugin_limex(Registry* reg, string grp)
 }
 
 extern "C" UG_API void
-FinalizeUGPlugin_limex()
+FinalizeUGPlugin_LIMEX()
 {
 }
 
