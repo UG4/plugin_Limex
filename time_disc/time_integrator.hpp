@@ -231,6 +231,110 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, numb
 
 };
 
+
+/// Integrate over a given time interval (for a linear problem)
+template<class TDomain, class TAlgebra>
+class ConstStepLinearTimeIntegrator :
+	public ITimeIntegrator<TDomain, TAlgebra>
+{
+
+public:
+	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
+	typedef typename base_type::domain_disc_type domain_disc_type;
+	typedef typename base_type::grid_function_type grid_function_type;
+	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
+
+private:
+
+protected:
+	SmartPtr<typename base_type::assembled_operator_type> m_spAssOp;
+
+public:
+
+	// constructor
+	ConstStepLinearTimeIntegrator (SmartPtr< typename base_type::domain_disc_type> domDisc)
+	: base_type(domDisc), m_spAssOp(SPNULL)  {}
+
+	//void init(grid_function_type const& u);
+	void apply(grid_function_type& u1, number t1, const grid_function_type& u0, number t0);
+
+};
+
+
+
+template<typename TDomain, typename TAlgebra>
+void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, number t1, const grid_function_type& u0, number t0)
+{
+	// short-cuts
+	GridLevel const &gl = u0.grid_level();
+	typename base_type::time_disc_type &tdisc = *base_type::m_spTimeDisc;
+
+	// create solution vector & right hand side
+	SmartPtr<typename base_type::vector_type> uold= u0.clone();
+	SmartPtr<typename base_type::vector_type> b= u0.clone_without_values();
+
+	// solution time series
+	SmartPtr<vector_time_series_type> m_spSolTimeSeries;
+	m_spSolTimeSeries=make_sp(new vector_time_series_type());
+	m_spSolTimeSeries->push(uold, t0);
+
+	// create matrix operator
+	SmartPtr<typename base_type::assembled_operator_type> spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
+
+	// integrate
+	UG_LOG("+++ Integrating: ["<< t0 <<","<< t1 <<"]\n");
+	 double t = t0;
+	 number dt_assembled = -1.0;   // invalid
+	 int step = 1;
+
+	 number currdt = base_type::m_dt;
+
+	 while(t + 1e-10*(t1)< t1)
+	 {
+		 UG_LOG("+++ Const timestep +++" << step++ << "\n");
+		 // determine step size
+		 number dt = std::min(currdt, t1-t);
+
+		 // prepare step
+		 tdisc.prepare_step(m_spSolTimeSeries, dt);
+		 if (m_spAssOp==SPNULL)
+		 {
+			 // assemble operator
+			 UG_LOG("+++ Assemble (t=" << t << ", dt= " << dt <<")\n");
+			 tdisc.assemble_linear(*m_spAssOp, *b, gl);
+			 (base_type::m_spLinearSolver)->init(m_spAssOp, u1);
+			 dt_assembled = dt;
+		 }
+		 else
+		 {
+			 // keep old operator
+			 tdisc.assemble_rhs(*b, gl);
+		 }
+
+		 // execute step
+		 if (base_type::m_spLinearSolver->apply(u1, *b))
+		 {
+			 // ACCEPTING:
+			 // push updated solution into time series
+			 t += currdt;
+			 SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
+			 VecAssign(*tmp, u1);
+			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
+		 }
+		 else
+		 {
+			UG_ASSERT(0, "Const Time step failed!!!")
+		 }
+
+
+
+
+	 }
+
+};
+
+
+
 /// Integrate over a given time interval (for a linear problem)
 template<class TDomain, class TAlgebra>
 class TimeIntegratorLinearAdaptive :
