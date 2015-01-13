@@ -278,9 +278,6 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type&
 	m_spSolTimeSeries=make_sp(new vector_time_series_type());
 	m_spSolTimeSeries->push(uold, t0);
 
-	// create matrix operator
-	SmartPtr<typename base_type::assembled_operator_type> spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
-
 	// integrate
 	UG_LOG("+++ Integrating: ["<< t0 <<","<< t1 <<"]\n");
 	 double t = t0;
@@ -301,12 +298,14 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type&
 		 {
 			 // assemble operator
 			 UG_LOG("+++ Assemble (t=" << t << ", dt= " << dt <<")\n");
+			 m_spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
 			 tdisc.assemble_linear(*m_spAssOp, *b, gl);
 			 (base_type::m_spLinearSolver)->init(m_spAssOp, u1);
 			 dt_assembled = dt;
 		 }
 		 else
 		 {
+			 // std::cerr << "Recycling timestep " << step << "\n";
 			 // keep old operator
 			 tdisc.assemble_rhs(*b, gl);
 		 }
