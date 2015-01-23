@@ -9,7 +9,7 @@
 ################################################################################
 
 # Name of your plugin, path to your plugin (relative to ug's root path) and sources.
-set(pluginName LIMEX)
+set(pluginName	limex)
 set(pluginPath	plugins/experimental/limex)
 set(SOURCES		limex_plugin.cpp
 				time_disc/time_extrapolation.cpp
