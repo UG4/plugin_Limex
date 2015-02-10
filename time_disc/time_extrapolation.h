@@ -162,6 +162,12 @@ public:
 		const int offset = m_offset;
 		base_type::m_est=0;
 		tools::VecScaleAddWithNorm2(dest, alpha1, v1, alpha2, v2, alpha3, v3, base_type::m_est, delta, offset);
+#ifdef UG_PARALLEL
+		double locEst = base_type::m_est;
+		double globEst =0.0;
+		dest.layouts()->proc_comm().allreduce(&locEst, &globEst, 1, PCL_DT_DOUBLE, PCL_RO_SUM);
+		base_type::m_est = globEst;
+#endif
 		base_type::m_est = sqrt(base_type::m_est);
 		return true;
 	}
