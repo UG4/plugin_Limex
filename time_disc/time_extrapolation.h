@@ -81,7 +81,7 @@ namespace tools {
 
 	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3
 	template<typename vector_t, template <class T> class TE_VEC>
-	inline void VecScaleAddWithNorm2(TE_VEC<vector_t> &dest, double alpha1, const TE_VEC<vector_t> &v1, double alpha2, const TE_VEC<vector_t> &v2, double alpha3, const TE_VEC<vector_t> &v3, double &norm, const int delta=0, const int offset=0)
+	inline void VecScaleAddWithNorm2(TE_VEC<vector_t> &dest, double alpha1, const TE_VEC<vector_t> &v1, double alpha2, const TE_VEC<vector_t> &v2, double alpha3, const TE_VEC<vector_t> &v3, double &norm, const int delta=1, const int offset=0)
 	{
 		for(size_t i=offset; i<dest.size(); i+=delta)
 			VecScaleAddWithNorm2(dest[i], alpha1, v1[i], alpha2, v2[i], alpha3, v3[i], norm);
@@ -149,7 +149,7 @@ protected:
 public:
 	// constructor
 	Norm2Estimator() :
-		ISubDiagErrorEst<TVector>(), m_stride(0), m_offset(0) {};
+		ISubDiagErrorEst<TVector>(), m_stride(1), m_offset(0) {};
 	Norm2Estimator(int stride) :
 		ISubDiagErrorEst<TVector>(), m_stride(stride), m_offset(0) {};
 	Norm2Estimator(int delta, int offset) :
@@ -236,6 +236,12 @@ class AitkenNevilleTimex
 		  m_solution(nsteps.size()),
 		  m_subdiag_error_est(nsteps.size(), INFINITY),
 		  m_subdiag (make_sp(new Norm2Estimator<TVector>())){};
+
+		AitkenNevilleTimex(std::vector<size_t> nsteps, SmartPtr<ISubDiagErrorEst<vector_type> > error)
+		: m_num_steps(nsteps),
+		  m_solution(nsteps.size()),
+		  m_subdiag_error_est(nsteps.size(), INFINITY),
+		  m_subdiag(error){};
 
 		virtual ~AitkenNevilleTimex() {}
 

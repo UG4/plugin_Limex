@@ -279,7 +279,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type&
 	m_spSolTimeSeries->push(uold, t0);
 
 	// integrate
-	UG_LOG("+++ Integrating: ["<< t0 <<","<< t1 <<"]\n");
+	UG_LOG("+++ Integrating: ["<< t0 <<","<< t1 <<"] with dt=" << base_type::m_dt << "\n");
 	 double t = t0;
 	 number dt_assembled = -1.0;   // invalid
 	 int step = 1;

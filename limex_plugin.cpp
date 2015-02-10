@@ -200,10 +200,13 @@ static void Algebra(Registry& reg, string parentGroup)
 	//	Time extrapolation
 		{
 			std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
-			typedef AitkenNevilleTimex<typename TAlgebra::vector_type> T;
+			typedef typename TAlgebra::vector_type VT;
+			typedef ISubDiagErrorEst<VT> ET;
+			typedef AitkenNevilleTimex<VT> T;
 			string name = string("AitkenNevilleTimex").append(suffix);
 			reg.add_class_<T>(name, grp)
 						.ADD_CONSTRUCTOR( (std::vector<size_t> nsteps) ) ("number of steps (vector)")
+						.ADD_CONSTRUCTOR( (std::vector<size_t> nsteps, SmartPtr<ET> ) ) ("number of steps (vector)")
 						.add_method("set_solution", &T::set_solution)
 						.add_method("get_solution", &T::get_solution)
 						.add_method("apply", &T::apply)
@@ -289,9 +292,9 @@ static void Common(Registry& reg, string grp)
  * This function is called when the plugin is loaded.
  */
 extern "C" void
-InitUGPlugin_LIMEX(Registry* reg, string grp)
+InitUGPlugin_Limex(Registry* reg, string grp)
 {
-	grp.append("/Sample");
+	grp.append("/Limex");
 	typedef Limex::Functionality Functionality;
 
 	try{
@@ -305,7 +308,7 @@ InitUGPlugin_LIMEX(Registry* reg, string grp)
 }
 
 extern "C" UG_API void
-FinalizeUGPlugin_LIMEX()
+FinalizeUGPlugin_Limex()
 {
 }
 
