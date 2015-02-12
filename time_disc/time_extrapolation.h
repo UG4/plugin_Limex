@@ -239,12 +239,14 @@ class AitkenNevilleTimex
 		/** Aitken Neville scheme with a given umber */
 		AitkenNevilleTimex(std::vector<size_t> nsteps)
 		: m_num_steps(nsteps),
+		  m_stepsize(0.0),
 		  m_solution(nsteps.size()),
 		  m_subdiag_error_est(nsteps.size(), INFINITY),
 		  m_subdiag (make_sp(new Norm2Estimator<TVector>())){};
 
 		AitkenNevilleTimex(std::vector<size_t> nsteps, SmartPtr<ISubDiagErrorEst<vector_type> > error)
 		: m_num_steps(nsteps),
+		  m_stepsize(0.0),
 		  m_solution(nsteps.size()),
 		  m_subdiag_error_est(nsteps.size(), INFINITY),
 		  m_subdiag(error){};
@@ -333,7 +335,7 @@ protected:
 
 private:
 		/** time step */
-		number m_stepsize = 0.0;
+		number m_stepsize;
 		static const int m_order=1;
 
 
