@@ -179,7 +179,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, numb
 	SmartPtr<typename base_type::assembled_operator_type> spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
 
 	// integrate
-	UG_LOG("+++ Integrating: ["<< t0 <<","<< t1 <<"]\n");
+	UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"]\n");
 	 double t = t0;
 	 number dt_assembled = -1.0;   // invalid
 	 int step = 1;
@@ -279,7 +279,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type&
 	m_spSolTimeSeries->push(uold, t0);
 
 	// integrate
-	UG_LOG("+++ Integrating: ["<< t0 <<","<< t1 <<"] with dt=" << base_type::m_dt << "\n");
+	UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << base_type::m_dt << "\n");
 	 double t = t0;
 	 number dt_assembled = -1.0;   // invalid
 	 int step = 1;
@@ -407,7 +407,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(grid_function_type& 
 	AitkenNevilleTimex<typename base_type::vector_type> timex(vsteps);
 
 	// integrate
-	UG_LOG("+++ Integrating: ["<< t0 <<","<< t1 <<"]\n");
+	UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"]\n");
 	 double t = t0;
 	 number dt_assembled = -1.0;   // invalid
 	 int step = 0;
