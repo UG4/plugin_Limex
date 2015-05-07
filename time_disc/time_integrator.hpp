@@ -197,7 +197,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, numb
 		 if (dt != dt_assembled)
 		 {
 			 // re-assemble operator
-			 UG_LOG("+++ Reassemble (t=" << t << ", dt= " << dt <<")\n");
+			 UG_LOG("+++ Reassemble (t=" << t << ", dt=" << dt <<")\n");
 			 tdisc.assemble_linear(*spAssOp, *b, gl);
 			 (base_type::m_spLinearSolver)->init(spAssOp, u1);
 			 dt_assembled = dt;
@@ -297,7 +297,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type&
 		 if (m_spAssOp==SPNULL)
 		 {
 			 // assemble operator
-			 UG_LOG("+++ Assemble (t=" << t << ", dt= " << dt <<")\n");
+			 UG_LOG("+++ Assemble (t=" << t << ", dt=" << dt <<")\n");
 			 m_spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
 			 tdisc.assemble_linear(*m_spAssOp, *b, gl);
 			 (base_type::m_spLinearSolver)->init(m_spAssOp, u1);
