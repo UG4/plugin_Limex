@@ -190,7 +190,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, numb
 
 	 number currdt = base_type::m_dt;
 
-	 while(t<t1)
+	 while(1e-10*t1 < (t1-t))
 	 {
 		 UG_LOG("+++ Timestep +++" << step++ << "\n");
 		 // determine step size
@@ -198,7 +198,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, numb
 
 		 // prepare step
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
-		 if (dt != dt_assembled)
+		 if (fabs(dt-dt_assembled) > 1e-10*dt)
 		 {
 			 // re-assemble operator
 			 UG_LOG("+++ Reassemble (t=" << t << ", dt=" << dt <<")\n");
