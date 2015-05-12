@@ -20,6 +20,7 @@
 
 // own headers
 #include "time_extrapolation.h"
+#include "../limex_tools.h"
 
 namespace ug {
 
@@ -162,6 +163,9 @@ public:
 template<typename TDomain, typename TAlgebra>
 void LinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, number t1, const grid_function_type& u0, number t0)
 {
+
+	LIMEX_PROFILE_FUNC()
+
 	// short-cuts
 	GridLevel const &gl = u0.grid_level();
 	typename base_type::time_disc_type &tdisc = *base_type::m_spTimeDisc;
@@ -265,6 +269,7 @@ public:
 template<typename TDomain, typename TAlgebra>
 void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type& u1, number t1, const grid_function_type& u0, number t0)
 {
+	LIMEX_PROFILE_FUNC()
 	// short-cuts
 	GridLevel const &gl = u0.grid_level();
 	typename base_type::time_disc_type &tdisc = *base_type::m_spTimeDisc;
