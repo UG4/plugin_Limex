@@ -105,6 +105,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 								.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
 								.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
 								.add_method("get_time_disc", &T::get_time_disc)
+								.add_method("set_num_steps", &T::set_num_steps)
 								.set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "ConstStepLinearTimeIntegrator", tag);
 
@@ -247,6 +248,8 @@ static void Algebra(Registry& reg, string parentGroup)
 			string name = string("NormInfEstimator").append(suffix);
 			reg.add_class_<T,TBase>(name, grp)
 			   .ADD_CONSTRUCTOR( (void) ) ("")
+			   .add_method("set_stride", &T::set_stride)
+			   .add_method("set_offset", &T::set_offset)
 			   .set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "NormInfEstimator", tag);
 		}
