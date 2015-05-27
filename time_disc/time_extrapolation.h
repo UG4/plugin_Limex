@@ -64,10 +64,13 @@ namespace tools {
 
 	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3
 	template<typename vector_t, template <class T> class TE_VEC>
-	inline void VecScaleAddWithNormInf(TE_VEC<vector_t> &dest, double alpha1, const TE_VEC<vector_t> &v1, double alpha2, const TE_VEC<vector_t> &v2, double alpha3, const TE_VEC<vector_t> &v3, double &norm)
+	inline void VecScaleAddWithNormInf(TE_VEC<vector_t> &dest, double alpha1, const TE_VEC<vector_t> &v1, double alpha2, const TE_VEC<vector_t> &v2, double alpha3, const TE_VEC<vector_t> &v3, double &norm, const int delta=1, const int offset=0)
 	{
-		for(size_t i=0; i<dest.size(); i++)
+		std::cerr << norm << " "<< delta << offset << std::endl;
+		for(size_t i=offset; i<dest.size(); i+=delta)
 			VecScaleAddWithNormInf(dest[i], alpha1, v1[i], alpha2, v2[i], alpha3, v3[i], norm);
+
+		std::cerr << norm << std::endl;
 	}
 
 
@@ -107,6 +110,8 @@ public:
 
 	// get estimate
 	number get_current_estimate() {return m_est; };
+	void reset_estimate() {  m_est=0.0; };
+
 
 protected:
 	number m_est;
@@ -119,10 +124,13 @@ class NormInfEstimator : public ISubDiagErrorEst<TVector>
 {
 protected:
 	typedef ISubDiagErrorEst<TVector> base_type;
+	int m_stride;
+	int m_offset;
 
 public:
 	// constructor
-	NormInfEstimator() : ISubDiagErrorEst<TVector>() {};
+	NormInfEstimator() :
+	ISubDiagErrorEst<TVector>(), m_stride(1), m_offset(0) {};
 
 	// destructor
 	//~NormInfEstimator() {}
@@ -130,10 +138,19 @@ public:
 	// apply
 	bool update(TVector &dest, number alpha1, TVector &v1, number alpha2, TVector &v2, number alpha3, TVector &v3)
 	{
-		base_type::m_est=0;
-		tools::VecScaleAddWithNormInf(dest, alpha1, v1, alpha2, v2, alpha3, v3, base_type::m_est);
+		const int delta = m_stride;
+		const int offset = m_offset;
+		base_type::m_est=0.0;
+		tools::VecScaleAddWithNormInf(dest, alpha1, v1, alpha2, v2, alpha3, v3, base_type::m_est, delta, offset);
 		return true;
 	}
+
+	// offset (e.g., component to work on for systems w/ CPU1)
+		void set_offset(int offset) {m_offset=offset;}
+
+		// delta (e.g., total number components for systems w/ CPU1)
+		void set_stride(int delta) {m_stride=delta;}
+
 };
 
 
@@ -160,7 +177,7 @@ public:
 	{
 		const int delta = m_stride;
 		const int offset = m_offset;
-		base_type::m_est=0;
+		base_type::m_est=0.0;
 		tools::VecScaleAddWithNorm2(dest, alpha1, v1, alpha2, v2, alpha3, v3, base_type::m_est, delta, offset);
 #ifdef UG_PARALLEL
 		double locEst = base_type::m_est;
