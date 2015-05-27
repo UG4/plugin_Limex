@@ -252,16 +252,17 @@ private:
 
 protected:
 	SmartPtr<typename base_type::assembled_operator_type> m_spAssOp;
-
+	int m_numSteps;
 public:
 
 	// constructor
 	ConstStepLinearTimeIntegrator (SmartPtr< typename base_type::domain_disc_type> domDisc)
-	: base_type(domDisc), m_spAssOp(SPNULL)  {}
+	: base_type(domDisc), m_spAssOp(SPNULL), m_numSteps(1) {}
+
 
 	//void init(grid_function_type const& u);
 	void apply(grid_function_type& u1, number t1, const grid_function_type& u0, number t0);
-
+	void set_num_steps(int steps) {m_numSteps = steps;}
 };
 
 
@@ -284,16 +285,14 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type&
 	m_spSolTimeSeries->push(uold, t0);
 
 	// integrate
-	UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << base_type::m_dt << "\n");
 	 double t = t0;
-	 number dt_assembled = -1.0;   // invalid
-	 int step = 1;
+	 const int numSteps = m_numSteps;
+	 number currdt = (t1-t0) / numSteps;
+	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)\n");
 
-	 number currdt = base_type::m_dt;
-
-	 while(t + 1e-10*(t1)< t1)
+	 for(int step = 1; step<=numSteps; ++step)
 	 {
-		 UG_LOG("+++ Const timestep +++" << step++ << "\n");
+		 UG_LOG("+++ Const timestep +++" << step<< "\n");
 		 // determine step size
 		 number dt = std::min(currdt, t1-t);
 
@@ -306,7 +305,6 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(grid_function_type&
 			 m_spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
 			 tdisc.assemble_linear(*m_spAssOp, *b, gl);
 			 (base_type::m_spLinearSolver)->init(m_spAssOp, u1);
-			 dt_assembled = dt;
 		 }
 		 else
 		 {
