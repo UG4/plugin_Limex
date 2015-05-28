@@ -125,7 +125,10 @@ static void DomainAlgebra(Registry& reg, string grp)
 		  //.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
 		  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")						  
 		  .add_method("get_time_disc", &T::get_time_disc)
-							.set_construct_as_smart_pointer(true);
+		  .add_method("set_tol", &T::set_tol)
+		  .add_method("set_time_step_max", &T::set_time_step_max)
+		  .add_method("set_time_step_min", &T::set_time_step_min)
+		.set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "TimeIntegratorLinearAdaptive", tag);
 	}
 

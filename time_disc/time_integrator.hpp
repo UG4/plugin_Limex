@@ -106,7 +106,7 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	/*! This method applies the operator, i.e, advances the time step*/
 	void apply(grid_function_type& u1, const grid_function_type& u0)
 	{
-	  UG_ASSERT(0, "Fix interfaces!");
+	  UG_THROW("Fix interfaces!");
 	  // apply(u1, m_upper_tim, u0, m_lower_tim); 
 	}
 
@@ -232,9 +232,6 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 			 currdt *= 0.5;
 		 }
 
-
-
-
 	 }
 
 };
@@ -265,7 +262,7 @@ public:
 
 
 	//void init(grid_function_type const& u);
-  void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 	void set_num_steps(int steps) {m_numSteps = steps;}
 };
 
@@ -329,11 +326,8 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 		 }
 		 else
 		 {
-			UG_ASSERT(0, "Const Time step failed!!!")
+			UG_THROW("Const Time step failed!!!")
 		 }
-
-
-
 
 	 }
 
@@ -371,9 +365,9 @@ public:
 	void init(grid_function_type const& u);
 	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 
-        void set_tol(double tol) {m_tol = tol;}
-  void set_dtmin(number dt) {m_dtmin = dt;}
-  void set_dtmax(number dt) {m_dtmax = dt;}
+    void set_tol(double tol) {m_tol = tol;}
+    void set_time_step_min(number dt) {m_dtmin = dt;}
+    void set_time_step_max(number dt) {m_dtmax = dt;}
 };
 
 
