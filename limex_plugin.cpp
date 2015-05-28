@@ -65,10 +65,10 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef ITimeIntegrator<TDomain, TAlgebra> T;
 		string name = string("ITimeIntegrator").append(suffix);
 		reg.add_class_<T>(name, grp)
-						   .add_method("set_time_step", &T::set_time_step)
-						   .add_method("set_theta", &T::set_theta)
-						   .add_method("set_linear_solver", &T::set_linear_solver)
-						   .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","");
+		  .add_method("set_time_step", &T::set_time_step)
+		  .add_method("set_theta", &T::set_theta)
+		  .add_method("set_linear_solver", &T::set_linear_solver)
+		  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","");
 		reg.add_class_to_group(name, "ITimeIntegrator", tag);
 	}
 
@@ -81,12 +81,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 		string name = string("LinearTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
-							.template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
-							// .add_method("apply", &T::apply)
-							.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
-							.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
-							.add_method("get_time_disc", &T::get_time_disc)
-							.set_construct_as_smart_pointer(true);
+		  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+		  // .add_method("apply", &T::apply)
+		  //.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
+		  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
+		  .add_method("get_time_disc", &T::get_time_disc)
+		  .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "LinearTimeIntegrator", tag);
 
 	}
@@ -100,11 +100,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 			string name = string("ConstStepLinearTimeIntegrator").append(suffix);
 			reg.add_class_<T,TBase>(name, grp)
-								.template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
-								// .add_method("apply", &T::apply)
-								.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
-								.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
-								.add_method("get_time_disc", &T::get_time_disc)
+			  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+			  // .add_method("apply", &T::apply)
+			  //.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
+			  //.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
+			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")						  
+			  .add_method("get_time_disc", &T::get_time_disc)
 								.add_method("set_num_steps", &T::set_num_steps)
 								.set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "ConstStepLinearTimeIntegrator", tag);
@@ -119,10 +120,11 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 		string name = string("TimeIntegratorLinearAdaptive").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
-							.template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
-							.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
-							.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
-							.add_method("get_time_disc", &T::get_time_disc)
+		  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+		  //.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
+		  //.add_method("apply", (void (T::*)(TGridFunction &u, number time, TGridFunction const &u0, number time0) ) &T::apply, "","")
+		  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")						  
+		  .add_method("get_time_disc", &T::get_time_disc)
 							.set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "TimeIntegratorLinearAdaptive", tag);
 	}
