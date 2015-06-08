@@ -234,7 +234,6 @@ public:
 	bool update(TVector &dest, number alpha1, TVector &v1, number alpha2, TVector &v2, number alpha3, TVector &v3)
 	{
 
-
 		UG_THROW("Please implement me!");
 		SmartPtr<TVector> delta = v2.clone();
 		delta = alpha2*v2 + alpha3*v3;		// now do something with delta
