@@ -235,11 +235,12 @@ public:
 	{
 
 
-		UG_ASSERT(0, "Please implement me!");
+		UG_THROW("Please implement me!");
 		SmartPtr<TVector> delta = v2.clone();
 		delta = alpha2*v2 + alpha3*v3;		// now do something with delta
 
 		dest = alpha1*v1+ delta;
+		return false;
 	}
 };
 
