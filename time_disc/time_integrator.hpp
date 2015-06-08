@@ -34,7 +34,7 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 		typedef TAlgebra algebra_type;
 		typedef typename TAlgebra::vector_type vector_type;
 		typedef typename  TAlgebra::matrix_type matrix_type;
-		typedef IPreconditionedLinearOperatorInverse<vector_type> linear_solver_type;
+
 		typedef AssembledLinearOperator<TAlgebra> assembled_operator_type;
 		typedef ITimeDiscretization<TAlgebra> time_disc_base_type;
 		typedef ThetaTimeStep<TAlgebra> time_disc_type;
@@ -51,7 +51,7 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 		double m_upper_tim;
 		double m_dt;
 		number m_theta;
-		SmartPtr<linear_solver_type> m_spLinearSolver;
+
 
 
 
@@ -64,8 +64,7 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 		ITimeIntegrator(SmartPtr<domain_disc_type> domDisc)
 		: m_spDomainDisc(domDisc),
 		  m_lower_tim(0.0), m_upper_tim(0.0), m_dt(1.0),
-		  m_theta(1.0)//,
-		//  m_spRhs(SPNULL)
+		  m_theta(1.0)
 		 {}
 
 		/// virtual	destructor
@@ -110,7 +109,7 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	  // apply(u1, m_upper_tim, u0, m_lower_tim); 
 	}
 
-        virtual void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0) = 0;
+     virtual void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0) = 0;
 
 	//! Set initial time step
 	void set_time_step(double dt)
@@ -119,36 +118,71 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	void set_theta(double theta)
 	{ m_theta=theta;}
 
-	void set_linear_solver(SmartPtr<linear_solver_type> lSolver)
-	{ m_spLinearSolver=lSolver;}
+
 
 	SmartPtr<time_disc_type> get_time_disc() {return m_spTimeDisc;}
 
 };
 
 
+/// create time disc
 template<typename TDomain, typename TAlgebra>
 void ITimeIntegrator<TDomain, TAlgebra>::init(grid_function_type const& u)
 {
 	UG_ASSERT(m_spDomainDisc.valid(), "TimeIntegrator<TDomain, TAlgebra>::init: m_spDomainDisc invalid.");
-
-	// create time disc
 	m_spTimeDisc = make_sp(new time_disc_type(m_spDomainDisc, m_theta));
-
 }
+
+
+/// integration of linear systems
+template<class TDomain, class TAlgebra>
+class ILinearTimeIntegrator : public ITimeIntegrator<TDomain, TAlgebra>
+{
+
+public:
+	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
+
+	typedef typename base_type::domain_disc_type domain_disc_type;
+	typedef typename base_type::vector_type vector_type;
+	typedef IPreconditionedLinearOperatorInverse<vector_type> linear_solver_type;
+
+	// forward constructor
+	ILinearTimeIntegrator(SmartPtr<domain_disc_type> domDisc)
+	: base_type(domDisc) {}
+
+	void set_linear_solver(SmartPtr<linear_solver_type> lSolver)
+	{ m_spLinearSolver=lSolver;}
+
+protected:
+	SmartPtr<linear_solver_type> m_spLinearSolver;
+
+};
+
+/// integration of non-linear systems
+template<class TDomain, class TAlgebra>
+class INonlinearTimeIntegrator : public ITimeIntegrator<TDomain, TAlgebra>
+{
+public:
+	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
+	typedef typename base_type::domain_disc_type domain_disc_type;
+
+	INonlinearTimeIntegrator(SmartPtr<domain_disc_type> domDisc)
+		: base_type(domDisc) {}
+};
+
 
 
 /// Integrate over a given time interval (for a linear problem)
 template<class TDomain, class TAlgebra>
 class LinearTimeIntegrator :
-	public ITimeIntegrator<TDomain, TAlgebra>
+	public ILinearTimeIntegrator<TDomain, TAlgebra>
 {
 private:
 
 protected:
 
 public:
-	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
+	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
 	typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
@@ -240,11 +274,11 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 /// Integrate over a given time interval (for a linear problem)
 template<class TDomain, class TAlgebra>
 class ConstStepLinearTimeIntegrator :
-	public ITimeIntegrator<TDomain, TAlgebra>
+	public ILinearTimeIntegrator<TDomain, TAlgebra>
 {
 
 public:
-	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
+	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
 	typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
@@ -338,10 +372,10 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 /// Integrate over a given time interval (for a linear problem)
 template<class TDomain, class TAlgebra>
 class TimeIntegratorLinearAdaptive :
-	public ITimeIntegrator<TDomain, TAlgebra>
+	public ILinearTimeIntegrator<TDomain, TAlgebra>
 {
 public:
-	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
+	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
 	typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;

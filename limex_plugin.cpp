@@ -22,7 +22,6 @@
 #include "time_disc/linear_implicit_timestep.h"
 
 
-
 // include for plugins
 using namespace std;
 using namespace ug::bridge;
@@ -67,15 +66,24 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_<T>(name, grp)
 		  .add_method("set_time_step", &T::set_time_step)
 		  .add_method("set_theta", &T::set_theta)
-		  .add_method("set_linear_solver", &T::set_linear_solver)
 		  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","");
 		reg.add_class_to_group(name, "ITimeIntegrator", tag);
 	}
 
 	{
+			// ILinearTimeIntegrator
+			typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
+			typedef ILinearTimeIntegrator<TDomain, TAlgebra> T;
+			string name = string("ILinearTimeIntegrator").append(suffix);
+			reg.add_class_<T, TBase>(name, grp)
+			  .add_method("set_linear_solver", &T::set_linear_solver);
+			reg.add_class_to_group(name, "ILinearTimeIntegrator", tag);
+		}
+
+	{
 		// LinearTimeIntegrator
 		// (e.g., implicit Euler for linear problem)
-		typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
+		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef LinearTimeIntegrator<TDomain, TAlgebra> T;
 		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
@@ -94,12 +102,13 @@ static void DomainAlgebra(Registry& reg, string grp)
 	{
 			// LinearTimeIntegrator
 			// (e.g., implicit Euler for linear problem)
-			typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
+			typedef ITimeIntegrator<TDomain, TAlgebra> TBase2;
+			typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 			typedef ConstStepLinearTimeIntegrator<TDomain, TAlgebra> T;
 			typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
 			string name = string("ConstStepLinearTimeIntegrator").append(suffix);
-			reg.add_class_<T,TBase>(name, grp)
+			reg.add_class_<T,TBase,TBase2>(name, grp)
 			  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
 			  // .add_method("apply", &T::apply)
 			  //.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
@@ -114,7 +123,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 	{
 		// Adaptive LinearTimeIntegrator
-		typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
+		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef TimeIntegratorLinearAdaptive<TDomain, TAlgebra> T;
 		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
