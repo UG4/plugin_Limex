@@ -14,6 +14,7 @@
 #include "lib_disc/function_spaces/grid_function.h"
 #include "lib_disc/assemble_interface.h" // TODO: missing IAssemble in following file:
 #include "lib_disc/operator/linear_operator/assembled_linear_operator.h"
+#include "lib_disc/operator/non_linear_operator/assembled_non_linear_operator.h"
 #include "lib_disc/spatial_disc/domain_disc.h"
 #include "lib_disc/time_disc/time_disc_interface.h"
 #include "lib_disc/time_disc/theta_time_step.h"
@@ -36,7 +37,7 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 		typedef typename TAlgebra::vector_type vector_type;
 		typedef typename  TAlgebra::matrix_type matrix_type;
 
-		typedef AssembledLinearOperator<TAlgebra> assembled_operator_type;
+
 		typedef ITimeDiscretization<TAlgebra> time_disc_base_type;
 		typedef ThetaTimeStep<TAlgebra> time_disc_type;
 
@@ -52,9 +53,6 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 		double m_upper_tim;
 		double m_dt;
 		number m_theta;
-
-
-
 
 		SmartPtr<time_disc_type> m_spTimeDisc;        // set during init
 
@@ -83,7 +81,12 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	 * \param[in]	u		function (linearization point)
 	 * \returns 	bool	success flag
 	 */
-	 virtual void init(grid_function_type const& u);
+	 virtual void init(grid_function_type const& u)
+	 {
+	 	UG_ASSERT(m_spDomainDisc.valid(), "TimeIntegrator<TDomain, TAlgebra>::init: m_spDomainDisc invalid.");
+	 	m_spTimeDisc = make_sp(new time_disc_type(m_spDomainDisc, m_theta));
+	 }
+
 
 	///	init operator
 	/**
@@ -110,7 +113,7 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	  // apply(u1, m_upper_tim, u0, m_lower_tim); 
 	}
 
-     virtual void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0) = 0;
+    virtual void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0) = 0;
 
 	//! Set initial time step
 	void set_time_step(double dt)
@@ -119,20 +122,10 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	void set_theta(double theta)
 	{ m_theta=theta;}
 
-
-
 	SmartPtr<time_disc_type> get_time_disc() {return m_spTimeDisc;}
 
 };
 
-
-/// create time disc
-template<typename TDomain, typename TAlgebra>
-void ITimeIntegrator<TDomain, TAlgebra>::init(grid_function_type const& u)
-{
-	UG_ASSERT(m_spDomainDisc.valid(), "TimeIntegrator<TDomain, TAlgebra>::init: m_spDomainDisc invalid.");
-	m_spTimeDisc = make_sp(new time_disc_type(m_spDomainDisc, m_theta));
-}
 
 
 /// integration of linear systems
@@ -145,6 +138,7 @@ public:
 	typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::vector_type vector_type;
 	typedef IPreconditionedLinearOperatorInverse<vector_type> linear_solver_type;
+	typedef AssembledLinearOperator<TAlgebra> assembled_operator_type;
 
 	// forward constructor
 	ILinearTimeIntegrator(SmartPtr<domain_disc_type> domDisc)
@@ -546,6 +540,7 @@ public:
 	typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::vector_type vector_type;
 	typedef IOperatorInverse<vector_type> solver_type;
+	typedef AssembledOperator<TAlgebra> assembled_operator_type;
 
 	INonlinearTimeIntegrator(SmartPtr<domain_disc_type> domDisc)
 	: base_type(domDisc) {}
@@ -607,11 +602,14 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 	solver.init(spAssOp);
 
 	// integrate
-	UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"]\n");
+
 	double t = t0;
+	number currdt = base_type::m_dt;
 	int step = 1;
 
-	 number currdt = base_type::m_dt;
+	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
+
+
 	 bool failed = false;
 	 while(1e-10*t1 < (t1-t) && !failed)
 	 {
@@ -623,7 +621,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 		 // init step
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
-		 if (solver.prepare(u1) == false)
+		 if (solver.prepare(*u1) == false)
 		 {
 			 UG_LOG("Initialzation failed! RETRY");
 			 currdt *= m_dtRed;
@@ -631,7 +629,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 		 };
 
 		 // execute step
-		 if (solver.apply(u1))
+		 if (solver.apply(*u1))
 		 {
 			 // ACCEPT step
 			 // update time
