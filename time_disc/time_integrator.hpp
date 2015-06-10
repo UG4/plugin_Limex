@@ -308,19 +308,22 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 
 	SmartPtr<typename base_type::assembled_operator_type> spAssOp = SPNULL;
 
-	// integrate
+	// select number of steps
 	 double t = t0;
-	 const int numSteps = m_numSteps;
+	 int numSteps = round((t1-t0) / base_type::m_dt);
 	 number currdt = (t1-t0) / numSteps;
-	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)\n");
-
+	
+	 //std::cerr << "+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)\n";
+	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)");
+	 
+	 // integrate
 	 for(int step = 1; step<=numSteps; ++step)
 	 {
-		 UG_LOG("+++ Const timestep +++" << step<< "\n");
-
-		 // determine step size
-		 number dt = std::min(currdt, t1-t);
-
+	         // determine step size
+	         // number dt = std::min(currdt, t1-t);
+		 const number dt = currdt;
+		 UG_LOG("+++ Const timestep +++" << step<< "t=" << t << "->" << dt);// std::endl;
+		
 		 // prepare step
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
 		 if (spAssOp==SPNULL)

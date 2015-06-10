@@ -60,7 +60,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
 
 	{
-		// ITimeIntegrator
+	  // ITimeIntegrator
 		typedef ITimeIntegrator<TDomain, TAlgebra> T;
 		string name = string("ITimeIntegrator").append(suffix);
 		reg.add_class_<T>(name, grp)
@@ -78,7 +78,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			reg.add_class_<T, TBase>(name, grp)
 			  .add_method("set_linear_solver", &T::set_linear_solver);
 			reg.add_class_to_group(name, "ILinearTimeIntegrator", tag);
-		}
+	}
 
 	{
 		// LinearTimeIntegrator
@@ -102,13 +102,13 @@ static void DomainAlgebra(Registry& reg, string grp)
 	{
 			// LinearTimeIntegrator
 			// (e.g., implicit Euler for linear problem)
-			typedef ITimeIntegrator<TDomain, TAlgebra> TBase2;
+			
 			typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 			typedef ConstStepLinearTimeIntegrator<TDomain, TAlgebra> T;
 			typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
 			string name = string("ConstStepLinearTimeIntegrator").append(suffix);
-			reg.add_class_<T,TBase,TBase2>(name, grp)
+			reg.add_class_<T,TBase>(name, grp)
 			  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
 			  // .add_method("apply", &T::apply)
 			  //.add_method("apply", (void (T::*)(TGridFunction &u, TGridFunction const &u0) ) &T::apply, "","")
