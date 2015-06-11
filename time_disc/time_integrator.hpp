@@ -551,29 +551,47 @@ protected:
 	SmartPtr<solver_type> m_spSolver;
 };
 
-/// Integrate over a given time interval (for a linear problem)
+/// integration of non-linear systems with steo
 template<class TDomain, class TAlgebra>
-class SimpleTimeIntegrator :
-	public INonlinearTimeIntegrator<TDomain, TAlgebra>
+class INonlinearTimeIntegratorWithBounds : public INonlinearTimeIntegrator<TDomain, TAlgebra>
 {
-private:
-
-protected:
-	double m_dtMin;
-	double m_dtRed;
-
 public:
 	typedef INonlinearTimeIntegrator<TDomain, TAlgebra> base_type;
+	typedef typename base_type::domain_disc_type domain_disc_type;
+
+	INonlinearTimeIntegratorWithBounds(SmartPtr<domain_disc_type> domDisc)
+	: base_type(domDisc), m_dtMin(0.0), m_dtMax(std::numeric_limits<double>::max()),  m_redFac(1.0), m_incFac(1.0) {}
+
+	void set_dt_min(double min) { m_dtMin = min; }
+	void set_dt_max(double max) { m_dtMax = max; }
+	void set_decrease_factor(double dec) { m_redFac = dec; }
+	void set_increase_factor(double inc) { m_incFac = inc; }
+
+protected:
+	double m_dtMin, m_dtMax;
+	double m_redFac, m_incFac;
+};
+
+
+
+/// Integrate (a non-linear problem) over a given time interval
+template<class TDomain, class TAlgebra>
+class SimpleTimeIntegrator :
+		public INonlinearTimeIntegratorWithBounds<TDomain, TAlgebra>
+{
+
+public:
+	typedef INonlinearTimeIntegratorWithBounds<TDomain, TAlgebra> base_type;
 	typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
 
 	// constructor
 	SimpleTimeIntegrator (SmartPtr< typename base_type::domain_disc_type> domDisc)
-	: base_type(domDisc), m_dtMin(0.0),  m_dtRed(0.5){}
+	: base_type(domDisc) {}
 
-	//void init(grid_function_type const& u);
 	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+
 };
 
 
@@ -602,7 +620,6 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 	solver.init(spAssOp);
 
 	// integrate
-
 	double t = t0;
 	number currdt = base_type::m_dt;
 	int step = 1;
@@ -616,7 +633,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 		 UG_LOG("+++ Timestep +++" << step++ << "\n");
 
 		 // determine step size
-		 UG_COND_THROW(currdt < m_dtMin, "Time step size below minimum. ABORTING!")
+		 UG_COND_THROW(currdt < base_type::m_dtMin, "Time step size below minimum. ABORTING!")
 		 number dt = std::min(currdt, t1-t);
 
 		 // init step
@@ -624,7 +641,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 		 if (solver.prepare(*u1) == false)
 		 {
 			 UG_LOG("Initialzation failed! RETRY");
-			 currdt *= m_dtRed;
+			 currdt *= base_type::m_redFac;
 			 continue;
 		 };
 
@@ -640,14 +657,12 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 			 VecAssign(*tmp, *u1);
 			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
 
-
-
 		 }
 		 else
 		 {
 			 // REJECT step
 			 UG_LOG("Solution failed! RETRY");
-			 currdt *= m_dtRed;
+			 currdt *= base_type::m_redFac;
 			 continue;
 		 };
 
