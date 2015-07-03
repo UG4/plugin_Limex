@@ -176,7 +176,7 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		std::vector<number> vScaleStiff(1, m_dt);
 		this->m_spDomDisc->assemble_defect(d, m_pPrevSol, vScaleMass, vScaleStiff, gl);
 
-		// d:=d+(M + \tau J) (u(k-1)-u)
+		// d:=d+(M - \tau J) (u(k-1)-u)
 		vector_type deltau = *m_pPrevSol->oldest()->clone();
 		deltau -= u;
 
