@@ -39,29 +39,26 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 
 
 		typedef ITimeDiscretization<TAlgebra> time_disc_base_type;
-		typedef ThetaTimeStep<TAlgebra> time_disc_type;
+		typedef MultiStepTimeDiscretization<TAlgebra> time_disc_type;
 
 
 		typedef TDomain domain_type;
 		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-		typedef DomainDiscretization<TDomain, TAlgebra> domain_disc_type;
+		//typedef DomainDiscretization<TDomain, TAlgebra> t_disc_type;
 
 	protected:
-		SmartPtr<domain_disc_type> m_spDomainDisc;
+		//SmartPtr<domain_disc_type> m_spDomainDisc;
+		SmartPtr<time_disc_type> m_spTimeDisc;
 
 		double m_lower_tim;
 		double m_upper_tim;
 		double m_dt;
 		number m_theta;
 
-		SmartPtr<time_disc_type> m_spTimeDisc;        // set during init
-
-
-
 	public:
 		// constructor
-		ITimeIntegrator(SmartPtr<domain_disc_type> domDisc)
-		: m_spDomainDisc(domDisc),
+		ITimeIntegrator(SmartPtr<time_disc_type> tDisc)
+		: m_spTimeDisc(tDisc),
 		  m_lower_tim(0.0), m_upper_tim(0.0), m_dt(1.0),
 		  m_theta(1.0)
 		 {}
@@ -83,8 +80,8 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	 */
 	 virtual void init(grid_function_type const& u)
 	 {
-	 	UG_ASSERT(m_spDomainDisc.valid(), "TimeIntegrator<TDomain, TAlgebra>::init: m_spDomainDisc invalid.");
-	 	m_spTimeDisc = make_sp(new time_disc_type(m_spDomainDisc, m_theta));
+	 //	UG_ASSERT(m_spDomainDisc.valid(), "TimeIntegrator<TDomain, TAlgebra>::init: m_spDomainDisc invalid.");
+	 //	m_spTimeDisc = make_sp(new time_disc_type(m_spDomainDisc, m_theta));
 	 }
 
 
@@ -135,14 +132,15 @@ class ILinearTimeIntegrator : public ITimeIntegrator<TDomain, TAlgebra>
 
 public:
 	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::domain_disc_type domain_disc_type;
+	//typedef typename base_type::domain_disc_type domain_disc_type;
+	typedef typename base_type::time_disc_type time_disc_type;
 	typedef typename base_type::vector_type vector_type;
 	typedef IPreconditionedLinearOperatorInverse<vector_type> linear_solver_type;
 	typedef AssembledLinearOperator<TAlgebra> assembled_operator_type;
 
 	// forward constructor
-	ILinearTimeIntegrator(SmartPtr<domain_disc_type> domDisc)
-	: base_type(domDisc) {}
+	ILinearTimeIntegrator(SmartPtr<time_disc_type> tDisc)
+	: base_type(tDisc) {}
 
 	void set_linear_solver(SmartPtr<linear_solver_type> lSolver)
 	{ m_spLinearSolver=lSolver;}
@@ -166,13 +164,13 @@ protected:
 
 public:
 	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::domain_disc_type domain_disc_type;
+	//typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
 
 	// constructor
-	LinearTimeIntegrator (SmartPtr< typename base_type::domain_disc_type> domDisc)
-	: base_type(domDisc) {}
+	LinearTimeIntegrator (SmartPtr< typename base_type::time_disc_type> tDisc)
+	: base_type(tDisc) {}
 
 	//void init(grid_function_type const& u);
 	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
@@ -262,7 +260,8 @@ class ConstStepLinearTimeIntegrator :
 
 public:
 	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::domain_disc_type domain_disc_type;
+	//typedef typename base_type::domain_disc_type domain_disc_type;
+	typedef typename base_type::time_disc_type time_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
 
@@ -274,8 +273,8 @@ protected:
 public:
 
 	// constructor
-	ConstStepLinearTimeIntegrator (SmartPtr< typename base_type::domain_disc_type> domDisc)
-	: base_type(domDisc), m_numSteps(1) {}
+	ConstStepLinearTimeIntegrator (SmartPtr< typename base_type::time_disc_type> tDisc)
+	: base_type(tDisc), m_numSteps(1) {}
 
 	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 	void set_num_steps(int steps) {m_numSteps = steps;}
@@ -363,7 +362,7 @@ class TimeIntegratorLinearAdaptive :
 {
 public:
 	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::domain_disc_type domain_disc_type;
+	//typedef typename base_type::domain_disc_type domain_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
 
@@ -378,9 +377,10 @@ protected:
 
 
 public:
-  TimeIntegratorLinearAdaptive (SmartPtr< typename base_type::domain_disc_type> domDisc) : base_type(domDisc), m_tol(1e-2), m_dtmin(-1.0), m_dtmax(-1.0)
+  TimeIntegratorLinearAdaptive (SmartPtr< typename base_type::time_disc_type> tDisc1, SmartPtr< typename base_type::time_disc_type> tDisc2)
+	: base_type(tDisc1), m_tol(1e-2), m_dtmin(-1.0), m_dtmax(-1.0)
 	{
-		m_spTimeDisc2 = make_sp(new typename base_type::time_disc_type(base_type::m_spDomainDisc, base_type::m_theta));
+		m_spTimeDisc2 = tDisc2;
 	}
 
 	void init(grid_function_type const& u);
@@ -397,7 +397,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::init(grid_function_type co
 {
 	// call base
 	base_type::init(u);
-	m_spTimeDisc2 = make_sp(new typename base_type::time_disc_type(base_type::m_spDomainDisc, base_type::m_theta));
+	//m_spTimeDisc2 = make_sp(new typename base_type::time_disc_type(base_type::m_spDomainDisc, base_type::m_theta));
 }
 
 template<typename TDomain, typename TAlgebra>
@@ -537,12 +537,12 @@ class INonlinearTimeIntegrator : public ITimeIntegrator<TDomain, TAlgebra>
 {
 public:
 	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::domain_disc_type domain_disc_type;
+	typedef typename base_type::time_disc_type time_disc_type;
 	typedef typename base_type::vector_type vector_type;
 	typedef IOperatorInverse<vector_type> solver_type;
 	typedef AssembledOperator<TAlgebra> assembled_operator_type;
 
-	INonlinearTimeIntegrator(SmartPtr<domain_disc_type> domDisc)
+	INonlinearTimeIntegrator(SmartPtr<time_disc_type> domDisc)
 	: base_type(domDisc) {}
 
 	void set_solver(SmartPtr<solver_type> solver)
@@ -557,10 +557,10 @@ class INonlinearTimeIntegratorWithBounds : public INonlinearTimeIntegrator<TDoma
 {
 public:
 	typedef INonlinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::domain_disc_type domain_disc_type;
+	typedef typename base_type::time_disc_type time_disc_type;
 
-	INonlinearTimeIntegratorWithBounds(SmartPtr<domain_disc_type> domDisc)
-	: base_type(domDisc), m_dtMin(0.0), m_dtMax(std::numeric_limits<double>::max()),  m_redFac(1.0), m_incFac(1.0) {}
+	INonlinearTimeIntegratorWithBounds(SmartPtr<time_disc_type> tDisc)
+	: base_type(tDisc), m_dtMin(0.0), m_dtMax(std::numeric_limits<double>::max()),  m_redFac(1.0), m_incFac(1.0) {}
 
 	void set_dt_min(double min) { m_dtMin = min; }
 	void set_dt_max(double max) { m_dtMax = max; }
@@ -582,21 +582,31 @@ class SimpleTimeIntegrator :
 
 public:
 	typedef INonlinearTimeIntegratorWithBounds<TDomain, TAlgebra> base_type;
-	typedef typename base_type::domain_disc_type domain_disc_type;
+	//typedef typename base_type::time_disc_type domain_disc_type;
 	typedef typename base_type::grid_function_type grid_function_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
 
 	// constructor
-	SimpleTimeIntegrator (SmartPtr< typename base_type::domain_disc_type> domDisc)
-	: base_type(domDisc) {}
+	SimpleTimeIntegrator (SmartPtr< typename base_type::time_disc_type> tDisc)
+	: base_type(tDisc) {}
 
-	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+	{
+		typename base_type::time_disc_type &tdisc = *base_type::m_spTimeDisc;
+		if (tdisc.num_stages() == 1)
+			apply_single_stage(u1,t1,u0,t0);
+		else
+			apply_multi_stage(u1,t1,u0,t0);
+	}
 
+protected:
+	void apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	void apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 };
 
 
 template<typename TDomain, typename TAlgebra>
-void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
 
 	LIMEX_PROFILE_FUNC()
@@ -626,9 +636,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
-
-	 bool failed = false;
-	 while(1e-10*t1 < (t1-t) && !failed)
+	 while( 1e-10*t1 < (t1-t) )
 	 {
 		 UG_LOG("+++ Timestep +++" << step++ << "\n");
 
@@ -636,14 +644,14 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 		 UG_COND_THROW(currdt < base_type::m_dtMin, "Time step size below minimum. ABORTING!")
 		 number dt = std::min(currdt, t1-t);
 
-		 // init step
+		 // prepare step
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
 		 if (solver.prepare(*u1) == false)
 		 {
 			 UG_LOG("Initialzation failed! RETRY");
 			 currdt *= base_type::m_redFac;
 			 continue;
-		 };
+		 }
 
 		 // execute step
 		 if (solver.apply(*u1))
@@ -666,13 +674,98 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 			 continue;
 		 };
 
-
-
-
 		// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
 
+	 }
+
+};
+
+template<typename TDomain, typename TAlgebra>
+void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+{
+
+	LIMEX_PROFILE_FUNC()
+
+	// short-cuts
+	GridLevel const &gl = u0->grid_level();
+	typename base_type::time_disc_type &tdisc = *base_type::m_spTimeDisc;
+	typename base_type::solver_type &solver = *base_type::m_spSolver;
+
+	// create solution vector & right hand side
+	SmartPtr<typename base_type::vector_type> uold= u0->clone();
+
+	// init solution time series
+	SmartPtr<vector_time_series_type> m_spSolTimeSeries;
+	m_spSolTimeSeries=make_sp(new vector_time_series_type());
+	m_spSolTimeSeries->clear();
+	m_spSolTimeSeries->push(uold, t0);
+
+	// init solver (and matrix operator)
+	SmartPtr<typename base_type::assembled_operator_type> spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
+	solver.init(spAssOp);
+
+	// integrate
+	double t = t0;
+	number currdt = base_type::m_dt;
+	int step = 1;
+
+	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
+	 while(1e-10*t1 < (t1-t))
+	 {
+		 UG_LOG("+++ TIMESTEP  +++" << step++ << " (t=" << t<<") BEGIN \n");
+
+		 // determine step size
+		 UG_COND_THROW(currdt < base_type::m_dtMin, "Time step size below minimum. ABORTING!")
+		 number dt = std::min(currdt, t1-t);
 
 
+		 double told = t;
+
+		 const int num_stages = tdisc.num_stages();
+		 int s=1;
+		 do {   // 'for-each-stage' loop
+			 // for (int s=1; s<=num_stages; ++s)
+			 UG_LOG("+++ STAGE "<< s << " BEGIN +++\n");
+
+			 // set stage
+			 tdisc.set_stage(s);
+
+			 // prepare step
+			 tdisc.prepare_step(m_spSolTimeSeries, dt);
+			 if (solver.prepare(*u1) == false) break;
+
+			 // execute step
+			 if (!solver.apply(*u1)) break;
+
+			 // stage was successful:
+			 // a. update (intermediate) time
+			 t = tdisc.future_time();
+
+			 // b. push updated solution into time series (and continue)
+			 SmartPtr<typename base_type::vector_type> oldest= m_spSolTimeSeries->oldest();
+			 VecAssign(*oldest, *u1);
+			 m_spSolTimeSeries->push_discard_oldest(oldest, t);
+
+			 // c. output
+			 UG_LOG("+++ STAGE "<< s << " END +++\n");
+
+		 } while ((++s) <=num_stages);
+
+
+		 if (s<=num_stages)
+		 {
+			 // REJECT time step
+			UG_LOG("Solution failed! RETRY");
+			currdt *= base_type::m_redFac;
+			t = told;
+			continue;
+		 }
+		 else
+		 {
+			 // ACCEPT time step
+			 uold = u1;   // save solution
+			 // tdisc.finish_step_elem(m_spSolTimeSeries, dt);
+		 }
 	 }
 
 };

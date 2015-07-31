@@ -12,6 +12,7 @@
 
 // ug
 #include "lib_disc/function_spaces/grid_function.h"
+#include "lib_disc/time_disc/theta_time_step.h"
 #include "common/ug_config.h"
 #include "common/error.h"
 
@@ -55,8 +56,9 @@ static void DomainAlgebra(Registry& reg, string grp)
 	//	useful defines
 	string suffix = GetDomainAlgebraSuffix<TDomain,TAlgebra>();
 	string tag = GetDomainAlgebraTag<TDomain,TAlgebra>();
+	typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
 
-	typedef ApproximationSpace<TDomain> TApproximationSpace;
+	//typedef ApproximationSpace<TDomain> TApproximationSpace;
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
 
 	{
@@ -85,11 +87,11 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// (e.g., implicit Euler for linear problem)
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef LinearTimeIntegrator<TDomain, TAlgebra> T;
-		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
 		string name = string("LinearTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
-				  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+				  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 				  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 				  .add_method("get_time_disc", &T::get_time_disc)
 				  .set_construct_as_smart_pointer(true);
@@ -103,11 +105,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef ConstStepLinearTimeIntegrator<TDomain, TAlgebra> T;
-		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
 
 		string name = string("ConstStepLinearTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
-					  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+					  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 					  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 					  .add_method("get_time_disc", &T::get_time_disc)
 					  .add_method("set_num_steps", &T::set_num_steps)
@@ -120,11 +123,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// Adaptive LinearTimeIntegrator
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef TimeIntegratorLinearAdaptive<TDomain, TAlgebra> T;
-		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
 
 		string name = string("TimeIntegratorLinearAdaptive").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
-				  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+				  .template add_constructor<void (*)(SmartPtr<TTimeDisc>, SmartPtr<TTimeDisc>) >("tdisc1, tdisc2")
 				  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 				  .add_method("get_time_disc", &T::get_time_disc)
 				  .add_method("set_tol", &T::set_tol)
@@ -163,11 +167,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// (e.g., implicit Euler for linear problem)
 		typedef INonlinearTimeIntegratorWithBounds<TDomain, TAlgebra> TBase;
 		typedef SimpleTimeIntegrator<TDomain, TAlgebra> T;
-		typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
 
 		string name = string("SimpleTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
-							  .template add_constructor<void (*)(SmartPtr<TDomainDisc>) >("")
+							  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 							  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 							  .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "SimpleTimeIntegrator", tag);
