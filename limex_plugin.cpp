@@ -61,14 +61,35 @@ static void DomainAlgebra(Registry& reg, string grp)
 	//typedef ApproximationSpace<TDomain> TApproximationSpace;
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
 
+
 	{
-		// ITimeIntegrator
+		// ITimeIntegratorObserver (virtual base class)
+		typedef ITimeIntegratorObserver<TDomain, TAlgebra> T;
+		string name = string("ITimeIntegratorObserver").append(suffix);
+		reg.add_class_<T>(name, grp);
+		reg.add_class_to_group(name, "ITimeIntegratorObserver", tag);
+	}
+
+	{
+		// VTKOutputObserver
+		typedef VTKOutputObserver<TDomain, TAlgebra> T;
+
+		string name = string("VTKOutputObserver").append(suffix);
+		reg.add_class_<T, typename T::base_type>(name, grp)
+		    .template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
+			.set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "VTKOutputObserver", tag);
+	}
+
+
+	{
+		// ITimeIntegrator (virtual base class)
 		typedef ITimeIntegrator<TDomain, TAlgebra> T;
 		string name = string("ITimeIntegrator").append(suffix);
 		reg.add_class_<T>(name, grp)
 				  .add_method("set_time_step", &T::set_time_step)
-				  .add_method("set_theta", &T::set_theta)
-				  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","");
+				  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","")
+				  .add_method("attach_observer", &T::attach_observer);
 		reg.add_class_to_group(name, "ITimeIntegrator", tag);
 	}
 

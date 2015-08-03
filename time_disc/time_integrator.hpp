@@ -20,23 +20,107 @@
 #include "lib_disc/time_disc/theta_time_step.h"
 #include "lib_disc/time_disc/solution_time_series.h"
 
+#include "lib_disc/io/vtkoutput.h"
+#include <string>
+
 // own headers
 #include "time_extrapolation.h"
 #include "../limex_tools.h"
 
 namespace ug {
 
+/// Base class for time integration observer
+template<class TDomain, class TAlgebra>
+class ITimeIntegratorObserver
+{
+public:
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+
+	virtual ~ITimeIntegratorObserver() {}
+	//virtual void init(){}
+	//virtual void finish(){}
+
+	virtual void step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
+	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
+
+};
+
+/// Sample class for integration observer: Output to VTK
+template<class TDomain, class TAlgebra>
+class VTKOutputObserver
+: public ITimeIntegratorObserver<TDomain, TAlgebra>
+{
+public:
+	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
+	typedef VTKOutput<TDomain::dim> vtk_type;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+
+	VTKOutputObserver()
+	:  m_sp_vtk(SPNULL), m_filename("0000"){}
+
+	VTKOutputObserver(const char *filename, SmartPtr<vtk_type> vtk)
+	: m_sp_vtk(vtk), m_filename(filename) {}
+
+	virtual ~VTKOutputObserver()
+	{ m_sp_vtk = SPNULL; }
+
+	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		if (m_sp_vtk.valid())
+			m_sp_vtk->print(m_filename.c_str(), *u, step, time);
+	}
+
+protected:
+	SmartPtr<vtk_type> m_sp_vtk;
+	std::string m_filename;
+};
+
+/// Base class for observer attachment
+template<class TDomain, class TAlgebra>
+class TimeIntegratorSubject
+{
+public:
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef ITimeIntegratorObserver<TDomain, TAlgebra> process_observer_type;
+	typedef typename std::vector<SmartPtr<process_observer_type> > process_observer_container_type;
+
+protected:
+	process_observer_container_type m_vProcessObservers;
+
+public:
+	//! register observer
+	void attach_observer(SmartPtr<process_observer_type> obs)
+	{m_vProcessObservers.push_back(obs);}
+
+	//! notify all observers that time step evolution starts
+	void notify_step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
+		{(*it)->step_preprocess(u, step, time, dt); }
+	}
+
+	//! notify all observers that time step has been evolved (successfully)
+	void notify_step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
+		{(*it)->step_postprocess(u, step, time, dt); }
+	}
+
+};
+
+
 
 /// Integrates over a given time interval
 template<class TDomain, class TAlgebra>
-class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
+class ITimeIntegrator
+		:	public IOperator< GridFunction<TDomain, TAlgebra> >,
+			public TimeIntegratorSubject<TDomain, TAlgebra>
 {
 	public:
 
 		typedef TAlgebra algebra_type;
 		typedef typename TAlgebra::vector_type vector_type;
-		typedef typename  TAlgebra::matrix_type matrix_type;
-
+		typedef typename TAlgebra::matrix_type matrix_type;
 
 		typedef ITimeDiscretization<TAlgebra> time_disc_base_type;
 		typedef MultiStepTimeDiscretization<TAlgebra> time_disc_type;
@@ -44,23 +128,20 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 
 		typedef TDomain domain_type;
 		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-		//typedef DomainDiscretization<TDomain, TAlgebra> t_disc_type;
 
 	protected:
 		//SmartPtr<domain_disc_type> m_spDomainDisc;
 		SmartPtr<time_disc_type> m_spTimeDisc;
 
+		double m_dt;
 		double m_lower_tim;
 		double m_upper_tim;
-		double m_dt;
-		number m_theta;
+
 
 	public:
 		// constructor
 		ITimeIntegrator(SmartPtr<time_disc_type> tDisc)
-		: m_spTimeDisc(tDisc),
-		  m_lower_tim(0.0), m_upper_tim(0.0), m_dt(1.0),
-		  m_theta(1.0)
+		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0)
 		 {}
 
 		/// virtual	destructor
@@ -116,8 +197,6 @@ class ITimeIntegrator : public IOperator< GridFunction<TDomain, TAlgebra> >
 	void set_time_step(double dt)
 	{ m_dt=dt;}
 
-	void set_theta(double theta)
-	{ m_theta=theta;}
 
 	SmartPtr<time_disc_type> get_time_disc() {return m_spTimeDisc;}
 
@@ -638,7 +717,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	 while( 1e-10*t1 < (t1-t) )
 	 {
-		 UG_LOG("+++ Timestep +++" << step++ << "\n");
+		 UG_LOG("+++ Timestep +++" << step << "\n");
 
 		 // determine step size
 		 UG_COND_THROW(currdt < base_type::m_dtMin, "Time step size below minimum. ABORTING!")
@@ -657,6 +736,8 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 if (solver.apply(*u1))
 		 {
 			 // ACCEPT step
+			 this->notify_step_postprocess(u1, step, t, dt);
+
 			 // update time
 			 t += dt;
 
@@ -672,8 +753,9 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 			 UG_LOG("Solution failed! RETRY");
 			 currdt *= base_type::m_redFac;
 			 continue;
-		 };
+		 }
 
+		 step++;
 		// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
 
 	 }
@@ -690,6 +772,8 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	GridLevel const &gl = u0->grid_level();
 	typename base_type::time_disc_type &tdisc = *base_type::m_spTimeDisc;
 	typename base_type::solver_type &solver = *base_type::m_spSolver;
+
+	//using TimeIntegratorSubject<TDomain,TAlgebra>::notify_step_postprocess;
 
 	// create solution vector & right hand side
 	SmartPtr<typename base_type::vector_type> uold= u0->clone();
@@ -762,6 +846,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		 }
 		 else
 		 {
+			 this->notify_step_postprocess(u1, step, t, dt);
 			 // ACCEPT time step
 			 uold = u1;   // save solution
 			 // tdisc.finish_step_elem(m_spSolTimeSeries, dt);
