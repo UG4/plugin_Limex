@@ -81,6 +81,18 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_to_group(name, "VTKOutputObserver", tag);
 	}
 
+	{
+		// ConnectionViewerOutputObserver
+		typedef ConnectionViewerOutputObserver<TDomain, TAlgebra> T;
+
+		string name = string("ConnectionViewerOutputObserver").append(suffix);
+		reg.add_class_<T, typename T::base_type>(name, grp)
+		   .template add_constructor<void (*)(const char*) >("")
+		   .template add_constructor<void (*)(const char*, number) >("")
+		   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "ConnectionViewerOutputObserver", tag);
+	}
+
 
 	{
 		// ITimeIntegrator (virtual base class)

@@ -19,6 +19,7 @@
 #include "lib_disc/time_disc/time_disc_interface.h"
 #include "lib_disc/time_disc/theta_time_step.h"
 #include "lib_disc/time_disc/solution_time_series.h"
+#include "lib_disc/function_spaces/grid_function_util.h" // SaveVectorForConnectionViewer
 
 #include "lib_disc/io/vtkoutput.h"
 #include <string>
@@ -73,6 +74,38 @@ public:
 protected:
 	SmartPtr<vtk_type> m_sp_vtk;
 	std::string m_filename;
+};
+
+/// Sample class for integration observer: Output to VTK
+template<class TDomain, class TAlgebra>
+class ConnectionViewerOutputObserver
+: public ITimeIntegratorObserver<TDomain, TAlgebra>
+{
+public:
+	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+
+	ConnectionViewerOutputObserver(const char *filename)
+	: m_filename(filename), m_outputTime(-1.0) {}
+
+	ConnectionViewerOutputObserver(const char *filename, number t_out)
+	: m_filename(filename), m_outputTime(t_out) {}
+
+	virtual ~ConnectionViewerOutputObserver()
+	{}
+
+	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		// quit, if time does not match
+		if (m_outputTime >=0.0 && time != m_outputTime) return;
+
+		SaveVectorForConnectionViewer<grid_function_type>(*u, m_filename.c_str());
+	}
+
+protected:
+	std::string m_filename;
+	number m_outputTime;
+
 };
 
 /// Base class for observer attachment
