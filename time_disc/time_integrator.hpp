@@ -829,7 +829,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 	 while(1e-10*t1 < (t1-t))
 	 {
-		 UG_LOG("+++ TIMESTEP  +++" << step++ << " (t=" << t<<") BEGIN \n");
+		 UG_LOG("++++++ TIMESTEP " << step++ << " BEGIN (current time: " << t << ") ++++++\n");
 
 		 // determine step size
 		 UG_COND_THROW(currdt < base_type::m_dtMin, "Time step size below minimum. ABORTING!")
