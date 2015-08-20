@@ -883,6 +883,8 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 			 // ACCEPT time step
 			 uold = u1;   // save solution
 			 // tdisc.finish_step_elem(m_spSolTimeSeries, dt);
+			 
+			 UG_LOG("++++++ TIMESTEP " << step++ << "   END (current time: " << t << ") ++++++\n");
 		 }
 	 }
 
