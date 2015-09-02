@@ -169,12 +169,16 @@ class ITimeIntegrator
 		double m_dt;
 		double m_lower_tim;
 		double m_upper_tim;
+		double m_maxStepSize;
+		double m_relPrecisionBound;
+
+		bool m_bVerbosity;
 
 
 	public:
 		// constructor
 		ITimeIntegrator(SmartPtr<time_disc_type> tDisc)
-		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0)
+		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0), m_maxStepSize(1.0), m_relPrecisionBound(1e-10), m_bVerbosity(false)
 		 {}
 
 		/// virtual	destructor
@@ -228,8 +232,16 @@ class ITimeIntegrator
 
 	//! Set initial time step
 	void set_time_step(double dt)
-	{ m_dt=dt;}
+	{ m_dt = dt; return; }
 
+	void set_maxStepSize(double maxStepSize)
+	{ m_maxStepSize = maxStepSize; return; }
+
+	void set_relPrecisionBound(double relPrecisionBound)
+	{ m_relPrecisionBound = relPrecisionBound; return; }
+
+	void set_bVerbosity(bool bVerbosity)
+	{ m_bVerbosity = bVerbosity; return; }
 
 	SmartPtr<time_disc_type> get_time_disc() {return m_spTimeDisc;}
 
@@ -321,7 +333,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 	 number currdt = base_type::m_dt;
 
-	 while(1e-10*t1 < (t1-t))
+	 while((t < t1) && ((t1-t)/base_type::m_maxStepSize > base_type::m_relPrecisionBound))
 	 {
 		 UG_LOG("+++ Timestep +++" << step++ << "\n");
 		 // determine step size
@@ -329,7 +341,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 		 // prepare step
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
-		 if (fabs(dt-dt_assembled) > 1e-10*dt)
+		 if (fabs(dt-dt_assembled)/base_type::m_maxStepSize > base_type::m_relPrecisionBound)
 		 {
 			 // re-assemble operator
 			 UG_LOG("+++ Reassemble (t=" << t << ", dt=" << dt <<")\n");
@@ -555,7 +567,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 	 int step = 0;
 
 	 number dt = base_type::m_dt;
-	 while(t<t1)
+	 while((t < t1) && ((t1-t)/base_type::m_maxStepSize > base_type::m_relPrecisionBound))
 	 {
 	   // step: t -> t+dt
 	   bool bSuccess = false;
@@ -748,7 +760,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
-	 while( 1e-10*t1 < (t1-t) )
+	 while((t < t1) && ((t1-t)/base_type::m_maxStepSize > base_type::m_relPrecisionBound))
 	 {
 		 UG_LOG("+++ Timestep +++" << step << "\n");
 
@@ -768,24 +780,37 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 // execute step
 		 if (solver.apply(*u1))
 		 {
-			 // ACCEPT step
-			 this->notify_step_postprocess(u1, step, t, dt);
+		 		//
+				// ACCEPT step
+				//
 
-			 // update time
-			 t += dt;
+				// Print physics
+				if(base_type::m_bVerbosity)
+				{
+					this->notify_step_postprocess(u1, step, t, dt);
+				}
+				else if((t1-t)/base_type::m_maxStepSize < base_type::m_relPrecisionBound)
+				{
+					this->notify_step_postprocess(u1, step, t, dt);
+				}
 
-			 // push updated solution into time series (and continue)
-			 SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-			 VecAssign(*tmp, *u1);
-			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
+				// update time
+				t += dt;
 
+				// push updated solution into time series (and continue)
+				SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
+				VecAssign(*tmp, *u1);
+				m_spSolTimeSeries->push_discard_oldest(tmp, t);
 		 }
 		 else
 		 {
-			 // REJECT step
-			 UG_LOG("Solution failed! RETRY");
-			 currdt *= base_type::m_redFac;
-			 continue;
+		 		//
+				// REJECT step
+				//
+
+				UG_LOG("Solution failed! RETRY");
+				currdt *= base_type::m_redFac;
+				continue;
 		 }
 
 		 step++;
@@ -827,7 +852,8 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	int step = 1;
 
 	 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
-	 while(1e-10*t1 < (t1-t))
+
+	 while((t < t1) && ((t1-t)/base_type::m_maxStepSize > base_type::m_relPrecisionBound))
 	 {
 		 UG_LOG("++++++ TIMESTEP " << step++ << " BEGIN (current time: " << t << ") ++++++\n");
 
@@ -879,12 +905,20 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		 }
 		 else
 		 {
-			 this->notify_step_postprocess(u1, step, t, dt);
-			 // ACCEPT time step
-			 uold = u1;   // save solution
-			 // tdisc.finish_step_elem(m_spSolTimeSeries, dt);
-			 
-			 UG_LOG("++++++ TIMESTEP " << step++ << " END   (current time: " << t << ") ++++++\n");
+				if(base_type::m_bVerbosity)
+				{
+					this->notify_step_postprocess(u1, step, t, dt);
+				}
+				else if((t1-t)/base_type::m_maxStepSize < base_type::m_relPrecisionBound)
+				{
+					this->notify_step_postprocess(u1, step, t, dt);
+				}
+
+				// ACCEPT time step
+				uold = u1;   // save solution
+				// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
+
+				UG_LOG("++++++ TIMESTEP " << step++ << " END   (current time: " << t << ") ++++++\n");
 		 }
 	 }
 
