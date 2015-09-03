@@ -100,7 +100,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		string name = string("ITimeIntegrator").append(suffix);
 		reg.add_class_<T>(name, grp)
 				  .add_method("set_time_step", &T::set_time_step)
-				  .add_method("set_maxStepSize", &T::set_maxStepSize)
+				  .add_method("set_timeWeight", &T::set_timeWeight)
 				  .add_method("set_relPrecisionBound", &T::set_relPrecisionBound)
 				  .add_method("set_bVerbosity", &T::set_bVerbosity)
 				  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","")
