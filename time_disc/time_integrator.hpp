@@ -173,13 +173,13 @@ class ITimeIntegrator
 		double m_relPrecisionBound;
 
 		bool m_bVerbosity;
-		bool m_bNoLogOuts;
+		bool m_bNoLogOut;
 
 
 	public:
 		// constructor
 		ITimeIntegrator(SmartPtr<time_disc_type> tDisc)
-		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0), m_timeWeight(1.0), m_relPrecisionBound(1e-10), m_bVerbosity(false), m_bNoLogOuts(false)
+		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0), m_timeWeight(1.0), m_relPrecisionBound(1e-10), m_bVerbosity(false), m_bNoLogOut(false)
 		 {}
 
 		/// virtual	destructor
@@ -244,8 +244,8 @@ class ITimeIntegrator
 	void set_bVerbosity(bool bVerbosity)
 	{ m_bVerbosity = bVerbosity; return; }
 
-	void set_bNoLogOuts(bool bNoLogOuts)
-	{ m_bNoLogOuts = bNoLogOuts; return; }
+	void set_bNoLogOut(bool bNoLogOut)
+	{ m_bNoLogOut = bNoLogOut; return; }
 
 	SmartPtr<time_disc_type> get_time_disc() {return m_spTimeDisc;}
 
@@ -330,7 +330,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 	SmartPtr<typename base_type::assembled_operator_type> spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
 
 	// integrate
-	if(!base_type::m_bNoLogOuts)
+	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"]\n");
 
 	double t = t0;
@@ -342,7 +342,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 	while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
 	{
 
-		if(!base_type::m_bNoLogOuts)
+		if(!base_type::m_bNoLogOut)
 			UG_LOG("+++ Timestep +++" << step++ << "\n");
 
 		// determine step size
@@ -353,7 +353,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 		if (fabs(dt-dt_assembled)/base_type::m_timeWeight > base_type::m_relPrecisionBound)
 		{
 			// re-assemble operator
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 				UG_LOG("+++ Reassemble (t=" << t << ", dt=" << dt <<")\n");
 
 			tdisc.assemble_linear(*spAssOp, *b, gl);
@@ -442,7 +442,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 	 number currdt = (t1-t0) / numSteps;
 	
 	 //std::cerr << "+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)\n";
-	if(!base_type::m_bNoLogOuts)
+	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)");
 	 
 	 // integrate
@@ -452,7 +452,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 	         // number dt = std::min(currdt, t1-t);
 		 const number dt = currdt;
 
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 				UG_LOG("+++ Const timestep +++" << step<< "t=" << t << "->" << dt);// std::endl;
 		
 		 // prepare step
@@ -460,7 +460,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 		 if (spAssOp==SPNULL)
 		 {
 			 // assemble operator
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 			 UG_LOG("+++ Assemble (t=" << t << ", dt=" << dt <<")\n");
 
 			 spAssOp=make_sp(new typename base_type::assembled_operator_type(base_type::m_spTimeDisc, gl));
@@ -578,7 +578,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 	AitkenNevilleTimex<typename base_type::vector_type> timex(vsteps);
 
 	// integrate
-	if(!base_type::m_bNoLogOuts)
+	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"]\n");
 
 	 double t = t0;
@@ -593,13 +593,13 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 		
 	     // determine step size
 	     if (dt<m_dtmin){
-				if(!base_type::m_bNoLogOuts)
+				if(!base_type::m_bNoLogOut)
 	       UG_LOG("Step size below minimum")
 		 }
 		 dt = std::min(dt, t1-t);
 	   
 		 // basic step
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 			 UG_LOG("+++ Timestep: " << ++step << "\n");
 
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
@@ -609,7 +609,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 		 
 		 
 		 // control 1/2
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 			 UG_LOG("+++ Control: " << step << "\n");
 
 		 tdisc2.prepare_step(m_spSolTimeSeries, 0.5*dt);
@@ -645,7 +645,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 		 if (eps <= m_tol)
 		 {
 		   // ACCEPT STEP (and thus solution u2)
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 		   UG_LOG("ACCEPTING solution, dtnew=" << dt);
 
 		   bSuccess = true;
@@ -653,7 +653,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 		 else
 		 {
 		   // DISCARD step
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 		   UG_LOG("DISCARDING solution, dtnew=" << dt);
 
 		   // => reset solutions
@@ -784,12 +784,12 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	number currdt = base_type::m_dt;
 	int step = 1;
 
-		if(!base_type::m_bNoLogOuts)
+		if(!base_type::m_bNoLogOut)
 		 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
 	 while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
 	 {
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 			 UG_LOG("+++ Timestep +++" << step << "\n");
 
 		 // determine step size
@@ -800,7 +800,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
 		 if (solver.prepare(*u1) == false)
 		 {
-				if(!base_type::m_bNoLogOuts)
+				if(!base_type::m_bNoLogOut)
 				 UG_LOG("Initialzation failed! RETRY");
 
 			 currdt *= base_type::m_redFac;
@@ -838,7 +838,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				// REJECT step
 				//
 
-				if(!base_type::m_bNoLogOuts)
+				if(!base_type::m_bNoLogOut)
 					UG_LOG("Solution failed! RETRY");
 
 				currdt *= base_type::m_redFac;
@@ -883,12 +883,12 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	number currdt = base_type::m_dt;
 	int step = 1;
 
-	if(!base_type::m_bNoLogOuts)
+	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
 	while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
 	{
-		if(!base_type::m_bNoLogOuts)
+		if(!base_type::m_bNoLogOut)
 			UG_LOG("++++++ TIMESTEP " << step++ << " BEGIN (current time: " << t << ") ++++++\n");
 
 		// determine step size
@@ -904,7 +904,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		{ 
 
 			// for (int s=1; s<=num_stages; ++s)
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 				UG_LOG("+++ STAGE "<< s << " BEGIN +++\n");
 
 			// set stage
@@ -927,7 +927,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 			m_spSolTimeSeries->push_discard_oldest(oldest, t);
 
 			// c. output
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 				UG_LOG("+++ STAGE "<< s << " END +++\n");
 
 		} while ((++s) <=num_stages);
@@ -936,7 +936,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		if (s<=num_stages)
 		{
 			// REJECT time step
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 				UG_LOG("Solution failed! RETRY");
 
 			currdt *= base_type::m_redFac;
@@ -958,7 +958,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 			uold = u1;   // save solution
 			// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
 
-			if(!base_type::m_bNoLogOuts)
+			if(!base_type::m_bNoLogOut)
 				UG_LOG("++++++ TIMESTEP " << step++ << " END   (current time: " << t << ") ++++++\n");
 		}
 	}
