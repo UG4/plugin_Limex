@@ -819,10 +819,6 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				{
 					this->notify_step_postprocess(u1, step, t, dt);
 				}
-				else if((t1-t)/base_type::m_timeWeight < base_type::m_relPrecisionBound)
-				{
-					this->notify_step_postprocess(u1, step, t, dt);
-				}
 
 				// update time
 				t += dt;
@@ -849,6 +845,11 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
 
 	 }
+
+	if(!base_type::m_bVerbosity)
+	{
+		this->notify_step_postprocess(u1, step, t, dt);
+	}
 
 };
 
@@ -949,10 +950,6 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 			{
 				this->notify_step_postprocess(u1, step, t, dt);
 			}
-			else if((t1-t)/base_type::m_timeWeight < base_type::m_relPrecisionBound)
-			{
-				this->notify_step_postprocess(u1, step, t, dt);
-			}
 
 			// ACCEPT time step
 			uold = u1;   // save solution
@@ -963,6 +960,10 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		}
 	}
 
+	if(!base_type::m_bVerbosity)
+	{
+		this->notify_step_postprocess(u1, step, t, dt);
+	}
 };
 
 
