@@ -784,8 +784,10 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	number currdt = base_type::m_dt;
 	int step = 1;
 
-		if(!base_type::m_bNoLogOut)
-		 UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
+	double final_dt = base_type::m_dt;
+
+	if(!base_type::m_bNoLogOut)
+		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
 	 while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
 	 {
@@ -795,6 +797,8 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 // determine step size
 		 UG_COND_THROW(currdt < base_type::m_dtMin, "Time step size below minimum. ABORTING!")
 		 number dt = std::min(currdt, t1-t);
+
+		 final_dt = dt;
 
 		 // prepare step
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
@@ -848,7 +852,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	if(!base_type::m_bVerbosity)
 	{
-		this->notify_step_postprocess(u1, step, t, dt);
+		this->notify_step_postprocess(u1, step, t, final_dt);
 	}
 
 };
@@ -884,6 +888,8 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	number currdt = base_type::m_dt;
 	int step = 1;
 
+	double final_dt = base_type::m_dt;
+
 	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
@@ -896,6 +902,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		UG_COND_THROW(currdt < base_type::m_dtMin, "Time step size below minimum. ABORTING!")
 		number dt = std::min(currdt, t1-t);
 
+		final_dt = dt;
 
 		double told = t;
 
@@ -962,7 +969,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 
 	if(!base_type::m_bVerbosity)
 	{
-		this->notify_step_postprocess(u1, step, t, dt);
+		this->notify_step_postprocess(u1, step, t, final_dt);
 	}
 };
 
