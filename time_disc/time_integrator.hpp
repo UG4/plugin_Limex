@@ -169,17 +169,17 @@ class ITimeIntegrator
 		double m_dt;
 		double m_lower_tim;
 		double m_upper_tim;
-		double m_timeWeight;
-		double m_relPrecisionBound;
 
-		bool m_bVerbosity;
+		double m_precisionBound;
+
+		bool m_bLogOut;
 		bool m_bNoLogOut;
 
 
 	public:
 		// constructor
 		ITimeIntegrator(SmartPtr<time_disc_type> tDisc)
-		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0), m_timeWeight(1.0), m_relPrecisionBound(1e-10), m_bVerbosity(false), m_bNoLogOut(false)
+		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0), m_precisionBound(1e-10), m_bLogOut(false), m_bNoLogOut(false)
 		 {}
 
 		/// virtual	destructor
@@ -235,16 +235,13 @@ class ITimeIntegrator
 	void set_time_step(double dt)
 	{ m_dt = dt; return; }
 
-	void set_timeWeight(double maxStepSize)
-	{ m_timeWeight = maxStepSize; return; }
+	void set_precision_bound(double precisionBound)
+	{ m_precisionBound = precisionBound; return; }
 
-	void set_relPrecisionBound(double relPrecisionBound)
-	{ m_relPrecisionBound = relPrecisionBound; return; }
+	void set_log_out(bool bLogOut)
+	{ m_bLogOut = bLogOut; return; }
 
-	void set_bVerbosity(bool bVerbosity)
-	{ m_bVerbosity = bVerbosity; return; }
-
-	void set_bNoLogOut(bool bNoLogOut)
+	void set_no_log_out(bool bNoLogOut)
 	{ m_bNoLogOut = bNoLogOut; return; }
 
 	SmartPtr<time_disc_type> get_time_disc() {return m_spTimeDisc;}
@@ -339,7 +336,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 	number currdt = base_type::m_dt;
 
-	while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
+	while((t < t1) && (t1-t > base_type::m_precisionBound))
 	{
 
 		if(!base_type::m_bNoLogOut)
@@ -350,7 +347,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 		// prepare step
 		tdisc.prepare_step(m_spSolTimeSeries, dt);
-		if (fabs(dt-dt_assembled)/base_type::m_timeWeight > base_type::m_relPrecisionBound)
+		if (fabs(dt-dt_assembled) > base_type::m_precisionBound)
 		{
 			// re-assemble operator
 			if(!base_type::m_bNoLogOut)
@@ -585,7 +582,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 	 int step = 0;
 
 	 number dt = base_type::m_dt;
-	 while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
+	 while((t < t1) && (t1-t > base_type::m_precisionBound))
 	 {
 	   // step: t -> t+dt
 	   bool bSuccess = false;
@@ -789,7 +786,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
-	 while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
+	 while((t < t1) && (t1-t > base_type::m_precisionBound))
 	 {
 			if(!base_type::m_bNoLogOut)
 			 UG_LOG("+++ Timestep +++" << step << "\n");
@@ -819,7 +816,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				//
 
 				// Print physics
-				if(base_type::m_bVerbosity)
+				if(base_type::m_bLogOut)
 				{
 					this->notify_step_postprocess(u1, step, t, dt);
 				}
@@ -850,7 +847,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	 }
 
-	if(!base_type::m_bVerbosity)
+	if(!base_type::m_bLogOut)
 	{
 		this->notify_step_postprocess(u1, step, t, final_dt);
 	}
@@ -893,7 +890,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
-	while((t < t1) && ((t1-t)/base_type::m_timeWeight > base_type::m_relPrecisionBound))
+	while((t < t1) && (t1-t > base_type::m_precisionBound))
 	{
 		if(!base_type::m_bNoLogOut)
 			UG_LOG("++++++ TIMESTEP " << step++ << " BEGIN (current time: " << t << ") ++++++\n");
@@ -953,7 +950,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		}
 		else
 		{
-			if(base_type::m_bVerbosity)
+			if(base_type::m_bLogOut)
 			{
 				this->notify_step_postprocess(u1, step, t, dt);
 			}
@@ -967,7 +964,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		}
 	}
 
-	if(!base_type::m_bVerbosity)
+	if(!base_type::m_bLogOut)
 	{
 		this->notify_step_postprocess(u1, step, t, final_dt);
 	}

@@ -100,10 +100,9 @@ static void DomainAlgebra(Registry& reg, string grp)
 		string name = string("ITimeIntegrator").append(suffix);
 		reg.add_class_<T>(name, grp)
 				  .add_method("set_time_step", &T::set_time_step)
-				  .add_method("set_timeWeight", &T::set_timeWeight)
-				  .add_method("set_relPrecisionBound", &T::set_relPrecisionBound)
-				  .add_method("set_bVerbosity", &T::set_bVerbosity)
-				  .add_method("set_bNoLogOut", &T::set_bNoLogOut)
+				  .add_method("set_precision_bound", &T::set_precision_bound)
+				  .add_method("set_log_out", &T::set_log_out)
+				  .add_method("set_no_log_out", &T::set_no_log_out)
 				  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","")
 				  .add_method("attach_observer", &T::attach_observer);
 		reg.add_class_to_group(name, "ITimeIntegrator", tag);
