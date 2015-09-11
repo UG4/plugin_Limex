@@ -172,14 +172,13 @@ class ITimeIntegrator
 
 		double m_precisionBound;
 
-		bool m_bLogOut;
 		bool m_bNoLogOut;
 
 
 	public:
 		// constructor
 		ITimeIntegrator(SmartPtr<time_disc_type> tDisc)
-		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0), m_precisionBound(1e-10), m_bLogOut(false), m_bNoLogOut(false)
+		: m_spTimeDisc(tDisc), m_dt(1.0), m_lower_tim(0.0), m_upper_tim(0.0), m_precisionBound(1e-10), m_bNoLogOut(false)
 		 {}
 
 		/// virtual	destructor
@@ -237,9 +236,6 @@ class ITimeIntegrator
 
 	void set_precision_bound(double precisionBound)
 	{ m_precisionBound = precisionBound; return; }
-
-	void set_log_out(bool bLogOut)
-	{ m_bLogOut = bLogOut; return; }
 
 	void set_no_log_out(bool bNoLogOut)
 	{ m_bNoLogOut = bNoLogOut; return; }
@@ -816,7 +812,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				//
 
 				// Print physics
-				if(base_type::m_bLogOut)
+				if(!base_type::m_bNoLogOut)
 				{
 					this->notify_step_postprocess(u1, step, t, dt);
 				}
@@ -847,7 +843,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	 }
 
-	if(!base_type::m_bLogOut)
+	if(base_type::m_bNoLogOut)
 	{
 		this->notify_step_postprocess(u1, step, t, final_dt);
 	}
@@ -950,7 +946,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		}
 		else
 		{
-			if(base_type::m_bLogOut)
+			if(!base_type::m_bNoLogOut)
 			{
 				this->notify_step_postprocess(u1, step, t, dt);
 			}
@@ -964,7 +960,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		}
 	}
 
-	if(!base_type::m_bLogOut)
+	if(base_type::m_bNoLogOut)
 	{
 		this->notify_step_postprocess(u1, step, t, final_dt);
 	}

@@ -101,7 +101,6 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_<T>(name, grp)
 				  .add_method("set_time_step", &T::set_time_step)
 				  .add_method("set_precision_bound", &T::set_precision_bound)
-				  .add_method("set_log_out", &T::set_log_out)
 				  .add_method("set_no_log_out", &T::set_no_log_out)
 				  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","")
 				  .add_method("attach_observer", &T::attach_observer);
