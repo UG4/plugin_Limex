@@ -34,7 +34,7 @@
 #include "time_extrapolation.h"
 #include "time_integrator.hpp"
 #include "../limex_tools.h"
-#include "../multi_thread_tools.h"
+//#include "../multi_thread_tools.h"
 
 
 namespace ug {
@@ -193,25 +193,27 @@ public:
 			{
 				// PARALLEL execution
 
-
+/*
 				int tn = omp_get_thread_num();
 				int nt = omp_get_num_threads();
 
 				omp_set_num_threads(nstages);
-
+*/
 				int i;
 			//	#pragma omp for private(i) // shared (nstages, u1) schedule(static)
 				for (i=nstages; i>=0; --i)
 				{
+					/*
 					std::cerr << "I am " << tn << " of " << nt << " ("<< i<< "/" << nstages<<")!" << std::endl;
 
 					UGMultiThreadEnvironment mt_env;
+					 */
 
 					// copy data to private structure (one-to-many)
 					//m_vThreadData[i].set_solution(u1->clone());
 
 					// switch to "child" comm
-					mt_env.begin();
+					// mt_env.begin();
 
 					// integrate
 					time_integrator_type integrator(m_vThreadData[i].get_time_stepper());
@@ -220,7 +222,7 @@ public:
 					integrator.apply(m_vThreadData[i].get_solution() , t1, u0, t0);
 
 					// switch to "parent" comm
-					mt_env.end();
+					//mt_env.end();
 				} /*for-loop*/
 
 			} /*omp parallel */
@@ -275,10 +277,6 @@ protected:
 		TimeStepBounds m_dtBounds;
 		double m_tol;
 		double m_rhoSafety;
-
-
-
-
 
 };
 
