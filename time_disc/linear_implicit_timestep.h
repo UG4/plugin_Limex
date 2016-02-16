@@ -43,6 +43,7 @@ namespace ug{
 template <class TAlgebra>
 class LinearImplicitEuler
 : public ITimeDiscretization<TAlgebra>
+	//	: public MultiStepTimeDiscretization<TAlgebra>
 {
 public:
 /// Type of algebra
@@ -102,7 +103,7 @@ public:
 
 	void adjust_solution(vector_type& u, const GridLevel& gl);
 
-	 virtual size_t num_stages() const {return -1;};
+	 virtual size_t num_stages() const {return 1;};
 	 virtual void set_stage(size_t stage) {};
 
 protected:
@@ -127,19 +128,17 @@ protected:
 	}
 
 
-	static const size_t m_prevSteps=1;					///< number of previous steps needed.
-	std::vector<number> m_vScaleMass;	///< Scaling for mass part
-	std::vector<number> m_vScaleStiff;	///< Scaling for stiffness part
+	static const size_t m_prevSteps=1;			///< number of previous steps needed.
+	std::vector<number> m_vScaleMass;			///< Scaling for mass part
+	std::vector<number> m_vScaleStiff;			///< Scaling for stiffness part
 
-
-
-	SmartPtr<VectorTimeSeries<vector_type> > m_pPrevSol;	///< Previous solutions
+	SmartPtr<AssembledLinearOperator<algebra_type> > m_JLinOp;	///< Operator
+	SmartPtr<VectorTimeSeries<vector_type> > m_pPrevSol;		///< Previous solutions
 
 	number m_dt; 								///< Time Step size
 	number m_futureTime;						///< Future Time
 
-	SmartPtr<IAssemble<algebra_type> > m_spJAss;
-	SmartPtr<AssembledLinearOperator<algebra_type> > m_JLinOp;
+
 };
 
 }  // namespace ug

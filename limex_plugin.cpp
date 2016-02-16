@@ -21,6 +21,9 @@
 #include "time_disc/time_integrator.hpp"
 #include "time_disc/time_extrapolation.h"
 #include "time_disc/linear_implicit_timestep.h"
+#include "time_disc/limex_integrator.hpp"
+
+
 
 
 // include for plugins
@@ -56,7 +59,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 	//	useful defines
 	string suffix = GetDomainAlgebraSuffix<TDomain,TAlgebra>();
 	string tag = GetDomainAlgebraTag<TDomain,TAlgebra>();
-	typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
+	typedef MultiStepTimeDiscretization<TAlgebra> TMultiStepTimeDisc;
+	typedef ITimeDiscretization<TAlgebra> TTimeDisc;
 
 	//typedef ApproximationSpace<TDomain> TApproximationSpace;
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
@@ -179,28 +183,29 @@ static void DomainAlgebra(Registry& reg, string grp)
 			typedef INonlinearTimeIntegrator<TDomain, TAlgebra> T;
 			string name = string("INonlinearTimeIntegrator").append(suffix);
 			reg.add_class_<T, TBase>(name, grp)
-						  .add_method("set_solver", &T::set_solver);
+						  .add_method("set_solver", &T::set_solver)
+						  .add_method("set_dt_min", &T::set_dt_min)
+						  .add_method("set_dt_max", &T::set_dt_max)
+						  .add_method("set_reduction_factor", &T::set_reduction_factor)
+						  .add_method("set_increase_factor", &T::set_increase_factor);
 			reg.add_class_to_group(name, "INonlinearTimeIntegrator", tag);
 	}
 
-	{
+	/*{
 		// INonlinearTimeIntegratorWithBounds
 
 		typedef INonlinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef INonlinearTimeIntegratorWithBounds<TDomain, TAlgebra> T;
 		string name = string("ITimeIntegratorWithBounds").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
-								.add_method("set_dt_min", &T::set_dt_min)
-								.add_method("set_dt_max", &T::set_dt_max)
-								.add_method("set_decrease_factor", &T::set_decrease_factor)
-								.add_method("set_increase_factor", &T::set_increase_factor);
+
 		reg.add_class_to_group(name, "ITimeIntegratorWithBounds", tag);
-	}
+	}*/
 
 	{
-		// LinearTimeIntegrator
+		// SimpleTimeIntegrator
 		// (e.g., implicit Euler for linear problem)
-		typedef INonlinearTimeIntegratorWithBounds<TDomain, TAlgebra> TBase;
+		typedef INonlinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef SimpleTimeIntegrator<TDomain, TAlgebra> T;
 		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
@@ -211,6 +216,24 @@ static void DomainAlgebra(Registry& reg, string grp)
 							  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 							  .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "SimpleTimeIntegrator", tag);
+	}
+
+	{
+			// LimexTimeIntegrator
+			typedef INonlinearTimeIntegrator<TDomain, TAlgebra> TBase;
+			typedef LimexTimeIntegrator<TDomain, TAlgebra> T;
+			typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+
+			string name = string("LimexTimeIntegrator").append(suffix);
+			reg.add_class_<T,TBase>(name, grp)
+								  //.template add_constructor<void (*)() >("")
+								  //.ADD_CONSTRUCTOR( (SmartPtr<TDomainDisc>, int) ) ("Domain disc|number of steps (vector)")
+								  .ADD_CONSTRUCTOR( (int) ) ("number of stages")
+								  .add_method("add_stage", &T::add_stage)
+								  .add_method("set_tolerance", &T::set_tolerance)
+								  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
+								  .set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "LimexTimeIntegrator", tag);
 	}
 
 }
@@ -298,6 +321,7 @@ static void Algebra(Registry& reg, string parentGroup)
 						.add_method("get_solution", &T::get_solution)
 						.add_method("apply", &T::apply)
 						.add_method("get_error_estimate", &T::get_error_estimate)
+						//.add_method("get_error_estimate",  (double (T::*)(int)) &T::get_error_estimate, "","")
 						.add_method("set_error_estimate", &T::set_error_estimate)
 						.set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "AitkenNevilleTimex", tag);

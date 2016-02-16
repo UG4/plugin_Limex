@@ -38,7 +38,10 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 
 	//m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(m_spJAss));
 	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spDomDisc));
-	m_JLinOp->init(*m_pPrevSol->oldest());
+#pragma omp critical
+	{
+		m_JLinOp->init(*m_pPrevSol->oldest());
+	}
 
 }
 

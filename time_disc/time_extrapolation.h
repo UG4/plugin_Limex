@@ -280,11 +280,16 @@ class AitkenNevilleTimex
 		SmartPtr<vector_type> get_solution(size_t i)
 		{ return m_solution[i]; }
 
-		number get_error_estimate()
-		{ return m_subdiag_error_est.back();}
 
 		void set_error_estimate(SmartPtr<ISubDiagErrorEst<vector_type> > subdiag)
 		{ m_subdiag = subdiag; }
+
+		number get_error_estimate()
+		{ return m_subdiag_error_est.back();}
+
+		/*number get_error_estimate(int i)
+		{ return m_subdiag_error_est[i];}
+*/
 
 		/**
 		 * Triangular Aitken Neville extrapolation:
