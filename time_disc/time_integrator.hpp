@@ -380,7 +380,7 @@ void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 			// push updated solution into time series
 			t += dt;
 			SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-			VecAssign(*tmp, *u1);
+			VecAssign(*tmp, *u1.template cast_dynamic<typename base_type::vector_type>());
 			m_spSolTimeSeries->push_discard_oldest(tmp, t);
 		}
 		else
@@ -436,7 +436,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 	// create solution vector & right hand side
 	SmartPtr<typename base_type::vector_type> uold= u0->clone();
 	SmartPtr<typename base_type::vector_type> b= u0->clone_without_values();
-
+	
 	// solution time series
 	SmartPtr<vector_time_series_type> m_spSolTimeSeries;
 	m_spSolTimeSeries=make_sp(new vector_time_series_type());
@@ -489,7 +489,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 			 // push updated solution into time series
 			 t += dt;
 			 SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-			 VecAssign(*tmp, *u1);
+			 VecAssign(*tmp,  *u1.template cast_dynamic<typename base_type::vector_type>());
 			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
 		 }
 		 else
@@ -668,7 +668,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 		   UG_LOG("DISCARDING solution, dtnew=" << dt);
 
 		   // => reset solutions
-		   VecAssign(*u1, *uold);
+		   VecAssign(*u1.template cast_dynamic<typename base_type::vector_type>(), *uold);
 		   
 		   // => timeSeries2 has been updated...
 		   SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries2->oldest();
@@ -685,7 +685,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 
 	   // push updated solution into time series (and continue)
 	   SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-	   VecAssign(*tmp, *u2);
+	   VecAssign(*tmp, static_cast<typename base_type::vector_type> (*u2));
 	   m_spSolTimeSeries->push_discard_oldest(tmp, t);
 
 	 }
@@ -870,7 +870,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 				// push updated solution into time series (and continue)
 				SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-				VecAssign(*tmp, *u1);
+				VecAssign(*tmp, static_cast<typename base_type::vector_type> (*u1) );
 				m_spSolTimeSeries->push_discard_oldest(tmp, t);
 		 }
 		 else
@@ -972,7 +972,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 
 			// b. push updated solution into time series (and continue)
 			SmartPtr<typename base_type::vector_type> oldest= m_spSolTimeSeries->oldest();
-			VecAssign(*oldest, *u1);
+			VecAssign(*oldest, static_cast<typename base_type::vector_type> (*u1));
 			m_spSolTimeSeries->push_discard_oldest(oldest, t);
 
 			// c. output
