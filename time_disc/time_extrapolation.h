@@ -11,8 +11,14 @@
 #include "common/util/smart_pointer.h"
 
 #include "lib_algebra/lib_algebra.h"
+//#include "lib_algebra/parallelization/parallel_vector.h"
+
+#include "lib_disc/function_spaces/grid_function.h"
+#include "lib_disc/function_spaces/grid_function_user_data.h"
+#include "lib_disc/function_spaces/integrate.h"
 
 #include "lib_disc/time_disc/time_disc_interface.h"
+#include "lib_disc/spatial_disc/user_data/linker/scale_add_linker.h"
 
 namespace ug{
 
@@ -38,56 +44,56 @@ namespace ug{
 namespace tools {
 
 
-	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3. for doubles
-	inline void VecScaleAddWithNormRel(double &dest, double alpha1, const double &v1, double alpha2, const double &v2, double alpha3, const double &v3, double &norm)
+	//! calculates vUpdate = vUpdate + alpha2*vFine + alpha3*vCoarse. for doubles
+	inline void VecScaleAddWithNormRel(double &vUpdate, double alpha2, const double &vFine, double alpha3, const double &vCoarse, double &norm)
 	{
-		const double update = alpha2*v2 + alpha3*v3;
-		dest = alpha1*v1 + update;
-		norm = std::max(norm, 0.5*fabs(update)/(1.0+fabs(v2)+fabs(v3)));
+		const double update = alpha2*vFine + alpha3*vCoarse;
+		vUpdate = vUpdate + update;
+		norm = std::max(norm, 0.5*fabs(update)/(1.0+fabs(vFine)+fabs(vCoarse)));
 	}
 
-	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3
+	//! calculates vUpdate = vUpdate + alpha2*vFine + alpha3*vCoarse
 	template<typename vector_t, template <class T> class TE_VEC>
-	inline void VecScaleAddWithNormRel(TE_VEC<vector_t> &dest, double alpha1, const TE_VEC<vector_t> &v1, double alpha2, const TE_VEC<vector_t> &v2, double alpha3, const TE_VEC<vector_t> &v3, double &norm)
+	inline void VecScaleAddWithNormRel(TE_VEC<vector_t> &vUpdate, double alpha2, const TE_VEC<vector_t> &vFine, double alpha3, const TE_VEC<vector_t> &vCoarse, double &norm)
 	{
-		for(size_t i=0; i<dest.size(); i++)
-			VecScaleAddWithNormRel(dest[i], alpha1, v1[i], alpha2, v2[i], alpha3, v3[i], norm);
+		for(size_t i=0; i<vUpdate.size(); i++)
+			VecScaleAddWithNormRel(vUpdate[i], alpha2, vFine[i], alpha3, vCoarse[i], norm);
 	}
 
-	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3. for doubles
-	inline void VecScaleAddWithNormInf(double &dest, double alpha1, const double &v1, double alpha2, const double &v2, double alpha3, const double &v3, double &norm)
+	//! calculates vUpdate = vUpdate + alpha2*vFine + alpha3*vCoarse. for doubles
+	inline void VecScaleAddWithNormInf(double &vUpdate, double alpha2, const double &vFine, double alpha3, const double &vCoarse, double &norm)
 	{
-		const double update = alpha2*v2 + alpha3*v3;
-		dest = alpha1*v1 + update;
+		const double update = alpha2*vFine + alpha3*vCoarse;
+		vUpdate = vUpdate + update;
 		norm = std::max(norm, fabs(update));
 	}
 
-	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3
+	//! calculates vUpdate = vUpdate + alpha2*vFine + alpha3*vCoarse
 	template<typename vector_t, template <class T> class TE_VEC>
-	inline void VecScaleAddWithNormInf(TE_VEC<vector_t> &dest, double alpha1, const TE_VEC<vector_t> &v1, double alpha2, const TE_VEC<vector_t> &v2, double alpha3, const TE_VEC<vector_t> &v3, double &norm, const int delta=1, const int offset=0)
+	inline void VecScaleAddWithNormInf(TE_VEC<vector_t> &vUpdate, double alpha2, const TE_VEC<vector_t> &vFine, double alpha3, const TE_VEC<vector_t> &vCoarse, double &norm, const int delta=1, const int offset=0)
 	{
-		std::cerr << norm << " "<< delta << offset << std::endl;
-		for(size_t i=offset; i<dest.size(); i+=delta)
-			VecScaleAddWithNormInf(dest[i], alpha1, v1[i], alpha2, v2[i], alpha3, v3[i], norm);
+		// std::cerr << norm << " "<< delta << offset << std::endl;
+		for(size_t i=offset; i<vUpdate.size(); i+=delta)
+			VecScaleAddWithNormInf(vUpdate[i], alpha2, vFine[i], alpha3, vCoarse[i], norm);
 
-		std::cerr << norm << std::endl;
+		// std::cerr << norm << std::endl;
 	}
 
 
-	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3. for doubles
-	inline void VecScaleAddWithNorm2(double &dest, double alpha1, const double &v1, double alpha2, const double &v2, double alpha3, const double &v3, double &norm)
+	//! calculates vUpdate = vUpdate + alpha2*vFine + alpha3*vCoarse. for doubles
+	inline void VecScaleAddWithNorm2(double &vUpdate, double alpha2, const double &vFine, double alpha3, const double &vCoarse, double &norm)
 	{
-		const double update = alpha2*v2 + alpha3*v3;
-		dest = alpha1*v1 + update;
+		const double update = alpha2*vFine + alpha3*vCoarse;
+		vUpdate = vUpdate+ update;
 		norm += update*update;
 	}
 
-	//! calculates dest = alpha1*v1 + alpha2*v2 + alpha3*v3
+	//! calculates vUpdate = vUpdate + alpha2*vFine + alpha3*vCoarse
 	template<typename vector_t, template <class T> class TE_VEC>
-	inline void VecScaleAddWithNorm2(TE_VEC<vector_t> &dest, double alpha1, const TE_VEC<vector_t> &v1, double alpha2, const TE_VEC<vector_t> &v2, double alpha3, const TE_VEC<vector_t> &v3, double &norm, const int delta=1, const int offset=0)
+	inline void VecScaleAddWithNorm2(TE_VEC<vector_t> &vUpdate, double alpha2, const TE_VEC<vector_t> &vFine, double alpha3, const TE_VEC<vector_t> &vCoarse, double &norm, const int delta=1, const int offset=0)
 	{
-		for(size_t i=offset; i<dest.size(); i+=delta)
-			VecScaleAddWithNorm2(dest[i], alpha1, v1[i], alpha2, v2[i], alpha3, v3[i], norm);
+		for(size_t i=offset; i<vUpdate.size(); i+=delta)
+			VecScaleAddWithNorm2(vUpdate[i], alpha2, vFine[i], alpha3, vCoarse[i], norm);
 	}
 
 
@@ -102,11 +108,11 @@ public:
 	// constructor
 	ISubDiagErrorEst() : m_est(0.0) {};
 
-	// destructor
+	// vUpdateructor
 	virtual ~ISubDiagErrorEst() {};
 
 	// evaluate
-	virtual bool update(TVector &dest, number alpha1, TVector &v1, number alpha2, TVector &v2, number alpha3, TVector &v3) = 0;
+	virtual bool update(SmartPtr<TVector> vUpdate, number alpha2, SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse) = 0;
 
 	// get estimate
 	number get_current_estimate() {return m_est; };
@@ -136,12 +142,12 @@ public:
 	//~NormInfEstimator() {}
 
 	// apply
-	bool update(TVector &dest, number alpha1, TVector &v1, number alpha2, TVector &v2, number alpha3, TVector &v3)
+	bool update(SmartPtr<TVector> vUpdate, number alpha2, SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
 		const int delta = m_stride;
 		const int offset = m_offset;
 		base_type::m_est=0.0;
-		tools::VecScaleAddWithNormInf(dest, alpha1, v1, alpha2, v2, alpha3, v3, base_type::m_est, delta, offset);
+		tools::VecScaleAddWithNormInf(*vUpdate, alpha2, *vFine, -alpha2, *vCoarse, base_type::m_est, delta, offset);
 		return true;
 	}
 
@@ -173,16 +179,16 @@ public:
 		ISubDiagErrorEst<TVector>(), m_stride(delta), m_offset (offset)  {};
 
 	// apply
-	bool update(TVector &dest, number alpha1, TVector &v1, number alpha2, TVector &v2, number alpha3, TVector &v3)
+	bool update(SmartPtr<TVector> vUpdate,  number alpha2,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
 		const int delta = m_stride;
 		const int offset = m_offset;
 		base_type::m_est=0.0;
-		tools::VecScaleAddWithNorm2(dest, alpha1, v1, alpha2, v2, alpha3, v3, base_type::m_est, delta, offset);
+		tools::VecScaleAddWithNorm2(*vUpdate, alpha2, *vFine, -alpha2, *vCoarse, base_type::m_est, delta, offset);
 #ifdef UG_PARALLEL
 		double locEst = base_type::m_est;
 		double globEst =0.0;
-		dest.layouts()->proc_comm().allreduce(&locEst, &globEst, 1, PCL_DT_DOUBLE, PCL_RO_SUM);
+		vUpdate->layouts()->proc_comm().allreduce(&locEst, &globEst, 1, PCL_DT_DOUBLE, PCL_RO_SUM);
 		base_type::m_est = globEst;
 #endif
 		base_type::m_est = sqrt(base_type::m_est);
@@ -190,10 +196,10 @@ public:
 	}
 
 	// offset (e.g., component to work on for systems w/ CPU1)
-	void set_offset(int offset) {m_offset=offset;}
+	void set_offset(int offset) { m_offset=offset;}
 
 	// delta (e.g., total number components for systems w/ CPU1)
-	void set_stride(int delta) {m_stride=delta;}
+	void set_stride(int delta) { m_stride=delta;}
 
 };
 
@@ -210,36 +216,61 @@ public:
 	NormRelEstimator() : ISubDiagErrorEst<TVector>() {};
 
 	// apply w/ rel norm
-	bool update(TVector &dest, number alpha1, TVector &v1, number alpha2, TVector &v2, number alpha3, TVector &v3)
+	bool update(SmartPtr<TVector> vUpdate, number alpha2,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
 		base_type::m_est=0;
-		tools::VecScaleAddWithNormRel(dest, alpha1, v1, alpha2, v2, alpha3, v3, base_type::m_est);
+		tools::VecScaleAddWithNormRel(*vUpdate, alpha2, *vFine, -alpha2, *vCoarse, base_type::m_est);
 		return true;
 	}
 };
 
 
 /// Evaluate using (algebraic) L2 norm
-template <class TVector>
-class GridFunctionNormEstimator : public ISubDiagErrorEst<TVector>
+template <class TDomain, class TAlgebra>
+class GridFunctionEstimator : public ISubDiagErrorEst<typename TAlgebra::vector_type>
 {
 protected:
+	typedef typename TAlgebra::vector_type TVector;
+
+	int m_quadorder;
+	std::string m_fctNames;
+public:
 	typedef ISubDiagErrorEst<TVector> base_type;
 
-public:
 	// constructor
-	GridFunctionNormEstimator() : ISubDiagErrorEst<TVector>() {};
+	GridFunctionEstimator(const char *fctNames) :
+	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(3)
+	{};
+
+	GridFunctionEstimator(const char *fctNames, int order) :
+	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(order)
+	{};
 
 	// apply w/ rel norm
-	bool update(TVector &dest, number alpha1, TVector &v1, number alpha2, TVector &v2, number alpha3, TVector &v3)
+	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
+		typedef ScaleAddLinker<number, TDomain::dim, number> linker_type;
+		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+		typedef GridFunctionNumberData<grid_function_type> TNumberData;
 
-		UG_THROW("Please implement me!");
-		SmartPtr<TVector> delta = v2.clone();
-		delta = alpha2*v2 + alpha3*v3;		// now do something with delta
+		// try upcast
+		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
+		SmartPtr<grid_function_type> uCoarse = vCoarse.template cast_dynamic<grid_function_type>();
+		if (uFine.invalid() || uCoarse.invalid()) return false;
 
-		dest = alpha1*v1+ delta;
-		return false;
+
+		// error estimate
+		// TODO: could be more general!
+	//	SmartPtr<TNumberData> spCoarseCmps =  make_sp<TNumberData>(new TNumberData (uCoarse, m_fctNames.c_str()));
+		number unorm = L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
+		number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+		base_type::m_est = enorm/unorm;
+
+		std::cerr << "unorm=" << unorm << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
+
+		// p
+		VecScaleAdd(*vUpdate, 1.0+alpha, *vFine, -alpha, *vCoarse);
+		return true;
 	}
 };
 
@@ -253,7 +284,7 @@ class AitkenNevilleTimex
 
 	public:
 
-		/** Aitken Neville scheme with a given umber */
+		/** Aitken Neville scheme with a given number */
 		AitkenNevilleTimex(std::vector<size_t> nsteps)
 		: m_num_steps(nsteps),
 		  m_stepsize(0.0),
@@ -317,14 +348,14 @@ class AitkenNevilleTimex
 					UG_ASSERT(m_solution[i].valid(), "Invalid SmarPtr!");
 					UG_ASSERT(m_solution[i-1].valid(), "Invalid SmarPtr!");
 
-					vector_type &solcoarse = *m_solution[i-1];
-					vector_type &solfine = *m_solution[i];
+					SmartPtr<vector_type> solcoarse = m_solution[i-1];
+					SmartPtr<vector_type> solfine = m_solution[i];
 
 					// (2^p -1)
 					// m_solution[i] += (1.0/scal)*(m_solution[i]- m_solution[i-1]);
 					const number scaling = (m_num_steps[i]/m_num_steps[i-k]-1.0);
-					VecScaleAdd(solfine, (1.0+1.0/scaling), solfine,
-										-(1.0/scaling), solcoarse);
+					VecScaleAdd(*solfine, (1.0+1.0/scaling), *solfine,
+										-(1.0/scaling), *solcoarse);
 
 				}
 
@@ -333,13 +364,13 @@ class AitkenNevilleTimex
 					UG_ASSERT(m_solution[k].valid(), "Invalid SmarPtr!");
 					UG_ASSERT(m_solution[k-1].valid(), "Invalid SmarPtr!");
 
-					vector_type &solcoarse = *m_solution[k-1];
-					vector_type &solfine = *m_solution[k];
+					SmartPtr<vector_type> solcoarse = m_solution[k-1];
+					SmartPtr<vector_type> solfine = m_solution[k];
 
 
 					const number scaling = ((1.0*m_num_steps[k])/m_num_steps[k-1]-1.0);
 
-					m_subdiag->update(solfine, 1.0, solfine, (1.0/scaling), solfine,  -(1.0/scaling), solcoarse);
+					m_subdiag->update(solfine, (1.0/scaling), solfine,  solcoarse);
 					number subdiag_error_est=m_subdiag->get_current_estimate();
 
 					//m_subdiag_error_est[k] = sqrt(subdiag_error_est*scaling);

@@ -65,6 +65,21 @@ static void DomainAlgebra(Registry& reg, string grp)
 	//typedef ApproximationSpace<TDomain> TApproximationSpace;
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
 
+	{
+		/// (subdiagonal) GridFunctionEstimator
+		typedef typename TAlgebra::vector_type TVector;
+		typedef ISubDiagErrorEst<TVector> TBase;
+		typedef GridFunctionEstimator<TDomain, TAlgebra> T;
+		string name = string("GridFunctionEstimator").append(suffix);
+
+		reg.add_class_<T, TBase>(name, grp)
+		   .template add_constructor<void (*)(const char*) >("")
+		   .template add_constructor<void (*)(const char*, int) >("")
+		   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
+
+
+	}
 
 	{
 		// ITimeIntegratorObserver (virtual base class)
