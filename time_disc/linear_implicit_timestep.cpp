@@ -270,17 +270,6 @@ assemble_rhs(vector_type& b, const GridLevel& gl)
 ////////////////////////////////////////////////////////////////////////
 //	template instantiations for all current algebra types.
 
-#ifdef UG_CPU_1
-template class LinearImplicitEuler<CPUAlgebra>;
-#endif
-#ifdef UG_CPU_2
-template class LinearImplicitEuler<CPUBlockAlgebra<2> >;
-#endif
-#ifdef UG_CPU_3
-template class LinearImplicitEuler<CPUBlockAlgebra<3> >;
-#endif
-#ifdef UG_CPU_4
-template class LinearImplicitEuler<CPUBlockAlgebra<4> >;
-#endif
+UG_ALGEBRA_CPP_TEMPLATE_DEFINE_ALL(LinearImplicitEuler)
 
 }; // namespace ug

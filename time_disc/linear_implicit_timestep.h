@@ -22,6 +22,7 @@
 #include "lib_disc/assemble_interface.h"
 #include "lib_disc/operator/non_linear_operator/assembled_non_linear_operator.h"
 #include "lib_disc/operator/linear_operator/assembled_linear_operator.h"
+#include "lib_algebra/algebra_template_define_helper.h"
 
 
 namespace ug{
@@ -140,6 +141,8 @@ protected:
 
 
 };
+
+
 
 }  // namespace ug
 #endif
