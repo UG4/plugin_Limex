@@ -36,7 +36,7 @@ namespace ug{
  * \f]
  * as
  * \f[
- * 	(M - \Delta t J) \left( u(t^{k+1}) - u(t^k) \right  =  \Delta t \cdot f(t^{k})
+ * 	(M - \Delta t J) \left( u(t^{k+1}) - u(t^k) \right)  =  \Delta t \cdot f(t^{k})
  * \f]
  *
  * Thus, for \f$\theta = 1 \f$ this is the Backward-Euler time stepping.
@@ -115,7 +115,7 @@ protected:
 			                              ConstSmartPtr<VectorTimeSeries<vector_type> > prevSol)
 
 	{
-		const number theta = 1.0;
+		// const number theta = 1.0;
 
 		//	resize scaling factors
 		vSM.resize(1);
@@ -123,7 +123,7 @@ protected:
 		//vSM[1] = -1.0;
 
 		vSA.resize(1);
-		vSA[0] = (theta) * dt;
+		vSA[0] = dt;
 		//vSA[1] = (1.0-theta) * dt;
 		return currentTime + dt;
 	}
@@ -133,8 +133,8 @@ protected:
 	std::vector<number> m_vScaleMass;			///< Scaling for mass part
 	std::vector<number> m_vScaleStiff;			///< Scaling for stiffness part
 
-	SmartPtr<AssembledLinearOperator<algebra_type> > m_JLinOp;	///< Operator
 	SmartPtr<VectorTimeSeries<vector_type> > m_pPrevSol;		///< Previous solutions
+	SmartPtr<AssembledLinearOperator<algebra_type> > m_JLinOp;	///< Operator
 
 	number m_dt; 								///< Time Step size
 	number m_futureTime;						///< Future Time

@@ -36,13 +36,20 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 
 	std::cout << "PREP: "<< m_vScaleMass[0] <<", " << m_vScaleStiff[0] << ", " <<m_dt << ", " << m_pPrevSol->time(0) << std::endl;
 
-	//m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(m_spJAss));
-	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spDomDisc));
-#pragma omp critical
+//	prepare time step (elemDisc-wise)
+	try
 	{
+		this->m_spDomDisc->prepare_timestep(m_pPrevSol);
+	}
+	UG_CATCH_THROW("ThetaTimeStep: Cannot prepare time step.");
+
+	//m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(m_spJAss));
+
+	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spDomDisc));
+	/*{
 		m_JLinOp->init(*m_pPrevSol->oldest());
 	}
-
+*/
 }
 
 template <typename TAlgebra>
@@ -67,16 +74,15 @@ prepare_step_elem(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 	m_futureTime = update_scaling(m_vScaleMass, m_vScaleStiff,
 	                              m_dt, m_pPrevSol->time(0),
 	                              m_pPrevSol);
-
 // 	prepare timestep
 	try{
 
 		this->m_spDomDisc->prepare_timestep(m_pPrevSol, gl);
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot prepare timestep.");
 
-// Aux linear operator
+	// Aux linear operator
 	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spDomDisc));
-	m_JLinOp->init(*m_pPrevSol->oldest());
+	// m_JLinOp->init(*m_pPrevSol->oldest());
 	//std::cout << "PREPELEM: "<< m_vScaleMass[0] <<", " << m_vScaleStiff[0] << ", " <<m_dt << ", " << m_pPrevSol->time(0) << std::endl;
 
 }
@@ -171,6 +177,8 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 				" Number of previous solutions must be at least "<<
 				m_prevSteps <<", but only "<< m_pPrevSol->size() << " passed.");
 
+
+
 // 	future solution part
 	try{
 
@@ -179,7 +187,7 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		std::vector<number> vScaleStiff(1, m_dt);
 		this->m_spDomDisc->assemble_defect(d, m_pPrevSol, vScaleMass, vScaleStiff, gl);
 
-		// d:=d+(M - \tau J) (u(k-1)-u)
+		// d := d + (M - \tau J) (u(k-1)-u)
 		vector_type deltau = *m_pPrevSol->oldest()->clone();
 		deltau -= u;
 
@@ -187,8 +195,6 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		m_JLinOp->apply_sub(d, deltau);
 
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
-
-	//std::cout << "DEFECT: "<< m_pPrevSol->time(0) << std::endl;
 
 }
 
