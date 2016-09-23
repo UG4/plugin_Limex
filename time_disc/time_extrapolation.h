@@ -304,19 +304,35 @@ class AitkenNevilleTimex
 		void set_global_stepsize(number H) {m_stepsize=H;}
 		number get_global_stepsize() {return m_stepsize;}
 
-
+		//! set solution (for stage i)
 		 void set_solution(SmartPtr<vector_type> soli, int i)
 		 { m_solution[i] = soli; }
 
+		//! get solution (on stage i)
 		SmartPtr<vector_type> get_solution(size_t i)
 		{ return m_solution[i]; }
 
-
+		//! set error estimator
 		void set_error_estimate(SmartPtr<ISubDiagErrorEst<vector_type> > subdiag)
 		{ m_subdiag = subdiag; }
 
 		number get_error_estimate()
-		{ return m_subdiag_error_est.back();}
+		{
+			std::vector<number>::iterator best = std::min_element(m_subdiag_error_est.begin(), m_subdiag_error_est.end());
+			return *best;
+		}
+
+		number get_error_estimate(int s)
+		{ return m_subdiag_error_est[s];}
+
+
+		//! return best index
+		int get_best_index()
+		{
+			std::vector<number>::iterator best = std::min_element(m_subdiag_error_est.begin(), m_subdiag_error_est.end());
+			//std::cout << "min element at: " << std::distance(std::begin(m_subdiag_error_est), best);
+			return std::distance(m_subdiag_error_est.begin(), best);
+		}
 
 		/*number get_error_estimate(int i)
 		{ return m_subdiag_error_est[i];}
@@ -335,15 +351,15 @@ class AitkenNevilleTimex
 		void apply()
 		{
 			UG_ASSERT(  m_num_steps.size() == m_solution.size(), "Dimensions do not match");
-			const size_t N = m_num_steps.size();
+			const size_t NStages = m_num_steps.size()-1;
 
 			//m_subdiag_error_est[0] = ;
 			// process columns (left to right)
-			for (size_t k=1; k<N; ++k)
+			for (size_t k=1; k<=NStages; ++k)
 			{
 
 				// process rows (bottom up, allows recycling memory)
-				for (size_t i=N-1; i>k; --i)
+				for (size_t i=NStages; i>=k; --i)
 				{
 					UG_ASSERT(m_solution[i].valid(), "Invalid SmarPtr!");
 					UG_ASSERT(m_solution[i-1].valid(), "Invalid SmarPtr!");
@@ -353,33 +369,32 @@ class AitkenNevilleTimex
 
 					// (2^p -1)
 					// m_solution[i] += (1.0/scal)*(m_solution[i]- m_solution[i-1]);
-					const number scaling = (m_num_steps[i]/m_num_steps[i-k]-1.0);
-					VecScaleAdd(*solfine, (1.0+1.0/scaling), *solfine,
-										-(1.0/scaling), *solcoarse);
+					const number scaling = ((1.0*m_num_steps[i])/(1.0*m_num_steps[i-k])-1.0);
+					UG_LOG("scaling="<<i << ","<< k <<
+							": ns["<<i<<"]="<< m_num_steps[i] <<
+							"ns2["<<i-k<<"]=" <<  m_num_steps[i-k] << scaling << std::endl);
 
-				}
+					if (i==k)
+					{
+						// compute subdiagonal error estimate
+						m_subdiag->update(solfine, (1.0/scaling), solfine,  solcoarse);
+						number subdiag_error_est=m_subdiag->get_current_estimate();
 
-				// subdiagonal error estimate
-				{
-					UG_ASSERT(m_solution[k].valid(), "Invalid SmarPtr!");
-					UG_ASSERT(m_solution[k-1].valid(), "Invalid SmarPtr!");
+						//m_subdiag_error_est[k] = sqrt(subdiag_error_est*scaling);
+						m_subdiag_error_est[k]=subdiag_error_est*scaling;
 
-					SmartPtr<vector_type> solcoarse = m_solution[k-1];
-					SmartPtr<vector_type> solfine = m_solution[k];
+						UG_LOG(" ErrorEst["<< k<<"]=" << m_subdiag_error_est[k] << ";" << std::endl);
+					}
+					else
+					{
+						// standard case
+						VecScaleAdd(*solfine, (1.0+1.0/scaling), *solfine,
+										      -(1.0/scaling), *solcoarse);
 
+					}
+				} // rows i
 
-					const number scaling = ((1.0*m_num_steps[k])/m_num_steps[k-1]-1.0);
-
-					m_subdiag->update(solfine, (1.0/scaling), solfine,  solcoarse);
-					number subdiag_error_est=m_subdiag->get_current_estimate();
-
-					//m_subdiag_error_est[k] = sqrt(subdiag_error_est*scaling);
-					m_subdiag_error_est[k]=subdiag_error_est*scaling;
-
-					UG_LOG(" ErrorEst["<< k<<"]=" << m_subdiag_error_est[k] << ";" << std::endl);
-				}
-
-			}
+			} // columns k
 
 		}
 

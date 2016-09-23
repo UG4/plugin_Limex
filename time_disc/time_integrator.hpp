@@ -20,8 +20,10 @@
 #include "lib_disc/time_disc/theta_time_step.h"
 #include "lib_disc/time_disc/solution_time_series.h"
 #include "lib_disc/function_spaces/grid_function_util.h" // SaveVectorForConnectionViewer
-
+#include "lib_disc/function_spaces/interpolate.h" //Interpolate
 #include "lib_disc/io/vtkoutput.h"
+
+// std headers
 #include <string>
 
 // own headers
@@ -53,8 +55,8 @@ class VTKOutputObserver
 {
 public:
 	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
-	typedef VTKOutput<TDomain::dim> vtk_type;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef VTKOutput<TDomain::dim> vtk_type;
 
 	VTKOutputObserver()
 	:  m_sp_vtk(SPNULL), m_filename("0000"){}
@@ -75,6 +77,8 @@ protected:
 	SmartPtr<vtk_type> m_sp_vtk;
 	std::string m_filename;
 };
+
+
 
 /// Sample class for integration observer: Output to VTK
 template<class TDomain, class TAlgebra>
@@ -107,6 +111,61 @@ protected:
 	number m_outputTime;
 
 };
+
+
+/// Integration observer: Output using Lua callback
+/**!
+ * TODO: Calls a LUA function with signature
+ * func (SmartPtr<G> u, int step, number dt, number t)
+ */
+template<class TDomain, class TAlgebra>
+class LuaOutputObserver
+: public ITimeIntegratorObserver<TDomain, TAlgebra>
+{
+public:
+	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef LuaFunction<number, number> lua_function_type;
+	typedef VTKOutput<TDomain::dim> vtk_type;
+
+	LuaOutputObserver(SmartPtr<UserData<number, grid_function_type::dim> > spExactSol)
+	{ m_spReference = spExactSol; }
+
+#ifdef UG_FOR_LUA
+	LuaOutputObserver(const char *ExactSol)
+	: m_sp_vtk(SPNULL)
+	{ m_spReference = make_sp(new LuaUserData<number, grid_function_type::dim>(ExactSol)); }
+
+	LuaOutputObserver(const char *ExactSol, SmartPtr<vtk_type> vtk)
+	: m_sp_vtk(vtk)
+	{ m_spReference = make_sp(new LuaUserData<number, grid_function_type::dim>(ExactSol)); }
+
+#endif
+
+	virtual ~LuaOutputObserver()
+	{}
+
+	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
+	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		UG_LOG("L2Error(\t"<< time << "\t) = \t" << L2Error(m_spReference, u, "c", time, 4) << std::endl);
+		if (m_sp_vtk.valid())
+		{
+			SmartPtr<grid_function_type> ref = u->clone();
+			Interpolate<grid_function_type> (m_spReference, ref, "c", time);
+			m_sp_vtk->print("MyReference", *ref, step, time);
+		}
+
+
+
+	}
+
+protected:
+	// TODO: replace by appropriate call-back
+	SmartPtr<UserData<number, grid_function_type::dim> > m_spReference;
+	SmartPtr<vtk_type> m_sp_vtk;
+};
+
 
 /// Base class for observer attachment
 template<class TDomain, class TAlgebra>
@@ -219,10 +278,7 @@ class ITimeIntegrator
 	//! Apply operator
 	/*! This method applies the operator, i.e, advances the time step*/
 	void apply(grid_function_type& u1, const grid_function_type& u0)
-	{
-	  UG_THROW("Fix interfaces!");
-	  // apply(u1, m_upper_tim, u0, m_lower_tim); 
-	}
+	{ UG_THROW("Fix interfaces!"); }
 
     virtual void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0) = 0;
 

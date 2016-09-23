@@ -18,6 +18,7 @@
 #include "lib_algebra/operator/interface/operator.h"
 #include "lib_algebra/operator/interface/operator_inverse.h"
 #include "lib_algebra/operator/linear_solver/linear_solver.h"
+#include "lib_algebra/operator/debug_writer.h"
 #include "lib_disc/function_spaces/grid_function.h"
 #include "lib_disc/assemble_interface.h" // TODO: missing IAssemble in following file:
 #include "lib_disc/operator/linear_operator/assembled_linear_operator.h"
@@ -60,7 +61,8 @@ class TimeIntegratorThread : public TI
 
 template<class TDomain, class TAlgebra>
 class LimexTimeIntegrator
-: public INonlinearTimeIntegrator<TDomain, TAlgebra>
+: public INonlinearTimeIntegrator<TDomain, TAlgebra>,
+  public VectorDebugWritingObject<typename TAlgebra::vector_type>
 {
 
 
@@ -75,7 +77,9 @@ public:
 		typedef IDomainDiscretization<algebra_type>	domain_discretization_type;
 		typedef LinearImplicitEuler<algebra_type> timestep_type;
 		typedef AitkenNevilleTimex<vector_type> timex_type;
+		typedef INonlinearTimeIntegrator<TDomain, TAlgebra> itime_integrator_type;
 		typedef SimpleTimeIntegrator<TDomain, TAlgebra> time_integrator_type;
+		typedef ISubDiagErrorEst<vector_type> error_estim_type;
 
 		class ThreadData
 
@@ -86,7 +90,6 @@ public:
 			ThreadData(SmartPtr<timestep_type> spTimeStep)
 			: m_stepper(spTimeStep)
 			{
-
 			}
 
 			SmartPtr<timestep_type> get_time_stepper()
@@ -116,21 +119,31 @@ public:
 
 		typedef std::vector<SmartPtr<ThreadData> > thread_vector_type;
 
+public:
+	using VectorDebugWritingObject<vector_type>::set_debug;
+protected:
+	using VectorDebugWritingObject<vector_type>::write_debug;
 
+
+public:
 		LimexTimeIntegrator(int nstages)
 		: m_nstages(nstages), m_tol(0.01), m_rhoSafety(0.8)
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
-			// create integrators
-			for (unsigned int i=0; i<m_nstages; ++i){
 
-				m_vSteps.push_back(i+1);
-			}
+			// create integrators
+			/*for (unsigned int i=0; i<m_nstages; ++i){
+
+				 m_vSteps.push_back(i+1);
+			}*/
 		}
 
 		void set_tolerance(double tol)
 		{m_tol = tol;}
+
+		void add_error_estimator(SmartPtr<error_estim_type> spErrorEstim)
+		{ m_spErrorEstimator = spErrorEstim; }
 
 		void add_stage(int i, int nsteps, SmartPtr<domain_discretization_type> spDD, SmartPtr<solver_type> solver)
 		{
@@ -146,8 +159,71 @@ public:
 
 		}
 
-		void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+protected:
+		//! initialize integrator threads (w/ solutions)
+		void init_integrator_threads(SmartPtr<grid_function_type> u1)
 		{
+			const int nstages = m_vThreadData.size()-1;
+			for (int i=nstages; i>=0; --i)
+			{
+				m_vThreadData[i].set_solution(u1->clone());
+			}
+		}
+
+
+		//! (tentatively) apply integrators
+		// PARALLEL execution?
+		void apply_integrator_threads(number dtcurr, SmartPtr<grid_function_type> u0, number t0)
+		{
+			/*
+							int tn = omp_get_thread_num();
+							int nt = omp_get_num_threads();
+
+							omp_set_num_threads(nstages);
+			 */
+			const int nstages = m_vThreadData.size()-1;
+			//	#pragma omp for private(i) // shared (nstages, u1) schedule(static)
+			for (int i=nstages; i>=0; --i)
+			{
+				/*
+								std::cerr << "I am " << tn << " of " << nt << " ("<< i<< "/" << nstages<<")!" << std::endl;
+								UGMultiThreadEnvironment mt_env;
+				 */
+
+				// copy data to private structure (one-to-many)
+				//m_vThreadData[i].set_solution(u1->clone());
+
+				// switch to "child" comm
+				// mt_env.begin();
+
+				// integrate (t0, t0+dtcurr)
+				time_integrator_type integrator(m_vThreadData[i].get_time_stepper());
+				integrator.set_time_step(dtcurr/m_vSteps[i]);
+				integrator.set_solver(m_vThreadData[i].get_solver());
+				integrator.apply(m_vThreadData[i].get_solution(), t0+dtcurr, u0, t0);
+
+				// switch to "parent" comm
+				//mt_env.end();
+			} /*for-loop*/
+
+		}
+
+		void update_integrator_threads(ConstSmartPtr<grid_function_type> u, number t)
+		{
+
+		}
+
+		void sync_integrator_threads()
+		{
+			// join all threads
+			// g.join_all();
+		}
+
+public:
+		//! integrating from t0 -> t1
+		void apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+		{
+
 
 #ifdef UG_OPENMP
 			// create multi-threading environment
@@ -155,8 +231,23 @@ public:
 
 #endif
 
+			// IMPORTANT NOTE: we use u as common storage for future (and intermediate) solution(s)
+			*u = *u0;
 
-			double dtcurr = ITimeIntegrator<TDomain, TAlgebra>::get_time_step();
+
+			// initialize integrator threads
+			// (w/ solutions)
+			init_integrator_threads(u);
+
+
+			// write_debug
+			char name[40];
+			for (unsigned int i=0; i<m_vThreadData.size(); ++i)
+			{
+				sprintf(name, "Limex_Init_iter%03d_stage%03d", 0, i);
+				write_debug(*m_vThreadData[i].get_solution(), name);
+			}
+
 			// initialize integrator threads
 			// (w/ solutions)
 
@@ -167,12 +258,10 @@ public:
 			}
 */
 			// create (& execute) threads
-
 			/*boost::thread_group g;
 			typename thread_vector_type::reverse_iterator rit=m_vThreadData.rbegin();
 			for (rit++; rit!= m_vThreadData.rend(); ++rit)
 			{
-
 
 				boost::thread *t =new boost::thread(boost::bind(&ThreadSafeTimeIntegrator::apply, *rit));
 				//g.add_thread(t);
@@ -181,91 +270,108 @@ public:
 
 			}*/
 
-			//unsigned int k = m_vThreadData.size()-1;
-			const int nstages = m_vThreadData.size()-1;
 
-			for (int i=nstages; i>=0; --i)
+			number t = t0;
+			double dtcurr = ITimeIntegrator<TDomain, TAlgebra>::get_time_step();
+
+
+
+			// time integration loop
+			int limex_step = 1;
+			while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
 			{
-				m_vThreadData[i].set_solution(u1->clone());
-			}
 
-//#pragma omp parallel shared (u1)
-			{
-				// PARALLEL execution
+				UG_DLOG(LIB_LIMEX, 5, "+++ Timestep +++" << limex_step << "\n");
 
-/*
-				int tn = omp_get_thread_num();
-				int nt = omp_get_num_threads();
+				// determine step size
+				number dt = std::min(dtcurr, t1-t);
+				UG_COND_THROW(dt < base_type::get_dt_min(),
+							"Time step size below minimum. ABORTING!");
 
-				omp_set_num_threads(nstages);
-*/
-				int i;
-			//	#pragma omp for private(i) // shared (nstages, u1) schedule(static)
-				for (i=nstages; i>=0; --i)
+
+				// write_debug
+				for (unsigned int i=0; i<m_vThreadData.size(); ++i)
 				{
-					/*
-					std::cerr << "I am " << tn << " of " << nt << " ("<< i<< "/" << nstages<<")!" << std::endl;
+						sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03d", limex_step, i);
+						write_debug(*m_vThreadData[i].get_solution(), name);
+				}
 
-					UGMultiThreadEnvironment mt_env;
-					 */
+				// integrate from t -> t+dt
+				apply_integrator_threads(dt, u, t);
+				sync_integrator_threads();
 
-					// copy data to private structure (one-to-many)
-					//m_vThreadData[i].set_solution(u1->clone());
+				// checks
+				UG_ASSERT(m_vSteps.size()==m_vThreadData.size(),
+						"Huhh: sizes do not match: " << m_vSteps.size() << "!="<<m_vThreadData.size());
 
-					// switch to "child" comm
-					// mt_env.begin();
+				UG_ASSERT(m_spErrorEstimator.valid(), "Huhh: Invalid Error estimator!");
 
-					// integrate
-					time_integrator_type integrator(m_vThreadData[i].get_time_stepper());
-					integrator.set_time_step(dtcurr/m_vSteps[i]);
-					integrator.set_solver(m_vThreadData[i].get_solver());
-					integrator.apply(m_vThreadData[i].get_solution() , t1, u0, t0);
-
-					// switch to "parent" comm
-					//mt_env.end();
-				} /*for-loop*/
-
-			} /*omp parallel */
-			// join all threads
-			// g.join_all();
+				// write_debug
+				for (unsigned int i=0; i<m_vThreadData.size(); ++i)
+				{
+					sprintf(name, "Limex_AfterSerial_iter%03d_stage%03d", limex_step, i);
+					write_debug(*m_vThreadData[i].get_solution(), name);
+				}
 
 
-			// SERIAL EXECUTION:
-			// compute extrapolation
-			UG_ASSERT(m_vSteps.size()==m_vThreadData.size(), "Huhh: sizes do not match!");
-			timex_type timex(m_vSteps);
-			for (unsigned int i=0; i<m_vThreadData.size(); ++i)
-			{
-				timex.set_solution(m_vThreadData[i].get_solution(), i);
+				// compute extrapolation at t+dtcurr (SERIAL)
+				timex_type timex(m_vSteps);
+				timex.set_error_estimate(m_spErrorEstimator);
+				for (unsigned int i=0; i<m_vThreadData.size(); ++i)
+				{
+					timex.set_solution(m_vThreadData[i].get_solution(), i);
+				}
+				timex.apply();
+
+				// write_debug
+				for (unsigned int i=0; i<m_vThreadData.size(); ++i)
+				{
+						sprintf(name, "Limex_Extra_iter%03d_stage%03d", limex_step, i);
+						write_debug(*m_vThreadData[i].get_solution(), name);
+				}
+
+				int kbest = timex.get_best_index();
+				SmartPtr<grid_function_type> ubest = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
+				UG_ASSERT(ubest.valid(), "Huhh: Invalid Error estimator!");
+
+
+				// check for success
+				double eps = timex.get_error_estimate(kbest);			// compute error estimate
+				double lambda = pow(m_rhoSafety*m_tol/eps, 1.0/kbest); 	// step length increase/reduction
+				double dtest = std::min(dtcurr*lambda,
+										dtcurr*itime_integrator_type::get_increase_factor());
+
+				UG_LOG("eps=" << eps << ", lambda0=" << m_rhoSafety*m_tol/eps << ", lambda=" << lambda << "dtest=" << dtest<< std::endl);
+
+				dtcurr = std::min(dtest, itime_integrator_type::get_dt_max());
+
+				if (eps <= m_tol)
+				{
+					// ACCEPT time step
+					// copy best solution
+					*u = *ubest;
+					t += dt;
+
+					itime_integrator_type::notify_step_postprocess(u, limex_step, t, dt);
+
+					UG_LOG("+++ Timestep +++" << limex_step << "ACCEPTED \n");
+					limex_step++;
+				}
+				else
+				{
+					// DISCARD time step
+					UG_LOG("+++ Timestep +++" << limex_step << "has FAILED \n");
+
+				}
 			}
-			timex.apply();
-			double eps = timex.get_error_estimate();
-			double lambda=pow(m_rhoSafety*m_tol/eps, 0.5);
-
-			std::cerr << "eps=" << eps << "lambda=" << lambda << std::endl;
-
-
-			if (eps<= m_tol)
-			{
-				// ACCEPT time step
-				double dtest = std::min(dtcurr*lambda, dtcurr*m_dtBounds.get_increase_factor());
-				dtcurr = std::min(dtest, m_dtBounds.get_dt_max());
-
-			} else
-			{
-				// DISCARD time step
-				double dtest = std::min(dtcurr*lambda, dtcurr*m_dtBounds.get_reduction_factor());
-				UG_ASSERT (eps<= m_tol, "Time step failed!")
-			}
 
 
 
-			// copy solution
-			*u1 = *(m_vThreadData[nstages].get_solution());
+			// notify_step_postprocess(u, 1, 10.0*dtcurr, dtcurr);
 
-			// notify_step_postprocess(u1, 1, 10.0*dtcurr, dtcurr);
+		} // apply
 
-		}
+
 
 protected:
 		// SmartPtr<domain_discretization_type> m_spDD;		// underlying domain disc
@@ -274,10 +380,10 @@ protected:
 		std::vector<size_t> m_vSteps;						// generating sequence for extrapolation
 		std::vector<ThreadData> m_vThreadData;				// vector with thread information
 
-		TimeStepBounds m_dtBounds;
+		//TimeStepBounds m_dtBounds;
 		double m_tol;
 		double m_rhoSafety;
-
+		SmartPtr<error_estim_type> m_spErrorEstimator;     // (smart ptr for) error estimator
 };
 
 } // namespace ug

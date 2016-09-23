@@ -112,6 +112,18 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_to_group(name, "ConnectionViewerOutputObserver", tag);
 	}
 
+	{
+			// LuaOutputObserver
+			typedef LuaOutputObserver<TDomain, TAlgebra> T;
+
+			string name = string("LuaOutputObserver").append(suffix);
+			reg.add_class_<T, typename T::base_type>(name, grp)
+			    .template add_constructor<void (*)(const char*) >("")
+				.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
+				.set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "LuaOutputObserver", tag);
+	}
+
 
 	{
 		// ITimeIntegrator (virtual base class)
@@ -245,7 +257,9 @@ static void DomainAlgebra(Registry& reg, string grp)
 								  //.ADD_CONSTRUCTOR( (SmartPtr<TDomainDisc>, int) ) ("Domain disc|number of steps (vector)")
 								  .ADD_CONSTRUCTOR( (int) ) ("number of stages")
 								  .add_method("add_stage", &T::add_stage)
+								  .add_method("add_error_estimator", &T::add_error_estimator)
 								  .add_method("set_tolerance", &T::set_tolerance)
+								  .add_method("set_debug", &T::set_debug)
 								  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 								  .set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "LimexTimeIntegrator", tag);
@@ -335,8 +349,10 @@ static void Algebra(Registry& reg, string parentGroup)
 						.add_method("set_solution", &T::set_solution)
 						.add_method("get_solution", &T::get_solution)
 						.add_method("apply", &T::apply)
-						.add_method("get_error_estimate", &T::get_error_estimate)
-						//.add_method("get_error_estimate",  (double (T::*)(int)) &T::get_error_estimate, "","")
+						//.add_method("get_error_estimate", &T::get_error_estimate())
+						//.add_method("get_error_estimate", &T::get_error_estimate(int))
+						.add_method("get_error_estimate",  (double (T::*)(void)) &T::get_error_estimate, "","")
+					    .add_method("get_error_estimate",  (double (T::*)(int)) &T::get_error_estimate, "","")
 						.add_method("set_error_estimate", &T::set_error_estimate)
 						.set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "AitkenNevilleTimex", tag);
