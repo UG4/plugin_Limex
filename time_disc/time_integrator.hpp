@@ -305,7 +305,7 @@ class ITimeIntegrator
 	void apply(grid_function_type& u1, const grid_function_type& u0)
 	{ UG_THROW("Fix interfaces!"); }
 
-    virtual void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0) = 0;
+    virtual bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0) = 0;
 
 	//! Set initial time step
 	void set_time_step(double dt)
@@ -389,13 +389,13 @@ public:
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc) {}
 
 	//void init(grid_function_type const& u);
-	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 };
 
 
 
 template<typename TDomain, typename TAlgebra>
-void LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
 
 	LIMEX_PROFILE_FUNC()
@@ -500,14 +500,14 @@ public:
 	ConstStepLinearTimeIntegrator (SmartPtr<time_disc_type> tDisc)
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc), m_numSteps(1) {}
 
-	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 	void set_num_steps(int steps) {m_numSteps = steps;}
 };
 
 
 
 template<typename TDomain, typename TAlgebra>
-void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
 	LIMEX_PROFILE_FUNC()
 	// short-cuts
@@ -532,7 +532,7 @@ void ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 	
 	 //std::cerr << "+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)\n";
 	if(!base_type::m_bNoLogOut)
-		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)");
+		UG_LOG("+++ Integrating: [\t"<< t0 <<"\t, \t"<< t1 <<"\t] with dt=\t" << currdt << "("<< numSteps<< " iters)");
 	 
 	 // integrate
 	 for(int step = 1; step<=numSteps; ++step)
@@ -616,7 +616,7 @@ public:
 	}
 
 	void init(grid_function_type const& u);
-	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 
     void set_tol(double tol) {m_tol = tol;}
     void set_time_step_min(number dt) {m_dtmin = dt;}
@@ -633,7 +633,7 @@ void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::init(grid_function_type co
 }
 
 template<typename TDomain, typename TAlgebra>
-void TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
 	// short-cuts
 	GridLevel const &gl = u0->grid_level();
@@ -862,23 +862,23 @@ public:
 	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc)
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc) {}
 
-	void apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 	{
 		time_disc_type &tdisc = *tdisc_dep_type::m_spTimeDisc;
 		if (tdisc.num_stages() == 1)
-			apply_single_stage(u1,t1,u0,t0);
+			return apply_single_stage(u1,t1,u0,t0);
 		else
-			apply_multi_stage(u1,t1,u0,t0);
+			return apply_multi_stage(u1,t1,u0,t0);
 	}
 
 protected:
-	void apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
-	void apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	bool apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+	bool apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 };
 
 
 template<typename TDomain, typename TAlgebra>
-void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
 
 	LIMEX_PROFILE_FUNC()
@@ -909,7 +909,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	double final_dt = base_type::m_dt;
 
 	if(!base_type::m_bNoLogOut)
-		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
+		UG_LOG("+++ Integrating: [\t"<< t0 <<"\t, \t"<< t1 <<"\t] with\t" << currdt <<"\n");
 
 	 while((t < t1) && (t1-t > base_type::m_precisionBound))
 	 {
@@ -927,7 +927,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 if (solver.prepare(*u1) == false)
 		 {
 				if(!base_type::m_bNoLogOut)
-				 UG_LOG("Initialzation failed! RETRY");
+				 UG_LOG("Initialization failed! RETRY");
 
 			 currdt *= base_type::get_reduction_factor();
 			 continue;
@@ -959,9 +959,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 		//
 				// REJECT step
 				//
-
-				if(!base_type::m_bNoLogOut)
-					UG_LOG("Solution failed! RETRY");
+			 	UG_LOG("Solution failed! RETRY");
 
 				currdt *= base_type::get_reduction_factor();
 				continue;
@@ -977,10 +975,12 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		this->notify_step_postprocess(u1, step, t, final_dt);
 	}
 
+	return true;
+
 };
 
 template<typename TDomain, typename TAlgebra>
-void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
 
 	LIMEX_PROFILE_FUNC()
@@ -1093,6 +1093,7 @@ void SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	{
 		this->notify_step_postprocess(u1, step, t, final_dt);
 	}
+	return true;
 };
 
 

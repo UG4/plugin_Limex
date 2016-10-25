@@ -264,17 +264,22 @@ protected:
 
 	int m_quadorder;
 	std::string m_fctNames;
+	number m_refNormValue;
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
 
 	// constructor
 	GridFunctionEstimator(const char *fctNames) :
-	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(3)
+	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(3), m_refNormValue(0.0)
 	{};
 
 	GridFunctionEstimator(const char *fctNames, int order) :
-	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(order)
+	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(order), m_refNormValue(0.0)
 	{};
+
+	GridFunctionEstimator(const char *fctNames, int order, number ref) :
+		ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(order), m_refNormValue(ref)
+		{};
 
 	// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
@@ -291,17 +296,33 @@ public:
 
 		// error estimate
 		// TODO: could be more general!
-	//	SmartPtr<TNumberData> spCoarseCmps =  make_sp<TNumberData>(new TNumberData (uCoarse, m_fctNames.c_str()));
-		number unorm = L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
-		number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
-		base_type::m_est = enorm/unorm;
 
-		std::cerr << "unorm=" << unorm << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
+		if (m_refNormValue<=0.0)
+		{
+			// relative error estimator
+			number unorm = L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
+			number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			base_type::m_est = enorm/unorm;
 
-		// p
+			std::cerr << "unorm=" << unorm << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
+		}
+		else
+		{
+			// weighted error estimator
+			number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			base_type::m_est = enorm/m_refNormValue;
+
+			std::cerr << "unorm (FIXED)=" << m_refNormValue << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
+
+		}
+
+		// update
 		VecScaleAdd(*vUpdate, 1.0+alpha, *vFine, -alpha, *vCoarse);
 		return true;
 	}
+
+	void set_reference_norm(number norm)
+	{m_refNormValue = norm; }
 };
 
 
@@ -402,7 +423,7 @@ class AitkenNevilleTimex
 					const number scaling = ((1.0*m_num_steps[i])/(1.0*m_num_steps[i-k])-1.0);
 					UG_LOG("scaling="<<i << ","<< k <<
 							": ns["<<i<<"]="<< m_num_steps[i] <<
-							"ns2["<<i-k<<"]=" <<  m_num_steps[i-k] << scaling << std::endl);
+							"ns2["<<i-k<<"]=" <<  m_num_steps[i-k] <<"=" << scaling << std::endl);
 
 					if (i==k)
 					{
