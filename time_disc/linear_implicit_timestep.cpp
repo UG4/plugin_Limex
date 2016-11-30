@@ -65,12 +65,13 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 	try
 	{
 		this->m_spDomDisc->prepare_timestep(m_pPrevSol);
+		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol);
 	}
 	UG_CATCH_THROW("ThetaTimeStep: Cannot prepare time step.");
 
 	//m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(m_spJAss));
 
-	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spDomDisc));
+	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spMatrixDisc));
 	/*{
 		m_JLinOp->init(*m_pPrevSol->oldest());
 	}
@@ -103,10 +104,11 @@ prepare_step_elem(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 	try{
 
 		this->m_spDomDisc->prepare_timestep(m_pPrevSol, gl);
+		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol, gl);
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot prepare timestep.");
 
 	// Aux linear operator
-	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spDomDisc));
+	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spMatrixDisc));
 	// m_JLinOp->init(*m_pPrevSol->oldest());
 	//std::cout << "PREPELEM: "<< m_vScaleMass[0] <<", " << m_vScaleStiff[0] << ", " <<m_dt << ", " << m_pPrevSol->time(0) << std::endl;
 

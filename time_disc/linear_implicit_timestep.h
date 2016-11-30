@@ -68,9 +68,12 @@ namespace ug{
 template <class TAlgebra>
 class LinearImplicitEuler
 : public ITimeDiscretization<TAlgebra>
-	//	: public MultiStepTimeDiscretization<TAlgebra>
+
 {
 public:
+/// Type of base class
+	typedef ITimeDiscretization<TAlgebra> base_type;
+
 /// Type of algebra
 	typedef TAlgebra algebra_type;
 
@@ -87,8 +90,16 @@ public:
 /// constructor
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDD)
 		: ITimeDiscretization<TAlgebra>(spDD),
+		  m_spMatrixDisc(spDD),
 		  m_pPrevSol(NULL)
 	{}
+
+	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
+				SmartPtr<IDomainDiscretization<algebra_type> > spMatrixDisc)
+			: ITimeDiscretization<TAlgebra>(spDefectDisc),
+			  m_spMatrixDisc(spMatrixDisc),
+			  m_pPrevSol(NULL)
+		{}
 
 	virtual ~LinearImplicitEuler(){};
 
@@ -133,6 +144,14 @@ public:
 
 protected:
 
+	 using base_type::m_spDomDisc;
+
+	 /*SmartPtr<IDomainDiscretization<algebra_type> > defect_disc()
+	 {return m_spDomDisc;}
+
+	SmartPtr<IDomainDiscretization<algebra_type> > matrix_disc()
+	{return m_spMatrixDisc;}
+*/
 	virtual number update_scaling(std::vector<number>& vSM,
 			                              std::vector<number>& vSA,
 			                              number dt, number currentTime,
@@ -163,7 +182,7 @@ protected:
 	number m_dt; 								///< Time Step size
 	number m_futureTime;						///< Future Time
 
-
+	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixDisc;
 };
 
 

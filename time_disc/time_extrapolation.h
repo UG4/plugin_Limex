@@ -261,25 +261,84 @@ class GridFunctionEstimator : public ISubDiagErrorEst<typename TAlgebra::vector_
 {
 protected:
 	typedef typename TAlgebra::vector_type TVector;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 
 	int m_quadorder;
-	std::string m_fctNames;
 	number m_refNormValue;
+
+	struct GridFunctionEvaluator
+	{
+		std::string m_fctNames;
+		int m_quadorder;
+		int m_type;
+		double m_scale;
+
+		GridFunctionEvaluator(const GridFunctionEvaluator &val)
+		{
+			this->m_fctNames = val.m_fctNames;
+			this->m_quadorder = val.m_quadorder;
+			this->m_type = val.m_type;
+			this->m_scale = val.m_scale;
+		}
+
+		GridFunctionEvaluator(const char *fctNames) :
+		m_fctNames(fctNames), m_quadorder(3), m_type(0), m_scale(1.0) {}
+
+		GridFunctionEvaluator(const char *fctNames, int order) :
+		m_fctNames(fctNames), m_quadorder(order), m_type(0), m_scale(1.0) {}
+
+		GridFunctionEvaluator(const char *fctNames, int order, int type) :
+		m_fctNames(fctNames), m_quadorder(order), m_type(type), m_scale(1.0) {}
+
+		GridFunctionEvaluator(const char *fctNames, int order, int type, double scale) :
+		m_fctNames(fctNames), m_quadorder(order), m_type(type), m_scale(scale) {}
+
+		double compute_norm(SmartPtr<grid_function_type> uFine) const
+		{
+			return (m_type ==1) ? H1SemiNorm<grid_function_type>(uFine, m_fctNames.c_str(), m_quadorder)
+			: L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
+		};
+
+		double compute_error(SmartPtr<grid_function_type> uFine, SmartPtr<grid_function_type> uCoarse) const
+		{
+			return (m_type ==1) ? H1Error<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder)
+			: L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+		};
+
+	};
+
+	std::vector<GridFunctionEvaluator> m_evaluators;
+
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
 
 	// constructor
 	GridFunctionEstimator(const char *fctNames) :
-	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(3), m_refNormValue(0.0)
-	{};
+	ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
+	{ this->add(fctNames); }
 
 	GridFunctionEstimator(const char *fctNames, int order) :
-	ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(order), m_refNormValue(0.0)
-	{};
+	ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
+	{ this->add(fctNames, order); }
 
-	GridFunctionEstimator(const char *fctNames, int order, number ref) :
-		ISubDiagErrorEst<TVector>(), m_fctNames(fctNames), m_quadorder(order), m_refNormValue(ref)
-		{};
+	GridFunctionEstimator(const char *fctNames, int order, double ref) :
+	ISubDiagErrorEst<TVector>(), m_refNormValue(ref)
+	{ this->add(fctNames, order); }
+
+	void add(const char *fctNames)
+	{
+		m_evaluators.push_back(GridFunctionEvaluator(fctNames));
+	}
+
+	void add(const char *fctNames, int order)
+	{
+		m_evaluators.push_back(GridFunctionEvaluator(fctNames, order));
+	}
+
+	void add4(const char *fctNames, int order, int type, double scale)
+	{
+		m_evaluators.push_back(GridFunctionEvaluator(fctNames, order, type, scale));
+	}
 
 	// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
@@ -295,13 +354,19 @@ public:
 
 
 		// error estimate
-		// TODO: could be more general!
-
 		if (m_refNormValue<=0.0)
 		{
 			// relative error estimator
-			number unorm = L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
-			number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			//number unorm = L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
+			//number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			number unorm = 0.0;
+			number enorm = 0.0;
+			for (typename std::vector<GridFunctionEvaluator>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			{
+				unorm +=  it->compute_norm(uFine);
+				enorm +=  alpha * it->compute_error(uFine, uCoarse);
+			}
+
 			base_type::m_est = enorm/unorm;
 
 			std::cerr << "unorm=" << unorm << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
@@ -309,7 +374,13 @@ public:
 		else
 		{
 			// weighted error estimator
-			number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+		//	number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			number enorm = 0.0;
+			for (typename std::vector<GridFunctionEvaluator>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			{
+
+				enorm +=  alpha * it->compute_error(uFine, uCoarse);
+			}
 			base_type::m_est = enorm/m_refNormValue;
 
 			std::cerr << "unorm (FIXED)=" << m_refNormValue << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
@@ -432,7 +503,7 @@ class AitkenNevilleTimex
 						number subdiag_error_est=m_subdiag->get_current_estimate();
 
 						//m_subdiag_error_est[k] = sqrt(subdiag_error_est*scaling);
-						m_subdiag_error_est[k]=subdiag_error_est*scaling;
+						m_subdiag_error_est[k]=subdiag_error_est; //*scaling;
 
 						UG_LOG(" ErrorEst["<< k<<"]=" << m_subdiag_error_est[k] << ";" << std::endl);
 					}

@@ -98,6 +98,11 @@ public:
 			m_sp_vtk->print(m_filename.c_str(), *u, step, time);
 	}
 
+	void close(SmartPtr<grid_function_type> u)
+	{
+		if (m_sp_vtk.valid())
+			m_sp_vtk->write_time_pvd(m_filename, u);
+	}
 protected:
 	SmartPtr<vtk_type> m_sp_vtk;
 	std::string m_filename;

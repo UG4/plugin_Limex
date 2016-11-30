@@ -108,6 +108,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		   .template add_constructor<void (*)(const char*, int) >("")
 		   .template add_constructor<void (*)(const char*, int, number) >("")
 		   .add_method("set_reference_norm", &T::set_reference_norm)
+		   .add_method("add", &T::add4)
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
 
