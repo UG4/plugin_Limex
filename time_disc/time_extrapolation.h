@@ -410,16 +410,18 @@ class AitkenNevilleTimex
 		AitkenNevilleTimex(std::vector<size_t> nsteps)
 		: m_num_steps(nsteps),
 		  m_stepsize(0.0),
+		  m_subdiag (make_sp(new Norm2Estimator<TVector>())),
 		  m_solution(nsteps.size()),
-		  m_subdiag_error_est(nsteps.size(), INFINITY),
-		  m_subdiag (make_sp(new Norm2Estimator<TVector>())){};
+		  m_subdiag_error_est(nsteps.size(), INFINITY)
+		{};
 
 		AitkenNevilleTimex(std::vector<size_t> nsteps, SmartPtr<ISubDiagErrorEst<vector_type> > error)
 		: m_num_steps(nsteps),
 		  m_stepsize(0.0),
+		  m_subdiag(error),
 		  m_solution(nsteps.size()),
-		  m_subdiag_error_est(nsteps.size(), INFINITY),
-		  m_subdiag(error){};
+		  m_subdiag_error_est(nsteps.size(), INFINITY)
+		{};
 
 		virtual ~AitkenNevilleTimex() {}
 
@@ -436,29 +438,35 @@ class AitkenNevilleTimex
 
 		//! set error estimator
 		void set_error_estimate(SmartPtr<ISubDiagErrorEst<vector_type> > subdiag)
-		{ m_subdiag = subdiag; }
+		{
+			m_subdiag = subdiag;
+		}
 
-		number get_error_estimate()
+
+		const std::vector<number>& get_error_estimates() const
+		{return m_subdiag_error_est; }
+
+		//! error estimate on stage k
+		number get_error_estimate(int k) const
+		{ return m_subdiag_error_est[k];}
+
+
+		//! best error estimate
+		/*number get_error_estimate()
 		{
 			std::vector<number>::iterator best = std::min_element(m_subdiag_error_est.begin(), m_subdiag_error_est.end());
 			return *best;
 		}
 
-		number get_error_estimate(int s)
-		{ return m_subdiag_error_est[s];}
-
-
 		//! return best index
-		int get_best_index()
+		int get_best_index() const
 		{
 			std::vector<number>::iterator best = std::min_element(m_subdiag_error_est.begin(), m_subdiag_error_est.end());
 			//std::cout << "min element at: " << std::distance(std::begin(m_subdiag_error_est), best);
 			return std::distance(m_subdiag_error_est.begin(), best);
 		}
 
-		/*number get_error_estimate(int i)
-		{ return m_subdiag_error_est[i];}
-*/
+		 */
 
 		/**
 		 * Triangular Aitken Neville extrapolation:
@@ -470,18 +478,22 @@ class AitkenNevilleTimex
 		 *
 		 * for T_ik
  		 * */
-		void apply()
+		void apply(size_t nstages)
 		{
-			UG_ASSERT(  m_num_steps.size() == m_solution.size(), "Dimensions do not match");
-			const size_t NStages = m_num_steps.size()-1;
+			UG_ASSERT(nstages <= m_solution.size(),
+					 "Dimensions do not match:"  << nstages << ">" << m_solution.size());
+
+			// clear (for safety reasons...)
+			for (size_t k=1; k<m_solution.size(); ++k)
+			{ m_subdiag_error_est[k] = INFINITY; }
 
 			//m_subdiag_error_est[0] = ;
 			// process columns (left to right)
-			for (size_t k=1; k<=NStages; ++k)
+			for (size_t k=1; k<nstages; ++k)
 			{
 
 				// process rows (bottom up, allows recycling memory)
-				for (size_t i=NStages; i>=k; --i)
+				for (size_t i=nstages-1; i>=k; --i)
 				{
 					UG_ASSERT(m_solution[i].valid(), "Invalid SmarPtr!");
 					UG_ASSERT(m_solution[i-1].valid(), "Invalid SmarPtr!");
@@ -520,6 +532,16 @@ class AitkenNevilleTimex
 
 		}
 
+		/// apply for all stages
+		void apply()
+		{
+			//UG_ASSERT(m_num_steps.size() == m_solution.size(), "Dimensions do not match");
+			const size_t nstages = m_num_steps.size();
+			apply(nstages);
+		}
+
+
+
 protected:
 		number substep(size_t i) {return m_stepsize/m_num_steps[i];}
 
@@ -528,8 +550,10 @@ private:
 		number m_stepsize;
 		static const int m_order=1;
 
+		/** evaluation on last stage */
+		SmartPtr<ISubDiagErrorEst<vector_type> > m_subdiag;
 
-		/** number of intermediate steps (per stage)*/
+		/** n_i: number of intermediate steps (per stage)*/
 		std::vector<size_t> m_num_steps;
 
 		/** vector of solutions (per stage)*/
@@ -538,8 +562,6 @@ private:
 		/** sub-diagonal error estimate (per stage)*/
 		std::vector<number> m_subdiag_error_est;
 
-		/** evaluation on last stage */
-		SmartPtr<ISubDiagErrorEst<vector_type> > m_subdiag;
 
 };
 

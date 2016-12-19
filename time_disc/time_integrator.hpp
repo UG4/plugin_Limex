@@ -731,7 +731,7 @@ bool TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 		 timex.apply();
 
 		 // predict (subsequent) time step
-		 number eps = timex.get_error_estimate();
+		 number eps = timex.get_error_estimates()[0];
 		 number lambda = std::pow(0.8* m_tol/eps, 0.5); 
 
 		 number dtEst= dt*lambda; 

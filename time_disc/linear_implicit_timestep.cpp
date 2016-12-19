@@ -186,7 +186,7 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 		this->m_spDomDisc->assemble_mass_matrix(M, *m_pPrevSol->oldest(), gl);
 		MatAdd(J, 1.0, J, -1.0, M);
 		 */
-	}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble jacobian.");
+	} UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble jacobian.");
 
 }
 
