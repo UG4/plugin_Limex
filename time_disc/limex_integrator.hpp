@@ -106,8 +106,8 @@ public:
 		typedef SimpleTimeIntegrator<TDomain, TAlgebra> time_integrator_type;
 		typedef ISubDiagErrorEst<vector_type> error_estim_type;
 
+		//! Contains all data for parallel execution of time steps
 		class ThreadData
-
 		{
 			//typedef boost::thread thread_type;
 		public:
@@ -160,12 +160,13 @@ public:
 		LimexTimeIntegrator(int nstages)
 		: m_tol(0.01),
 		  m_rhoSafety(0.8),
+		  m_sigmaReduction(0.5),
 		  m_nstages(nstages),
-		  m_costA(m_nstages),
-		  m_gamma(m_nstages),
-		  m_monitor((m_nstages*m_nstages)), // TODO: wasting memory here!
-		  m_lambda(m_nstages),
-		  m_workload(m_nstages)
+		  m_costA(m_nstages+1),
+		  m_gamma(m_nstages+1),
+		  m_monitor(((m_nstages+1)*(m_nstages+1))), // TODO: wasting memory here!
+		  m_lambda(m_nstages+1),
+		  m_workload(m_nstages+1)
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -176,6 +177,8 @@ public:
 
 		/// tolerance
 		void set_tolerance(double tol) { m_tol = tol;}
+		void set_stepsize_safety_factor(double rho) { m_rhoSafety = rho;}
+		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;}
 
 		void add_error_estimator(SmartPtr<error_estim_type> spErrorEstim)
 		{ m_spErrorEstimator = spErrorEstim; }
@@ -196,20 +199,21 @@ public:
 		}
 
 protected:
-		//! initialize integrator threads (w/ solutions)
-		void init_integrator_threads(SmartPtr<grid_function_type> u1)
+		//! Initialize integrator threads (w/ solutions)
+		/*! Create private solutions for each thread */
+		void init_integrator_threads(ConstSmartPtr<grid_function_type> u)
 		{
 			const int nstages = m_vThreadData.size()-1;
 			for (int i=nstages; i>=0; --i)
 			{
-				m_vThreadData[i].set_solution(u1->clone());
+				m_vThreadData[i].set_solution(u->clone());
 			}
 		}
 
 
-		//! (tentatively) apply integrators
+		//! (Tentatively) apply integrators
 		// TODO: PARALLEL execution?
-		int apply_integrator_threads(number dtcurr, SmartPtr<grid_function_type> u0, number t0, size_t nstages)
+		int apply_integrator_threads(number dtcurr, ConstSmartPtr<grid_function_type> u0, number t0, size_t nstages)
 		{
 
 			update_cost();		// compute cost A_i (alternative: measure times?)
@@ -272,36 +276,41 @@ protected:
 			return error;
 		}
 
-		void update_integrator_threads(ConstSmartPtr<grid_function_type> u, number t)
+		//! e.g. wait for all threads to complete
+		void join_integrator_threads()
 		{
-
+				// join all threads
+				// g.join_all();
 		}
 
-		void sync_integrator_threads()
+		//! Override thread-wise solutions with common solution
+		void update_integrator_threads(ConstSmartPtr<grid_function_type> ucommon, number t)
 		{
-			// join all threads
-			// g.join_all();
+			const int nstages = m_vThreadData.size()-1;
+			for (int i=nstages; i>=0; --i)
+			{
+				*m_vThreadData[i].get_solution() = *ucommon;
+			}
 		}
+
+
 
 public:
 		//! integrating from t0 -> t1
 		bool apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 		{
-
-
 #ifdef UG_OPENMP
 			// create multi-threading environment
 			//int nt = std::min(omp_get_max_threads(), m_nstages);
 
 #endif
 
-			// IMPORTANT NOTE: we use u as common storage for future (and intermediate) solution(s)
+			// NOTE: we use u as common storage for future (and intermediate) solution(s)
 			*u = *u0;
-
 
 			// initialize integrator threads
 			// (w/ solutions)
-			init_integrator_threads(u);
+			init_integrator_threads(u0);
 
 
 			// write_debug
@@ -339,11 +348,15 @@ public:
 			double dtcurr = ITimeIntegrator<TDomain, TAlgebra>::get_time_step();
 
 			const size_t kmax = m_vThreadData.size();   // maximum number of stages
-			size_t qpred = 0;    // current order
-			size_t kf = 2;   // upper end
+			size_t qpred = kmax-1;  	 						// predicted optimal order
+			size_t qcurr = qpred;
+
+			// double lambda=1.0;   						// step length increase/decrease
 
 			// time integration loop
+			SmartPtr<grid_function_type> ubest = SPNULL;
 			int limex_step = 1;
+			size_t ntest;    // active number of stages <= kmax
 			while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
 			{
 				int err = 0;
@@ -355,51 +368,66 @@ public:
 				UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
 
 				// number of stages to investigate
-				kf = std::min(kmax, qpred+2);
-				UG_LOG("kf="<< kf << std::endl);
+				qcurr = qpred;
+				ntest = std::min(kmax, qcurr+1);
+				UG_LOG("ntest="<< ntest << std::endl);
 
 				// checks
-				UG_ASSERT(m_vSteps.size() >= kf, "Huhh: sizes do not match: " << m_vSteps.size() << "<"<<kf);
-				UG_ASSERT(m_vThreadData.size() >= kf, "Huhh: sizes do not match: " << m_vThreadData.size() << "< "<< kf);
+				UG_ASSERT(m_vSteps.size() >= ntest, "Huhh: sizes do not match: " << m_vSteps.size() << "<"<<ntest);
+				UG_ASSERT(m_vThreadData.size() >= ntest, "Huhh: sizes do not match: " << m_vThreadData.size() << "< "<< ntest);
+
+				///////////////////////////////////////
+				// PARALLEL EXECUTION: BEGIN
 
 				// write_debug
-				for (unsigned int i=0; i<kf; ++i)
+				for (size_t i=0; i<ntest; ++i)
 				{
 						sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03d", limex_step, i);
 						write_debug(*m_vThreadData[i].get_solution(), name);
 				}
 
 				// integrate: t -> t+dt
-				err = apply_integrator_threads(dt, u, t, kf-1);
-				sync_integrator_threads();
-
+				err = apply_integrator_threads(dt, u, t, ntest-1);
 
 				// write_debug
-				for (unsigned int i=0; i<kf; ++i)
+				for (size_t i=0; i<ntest; ++i)
 				{
 					sprintf(name, "Limex_AfterSerial_iter%03d_stage%03d", limex_step, i);
 					write_debug(*m_vThreadData[i].get_solution(), name);
 				}
 
-				// post-cond checks
+
+				join_integrator_threads();
+
+				// PARALLEL EXECUTION: END
+				///////////////////////////////////////
+
+
+
+
+				///////////////////////////////////////
+				// SERIAL EXECUTION: BEGIN
+
+
+				// sanity checks
 				UG_ASSERT(m_spErrorEstimator.valid(), "Huhh: Invalid Error estimator?");
 
 				double epsmin = 0.0;
-				SmartPtr<grid_function_type> ubest = SPNULL;
 
+				bool limexConverved = false;
 				if (err==0)
 				{
 					// compute extrapolation at t+dtcurr (SERIAL)
 					timex_type timex(m_vSteps);
 					timex.set_error_estimate(m_spErrorEstimator);
-					for (unsigned int i=0; i<kf; ++i)
+					for (unsigned int i=0; i<ntest; ++i)
 					{
 						timex.set_solution(m_vThreadData[i].get_solution(), i);
 					}
-					timex.apply(kf);
+					timex.apply(ntest);
 
 					// write_debug
-					for (unsigned int i=0; i<kf; ++i)
+					for (unsigned int i=0; i<ntest; ++i)
 					{
 						sprintf(name, "Limex_Extra_iter%03d_stage%03d", limex_step, i);
 						write_debug(*m_vThreadData[i].get_solution(), name);
@@ -407,47 +435,88 @@ public:
 
 					// obtain sub-diagonal error estimates
 					const std::vector<number>& eps = timex.get_error_estimates();
+					UG_ASSERT(ntest<=eps.size(), "Huhh: Not enough solutions?");
 
-					UG_ASSERT(kf<=eps.size(), "Huhh: Not enough solutions?");
+					// select optimal solution (w.r.t error) AND
+					// predict optimal order (w.r.t. workload) for next step
+					// size_t kf;   // index of last admissible solution
 
-					// select optimal solution / predict next (optimized w.r.t. workload)
-					size_t kmin = find_optimal_solution(eps, kf, qpred);
-					ubest = timex.get_solution(kmin).template cast_dynamic<grid_function_type>();
-					epsmin= eps[kmin];
+					size_t kbest = find_optimal_solution(eps, ntest, /*kf,*/ qpred);
+					UG_ASSERT(kbest < ntest, "Huhh: Not enough solutions?");
+
+
+					// best solution
+					ubest  = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
+					epsmin = eps[kbest];
+					limexConverved = (epsmin <= m_tol);   // check for convergence
+
+					// use predicted order for next step
+					double dtpred = dtcurr*m_lambda[qpred];
+					UG_LOG("koptim=\t" << kbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred] << ", alpha(q,q)=" << monitor(qpred, qpred) << "dt(q)=" << dtpred<< std::endl);
+
+					// EXTENSIONS: convergence model
+					// a) should we aim for order increase in next step?
+					if ((qpred+1 == ntest) && (kmax>ntest) && limexConverved)
+					{
+						double alpha = monitor(qpred, qpred+1);
+						UG_LOG("CHECKING for order increase: "<< m_costA[qpred] << "*" << alpha << ">" << m_costA[qpred+1]);
+						// check, whether further increase could still be efficient
+						if (m_costA[qpred] * alpha > m_costA[qpred+1])
+						{
+							qpred++;    			// go for higher order
+							// dtpred *= alpha;		// & adapt time step  // TODO: check required!
+							UG_LOG("... yes.\n")
+
+						} else {
+
+							UG_LOG("... nope.\n")
+
+						}
+					}
+
+					// monitor convergence
+
+
 
 					// parameters for subsequent step
-					double lambdaq = m_lambda[qpred]; 				// step length increase/reduction
-					double dtq = std::min(dtcurr*lambdaq,
-							dtcurr*itime_integrator_type::get_increase_factor());
-					dtcurr = std::min(dtq, itime_integrator_type::get_dt_max());
+					// step length increase/reduction
+					/*double dtpred = std::min(dtcurr*lambda,
+							dtcurr*itime_integrator_type::get_increase_factor());*/
+					dtcurr = std::min(dtpred, itime_integrator_type::get_dt_max());
 
-					UG_LOG("koptim=\t" << kmin << "\t, q=\t" << qpred<< "("<<  kf <<"), eps(k)=" << epsmin << ", lambda(q)=" << lambdaq << "dt(q)=" << dtq<< std::endl);
+
+
 
 				}
 				else
 				{
 					// solver failed -> cut time step
-					dtcurr *=0.5;
+					dtcurr *= m_sigmaReduction;
 				}
-				// err == 0
 
 
-				if ((err==0) && (epsmin <= m_tol))
+
+				if ((err==0) && limexConverved)
 				{
 					// ACCEPT time step
 					UG_LOG("+++ LimexTimestep +++" << limex_step << " ACCEPTED"<< std::endl);
-					UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << std::endl);
+					UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
 
 					// copy best solution
 					UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
 					*u = *ubest;
 					t += dt;
 
+					// make sure that all threads continue
+					// with identical initial value u(t)
+					update_integrator_threads(ubest, t);
+
+
 					// working on last row => increase order
-					//if (kf == q+1) kf++;
+					//if (ntest == q+1) ntest++;
 
 					// post process
-					itime_integrator_type::notify_step_postprocess(u, limex_step++, t, dt);
+					itime_integrator_type::notify_step_postprocess(ubest, limex_step++, t, dt);
 				}
 				else
 				{
@@ -457,9 +526,15 @@ public:
 
 				}
 
+				// SERIAL EXECUTION: END
+				///////////////////////////////////////
+
+
+
 			} // time integration loop
 
-
+			// copy solution
+			//*u = *ubest;
 
 			// notify_step_postprocess(u, 1, 10.0*dtcurr, dtcurr);
 
@@ -473,69 +548,85 @@ public:
 
 
 	protected:
-		number& monitor(size_t k, size_t q) { return m_monitor[k+m_nstages*q]; }
+		number& monitor(size_t k, size_t q) { return m_monitor[k+(m_nstages+1)*q]; }
 
 		/// aux: compute exponents gamma_k (for roots)
 		void init_gamma()
 		{
-			for (size_t k=0; k<m_nstages; ++k)
+			for (size_t k=0; k<=m_nstages; ++k)
 			{
 				m_gamma[k] = k+1;
 			}
 		}
 
-			/// aux: compute workloads A_i for computing T_ii
-			// (precond: m_vSteps has been initialized!)
+			/// Updating workloads A_i for computing T_ii
+			//  (depends on m_vSteps, which must have been initialized!)
 			void update_cost()
 			{
 				//UG_LOG("A_0="<< m_vSteps[0] << std::endl);
 				m_costA[0] = (1.0)*m_vSteps[0];
-				for (size_t i=1; i<m_nstages; ++i)
+				for (size_t i=1; i<=m_nstages; ++i)
 				{
 					m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
 					//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
 				}
 			}
 
-			/// aux: convervence monitor
-			// (precond: cost have been initialized!)
+			/// convergence monitor
+			// (depends on cost, which must have been initialized!)
 			void update_monitor()
 			{
 
-				for (size_t q=0; q<m_nstages; ++q)
-				for (size_t k=0; k<=q; ++k)
+
+				for (size_t k=0; k<=m_nstages; ++k)
 				{
-					double gamma = (m_costA[k] - m_costA[0] + 1.0)/(m_costA[q] -m_costA[0]+ 1.0);
-					double alpha = pow(m_tol, gamma);
-					monitor(k,q) = pow(alpha, 1.0/m_gamma[k]);
-					//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
+					UG_LOG("A[k]=" << m_costA[k] << ", gamma[k]=" << m_gamma[k] << "\t");
+					for (size_t q=0; q<=m_nstages; ++q)
+					{
+						// Deuflhard: order and stepsize, ... eq. (3.7)
+						double gamma = (m_costA[k] - m_costA[0] + 1.0)/(m_costA[q] - m_costA[0] + 1.0);
+						double alpha = pow(m_tol, gamma);
+
+						// for fixed order q, the monitor indicates the performance penalty compared to a strategy using k stages only
+						// cf. eq. (4.6)
+						monitor(k,q) = pow(alpha/(m_tol*m_rhoSafety), 1.0/m_gamma[k]);
+						UG_LOG(monitor(k,q) << "[" << pow(alpha/(m_tol), 1.0/m_gamma[k]) << "]" << "\t");
+						// UG_LOG(  << "\t");
+
+
+
+					}
+					UG_LOG(std::endl);
 				}
+
+
 			}
 
-			// Find column k=0, ..., kf-1
-			// minimizing W_{k+1,k} = A_{k+1} * lambda_{k+1},
-			size_t find_optimal_solution(const std::vector<number>& eps, size_t kf, size_t &qpred)
+			// Find row k=1, ..., ntest-1 minimizing (estimated) error eps[kmin]
+			// Also: predict column q with minimal workload W_{k+1,k} = A_{k+1} * lambda_{k+1}
+			size_t find_optimal_solution(const std::vector<number>& eps, size_t ntest, /*size_t &kf,*/ size_t &qpred)
 			{
 
-				size_t kbest = 0;
-				size_t qold = qpred;
-				qpred = 0;
-				size_t k=0;
+				const size_t qold=qpred;
 
+				size_t kbest = 1;
+				qpred = 1;
 
-				m_lambda[k] = pow(m_rhoSafety*m_tol/eps[k], 1.0/m_gamma[k]);
+				size_t k=1;
+				m_lambda[k] = pow(m_rhoSafety*m_tol/eps[k], 1.0/m_gamma[k]);   // 1/epsilon(k)
 				m_workload[k] = m_costA[k]/m_lambda[k];
-				UG_LOG("k=" << k << ": eps=" << eps[k] << ", alpha=" << monitor(k,qold) <<", A="<< m_costA[k]  << ", \lambda=" <<m_lambda[k]  << ", W="<< m_workload[k] <<std::endl);
+				UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]  << ", epsilon(k)=" <<1.0/m_lambda[k] << ", alpha(k, q)=" << monitor(k-1,qold) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
 
-				for (k=1; k<kf; ++k)
+				for (k=2; k<ntest; ++k)
 				{
 					m_lambda[k] = pow(m_rhoSafety*m_tol/eps[k], 1.0/m_gamma[k]);
 					m_workload[k] = m_costA[k]/m_lambda[k];
-					UG_LOG("k=" << k << ": eps=" << eps[k] << ", alpha=" << monitor(k,qold) <<", A="<< m_costA[k]  << ", \lambda=" <<m_lambda[k]  << ", W="<< m_workload[k] <<std::endl);
+					UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]   << ", epsilon(k)=" <<1.0/m_lambda[k] << ", alpha(k, q)=" << monitor(k-1,qold) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
 
 					qpred = (m_workload[qpred] > m_workload[k]) ? k : qpred;
 					kbest = (eps[kbest] > eps [k]) ? k : kbest;
 				}
+
 				return kbest;
 			}
 
@@ -544,6 +635,7 @@ protected:
 
 		double m_tol;
 		double m_rhoSafety;
+		double m_sigmaReduction;
 		SmartPtr<error_estim_type> m_spErrorEstimator;     // (smart ptr for) error estimator
 
 
