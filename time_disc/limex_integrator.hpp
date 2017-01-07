@@ -165,8 +165,8 @@ public:
 		  m_costA(m_nstages+1),
 		  m_gamma(m_nstages+1),
 		  m_monitor(((m_nstages+1)*(m_nstages+1))), // TODO: wasting memory here!
-		  m_lambda(m_nstages+1),
-		  m_workload(m_nstages+1)
+		  m_workload(m_nstages+1),
+		  m_lambda(m_nstages+1)
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -183,9 +183,17 @@ public:
 		void add_error_estimator(SmartPtr<error_estim_type> spErrorEstim)
 		{ m_spErrorEstimator = spErrorEstim; }
 
-		void add_stage(int i, int nsteps, SmartPtr<domain_discretization_type> spDD, SmartPtr<solver_type> solver)
+		//! add a new stage (at end of list)
+		void add_stage(size_t nsteps, SmartPtr<domain_discretization_type> spDD, SmartPtr<solver_type> solver)
 		{
-			if (i>=m_nstages) return;
+			UG_ASSERT(m_vThreadData.size() == m_vSteps.size(), "ERROR: m_vThreadData and m_vSteps differ in size!");
+
+			UG_ASSERT(m_vThreadData.empty() || m_vSteps.back()<nsteps, "ERROR: Sequence of steps must be increasing." );
+
+			if (m_vThreadData.size() == m_nstages)
+			{
+				return;
+			}
 
 			m_vSteps.push_back(nsteps);
 
@@ -194,11 +202,30 @@ public:
 
 			UG_ASSERT(solver.valid(), "Huhh: Need to supply solver!");
 			UG_ASSERT(m_vThreadData.back().get_solver().valid(), "Huhh: Need to supply solver!");
-
-
 		}
 
+		///! TODO: remove this function!
+		void add_stage(size_t i, size_t nsteps, SmartPtr<domain_discretization_type> spDD, SmartPtr<solver_type> solver)
+		{
+			UG_LOG("WARNING: add_stage(i, nsteps ,...) is deprecated. Please use 'add_stage(nsteps ,...) instead!'");
+			add_stage(nsteps, spDD, solver);
+		}
+
+
+
 protected:
+
+
+		// initialize integrator threads
+		// (w/ solutions)
+
+		/*m_vThreadData[k--].solution() = u1;
+		while(k>=0)
+		{
+			m_vThreadData[k--].solution() = u1->clone();
+		}
+*/
+
 		//! Initialize integrator threads (w/ solutions)
 		/*! Create private solutions for each thread */
 		void init_integrator_threads(ConstSmartPtr<grid_function_type> u)
@@ -211,6 +238,19 @@ protected:
 		}
 
 
+		// create (& execute) threads
+		/*boost::thread_group g;
+		typename thread_vector_type::reverse_iterator rit=m_vThreadData.rbegin();
+		for (rit++; rit!= m_vThreadData.rend(); ++rit)
+		{
+
+			boost::thread *t =new boost::thread(boost::bind(&ThreadSafeTimeIntegrator::apply, *rit));
+			//g.add_thread(t);
+
+			g.create_thread(boost::bind(&ThreadSafeTimeIntegrator::apply, *rit));
+
+		}*/
+
 		//! (Tentatively) apply integrators
 		// TODO: PARALLEL execution?
 		int apply_integrator_threads(number dtcurr, ConstSmartPtr<grid_function_type> u0, number t0, size_t nstages)
@@ -220,10 +260,9 @@ protected:
 			update_monitor();	// convergence monitor
 
 			/*
-							int tn = omp_get_thread_num();
-							int nt = omp_get_num_threads();
-
-							omp_set_num_threads(nstages);
+			int tn = omp_get_thread_num();
+			int nt = omp_get_num_threads();
+			omp_set_num_threads(nstages);
 			 */
 			int error = 0;
 			//const int nstages = m_vThreadData.size()-1;
@@ -321,27 +360,7 @@ public:
 				write_debug(*m_vThreadData[i].get_solution(), name);
 			}
 
-			// initialize integrator threads
-			// (w/ solutions)
 
-			/*m_vThreadData[k--].solution() = u1;
-			while(k>=0)
-			{
-				m_vThreadData[k--].solution() = u1->clone();
-			}
-*/
-			// create (& execute) threads
-			/*boost::thread_group g;
-			typename thread_vector_type::reverse_iterator rit=m_vThreadData.rbegin();
-			for (rit++; rit!= m_vThreadData.rend(); ++rit)
-			{
-
-				boost::thread *t =new boost::thread(boost::bind(&ThreadSafeTimeIntegrator::apply, *rit));
-				//g.add_thread(t);
-
-				g.create_thread(boost::bind(&ThreadSafeTimeIntegrator::apply, *rit));
-
-			}*/
 
 
 			number t = t0;
