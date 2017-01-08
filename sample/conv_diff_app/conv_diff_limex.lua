@@ -10,6 +10,7 @@
 --------------------------------------------------------------------------------
 
 ug_load_script("ug_util.lua")
+ug_load_script("plugins/Limex/limex_util.lua")
 ug_load_script("util/profiler_util.lua")
 ug_load_script("util/load_balancing_util.lua")
 
@@ -39,7 +40,7 @@ util.CheckAndPrintHelp("Time-dependent problem setup example\n(by Andreas Vogel)
 
 local gridName = nil
 -- if dim == 2 then gridName = util.GetParam("-grid", "grids/unit_square_01_tri_2x2.ugx")
-if dim == 2 then gridName = util.GetParam("-grid", "grids/unit_square_01_quads_2x2.ugx")
+if dim == 2 then gridName = util.GetParam("-grid", "./grids/unit_square_01_quads_2x2.ugx")
 else print("Dimension "..dim.." not supported."); exit(); end
 
 local diffTime = 1.0*(1.0*1.0)/eps;
@@ -149,7 +150,7 @@ local solverDesc = {
     precond = {
       type = "gmg",
       approxSpace = approxSpace,
-      smoother = "sgs",
+      smoother = "ilu",
       rap=true,
       
     },
@@ -306,16 +307,27 @@ local dtlimex = math.min(tSteps, tCFL)
 local limexEstimator = GridFunctionEstimator("c", 2)  
 --print (estimator)
 
+
+-- solver descriptor
+local limexDesc = {
+
+  nstages = nstages,
+  steps = {1,2,3,4,5},
+  domainDisc=domainDisc,
+  nonlinSolver = limexNLSolver,
+  lSolver = limexLSolver,
+  
+  tol = tol,
+  dt = dtlimex,
+  dtmin = 1e-9,
+  
+}
+
+
 -- setup for time integrator
-local limex = LimexTimeIntegrator(nstages)
-for i=1,nstages do 
-  limex:add_stage(i-1, i, domainDisc[i], limexNLSolver[i])
-end
+local limex = util.limex.CreateIntegrator(limexDesc)
 
-limex:set_time_step(dtlimex)    -- default time step
 limex:set_dt_min(1e-9)
-
-limex:set_tolerance(tol)
 limex:add_error_estimator(limexEstimator)
 limex:set_increase_factor(2.0)
 
