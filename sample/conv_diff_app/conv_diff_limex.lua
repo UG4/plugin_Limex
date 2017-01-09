@@ -308,7 +308,7 @@ local limexEstimator = GridFunctionEstimator("c", 2)
 --print (estimator)
 
 
--- solver descriptor
+-- descriptor for integrator
 local limexDesc = {
 
   nstages = nstages,

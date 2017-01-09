@@ -31,7 +31,24 @@
 
 --[[ (sample) solver descriptor
 
-local limexDesc = {
+local limexDescSerial = {
+
+  nstages = 2,
+  steps = {1,2,3},
+  domainDisc=domainDisc
+  nonlinSolver = nlSolver
+ 
+ --linSolver = linSolver,
+  
+  nthreads = 1
+  tol = tol,
+  dt = dtlimex,
+  dtmin = 1e-9,
+  
+}
+
+
+local limexDescParallel = {
 
   nstages = 2,
   steps = {1,2,3},
@@ -39,6 +56,7 @@ local limexDesc = {
   nonlinSolver = {nlSolver[1], nlSolver[2], nlSolver[3]}
  --lSolver = limexLSolver,
   
+  nthreads = 2
   tol = tol,
   dt = dtlimex,
   dtmin = 1e-9,
@@ -57,27 +75,57 @@ util.limex = util.limex or {}
 -- function for creating an integrator
 function util.limex.CreateIntegrator(limexDesc)
 
+-- max number of stages [scalar]
 local nstages = limexDesc.nstages
+if ((type(limexDesc.steps) ~= "table")) then print ("ERROR: Requires array of steps!") return nil
+end
+
+-- distribution of steps [scalar or string???]
 local nsteps = table.getn(limexDesc.steps)
-local ndiscs = table.getn(limexDesc.domainDisc)
-local nsolvers = table.getn(limexDesc.nonlinSolver)
-
-if ((nsteps < nstages) or (ndiscs < nstages) or (nsolvers < nstages)) then 
-  print ("ERROR: Array too short!")
-  return nil
+if ((nsteps < nstages)) then print ("ERROR: Array too short!") return nil 
 end
 
--- create integrator and push stages
+
+local ndiscs = 0 -- discretization(s) [object or table of objects]
+if (type(limexDesc.domainDisc) == "table") then ndiscs = table.getn(limexDesc.domainDisc) 
+end
+
+local nsolvers = 0 -- solver(s) [object or table of objects]
+if (type(limexDesc.nonlinSolver) == "table") then nsolvers = table.getn(limexDesc.nonlinSolver)
+end
+
+if (ndiscs ~= nsolvers) then 
+  print ("Discs: "..ndiscs..","..nsolvers)
+  print ("ERROR: domainDisc and nonlinSolver must match in type and number of args!") return nil
+end 
+
+
+local nthreads = limexDesc.nthreads or 1;
+
+-- create integrator and initialize stages
 local limex = LimexTimeIntegrator(nstages)
-for i=1,nstages do 
-  limex:add_stage(limexDesc.steps[i], limexDesc.domainDisc[i], limexDesc.nonlinSolver[i])
+if ((ndiscs>0 and nsolvers>0) or nthreads > 1) then 
+
+  -- multiples discs/solvers 
+  if (ndiscs < nstages) then print ("ERROR: Number of discretizations too small:"..ndiscs)  return nil end
+  if (nsolvers < nstages) then print ("ERROR: Number of solvers too small:"..nsolvers)  return nil end
+  
+  for i=1,nstages do 
+    limex:add_stage(limexDesc.steps[i], limexDesc.domainDisc[i], limexDesc.nonlinSolver[i])
+  end
+else 
+
+  -- single disc/solver (=>serial version) 
+  for i=1,nstages do 
+     limex:add_stage(limexDesc.steps[i], limexDesc.domainDisc, limexDesc.nonlinSolver)
+  end
 end
 
--- tolerance
+-- set tolerance
 local tol = limexDesc.tol or 1e-2
 limex:set_tolerance(limexDesc.tol)
 
--- default time step
+-- set default time step
 limex:set_time_step(limexDesc.dt)    
 local dtmin = 1e-4*limexDesc.dt
 
