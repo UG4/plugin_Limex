@@ -152,12 +152,36 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 			string name = string("LuaOutputObserver").append(suffix);
 			reg.add_class_<T, typename T::base_type>(name, grp)
-			    .template add_constructor<void (*)(const char*) >("")
-				.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
+				.template add_constructor<void (*)() >("")
+		 	 	.add_method("set_callback", &T::set_callback)
 				.set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "LuaOutputObserver", tag);
 	}
 
+	{
+				// PlotRefOutputObserver
+				typedef PlotRefOutputObserver<TDomain, TAlgebra> T;
+
+				string name = string("PlotRefOutputObserver").append(suffix);
+				reg.add_class_<T, typename T::base_type>(name, grp)
+				    .template add_constructor<void (*)(const char*) >("")
+					.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
+					.set_construct_as_smart_pointer(true);
+				reg.add_class_to_group(name, "PlotRefOutputObserver", tag);
+		}
+
+
+	{
+			// IntegrationOutputObserver
+			typedef IntegrationOutputObserver<TDomain, TAlgebra> T;
+
+			string name = string("IntegrationOutputObserver").append(suffix);
+			reg.add_class_<T, typename T::base_type>(name, grp)
+				    .template add_constructor<void (*)() >("")
+					 .add_method("add_integral_specs", &T::add_integral_specs)
+					.set_construct_as_smart_pointer(true);
+				reg.add_class_to_group(name, "IntegrationOutputObserver", tag);
+		}
 
 	{
 		// ITimeIntegrator (virtual base class)

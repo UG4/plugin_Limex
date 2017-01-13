@@ -46,6 +46,7 @@
 #include "lib_disc/time_disc/solution_time_series.h"
 #include "lib_disc/function_spaces/grid_function_util.h" // SaveVectorForConnectionViewer
 #include "lib_disc/function_spaces/interpolate.h" //Interpolate
+#include "lib_disc/function_spaces/integrate.h" //Integral
 #include "lib_disc/io/vtkoutput.h"
 
 // std headers
@@ -156,23 +157,53 @@ public:
 	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 	typedef LuaFunction<number, number> lua_function_type;
+
+	LuaOutputObserver()
+	{}
+
+	virtual ~LuaOutputObserver()
+	{}
+
+	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
+	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+	}
+	void set_callback(const char* luaCallback)
+	{
+		m_callback.set_lua_callback(luaCallback, numArgs);
+	};
+protected:
+	// TODO: replace by appropriate call-back
+	LuaFunction<number, number> m_callback;
+	const static size_t numArgs=4;
+};
+
+
+template<class TDomain, class TAlgebra>
+class PlotRefOutputObserver
+: public ITimeIntegratorObserver<TDomain, TAlgebra>
+{
+public:
+	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef LuaFunction<number, number> lua_function_type;
 	typedef VTKOutput<TDomain::dim> vtk_type;
 
-	LuaOutputObserver(SmartPtr<UserData<number, grid_function_type::dim> > spExactSol)
+	PlotRefOutputObserver(SmartPtr<UserData<number, grid_function_type::dim> > spExactSol)
 	{ m_spReference = spExactSol; }
 
 #ifdef UG_FOR_LUA
-	LuaOutputObserver(const char *ExactSol)
+	PlotRefOutputObserver(const char *ExactSol)
 	: m_sp_vtk(SPNULL)
 	{ m_spReference = make_sp(new LuaUserData<number, grid_function_type::dim>(ExactSol)); }
 
-	LuaOutputObserver(const char *ExactSol, SmartPtr<vtk_type> vtk)
+	PlotRefOutputObserver(const char *ExactSol, SmartPtr<vtk_type> vtk)
 	: m_sp_vtk(vtk)
 	{ m_spReference = make_sp(new LuaUserData<number, grid_function_type::dim>(ExactSol)); }
 
 #endif
 
-	virtual ~LuaOutputObserver()
+	virtual ~PlotRefOutputObserver()
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
@@ -195,6 +226,67 @@ protected:
 	SmartPtr<UserData<number, grid_function_type::dim> > m_spReference;
 	SmartPtr<vtk_type> m_sp_vtk;
 };
+
+/// Integration observer: Output using Lua callback
+/**!
+ * TODO: should be replaced by LUA observer!
+ */
+template<class TDomain, class TAlgebra>
+class IntegrationOutputObserver
+: public ITimeIntegratorObserver<TDomain, TAlgebra>
+{
+public:
+	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef LuaFunction<number, number> lua_function_type;
+	typedef VTKOutput<TDomain::dim> vtk_type;
+protected:
+	struct IntegralSpecs
+	{
+		IntegralSpecs(const char* cmp, const char* subsets, int quadOrder, const char *idString) :
+			m_cmp(cmp), m_subsets(subsets), m_quadOrder(quadOrder), m_idString(idString)
+		{};
+		std::string m_cmp;
+		std::string m_subsets;
+		int m_quadOrder;
+		std::string m_idString;
+	};
+
+public:
+	IntegrationOutputObserver() : m_vIntegralData()
+	{}
+
+	virtual ~IntegrationOutputObserver()
+	{}
+
+	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
+	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+
+		for (typename std::vector<IntegralSpecs>::iterator it = m_vIntegralData.begin();
+			 it!=m_vIntegralData.end(); ++it)
+		{
+			number value=Integral(u, it->m_cmp.c_str(), it->m_subsets.c_str(), it->m_quadOrder);
+			UG_LOG("Integral(\t"<< it->m_idString << "\t"<< time << "\t)=\t" << value << std::endl);
+		}
+
+
+	}
+
+
+	void add_integral_specs(const char* cmp, const char* subsets, int quadOrder, const char* idString)
+	{
+		m_vIntegralData.push_back(IntegralSpecs(cmp, subsets, quadOrder, idString));
+	}
+
+protected:
+
+	std::vector<IntegralSpecs> m_vIntegralData;
+	//const char* cmp,
+	//                const char* subsets,
+	// int quadOrder
+};
+
 
 
 /// Base class for observer attachment
