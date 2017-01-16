@@ -136,10 +136,12 @@ local vtk = VTKOutput();
 function postProcess(u, step, time, currdt)
   vtk:print("ConvDiffSol", u, step, time)
   print("L2Error(\t"..time.."\t)=\t"..L2Error("exactSolution", u, "c", time, 4))
---  local ref = u:clone()
---  Interpolate("exactSolution", ref, "c", time)
---  vtk:print("ConvDiffRef", ref, step, time)
+  local ref = u:clone()
+  Interpolate("exactSolution", ref, "c", time)
+  vtk:print("ConvDiffRef", ref, step, time)
 end
+
+
 
 -- grid function debug writer
 local dbgWriter = GridFunctionDebugWriter(approxSpace)
@@ -292,7 +294,16 @@ end
 
 
 local vtkObserver = VTKOutputObserver("MyFile.vtk", vtk)
-local luaObserver = LuaOutputObserver("DirichletValue", vtk)
+-- local refObserver = PlotRefOutputObserver("DirichletValue", vtk) -- now obsolete
+local luaObserver = LuaCallbackObserver()
+
+-- work-around (waiting for implementation of SmartPtr forward to lua...)
+function luaPostProcess(step, time, currdt)
+  print("LUAPostProcess: "..step..","..time..","..currdt)
+  postProcess(luaObserver:get_current_solution(), step, time, currdt)
+  return 0;
+end
+luaObserver:set_callback("luaPostProcess")
 
 local gridSize = 0.5*math.pow(0.5, numRefs)
 local tCFL = gridSize/50.0
@@ -333,6 +344,7 @@ limex:set_increase_factor(2.0)
 
 limex:attach_observer(vtkObserver)
 limex:attach_observer(luaObserver)
+--limex:attach_observer(refObserver)
 --limex:set_debug(dbgWriter)
 
 print ("dtLimex   = "..dtlimex)

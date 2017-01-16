@@ -144,13 +144,158 @@ protected:
 };
 
 
+/*
+template <typename TData, typename TDataIn1, typename TDataIn2>
+class LuaFunction2 // : public IFunction<TData, TDataIn1, typename TDataIn2>
+{
+	public:
+	///	constructor
+	LuaFunction2();
+		virtual ~LuaFunction2() {};
+
+	///	sets the Lua function used to compute the data
+	/**
+	 * This function sets the lua callback. The name of the function is
+	 * passed as a string. Make sure, that the function name is defined
+	 * when executing the script.
+	 * /
+		void set_lua_callback(const char* luaCallback, size_t numArgs);
+
+	///	evaluates the data
+		virtual void operator() (TData& out, int numArgs1, int numArgs2,...);
+
+	protected:
+	///	callback name as string
+		std::string m_cbValueName;
+
+	///	reference to lua function
+		int m_cbValueRef;
+
+	///	lua state
+		lua_State*	m_L;
+
+	///	number of arguments to use
+		size_t m_numArgs;
+};
+
+
+template <typename TData, typename TDataIn1, typename TDataIn2>
+LuaFunction2<TData,TDataIn1,TDataIn2>::LuaFunction2() : m_numArgs(0)
+{
+	m_L = ug::script::GetDefaultLuaState();
+	m_cbValueRef = LUA_NOREF;
+}
+
+template <typename TData, typename TDataIn1, typename TDataIn2>
+void LuaFunction2<TData,TDataIn1,TDataIn2>::set_lua_callback(const char* luaCallback, size_t numArgs)
+{
+//	store name (string) of callback
+	m_cbValueName = luaCallback;
+
+//	obtain a reference
+	lua_getglobal(m_L, m_cbValueName.c_str());
+
+//	make sure that the reference is valid
+	if(lua_isnil(m_L, -1)){
+		UG_THROW("LuaFunction::set_lua_callback(...):"
+				"Specified lua callback does not exist: " << m_cbValueName);
+	}
+
+//	store reference to lua function
+	m_cbValueRef = luaL_ref(m_L, LUA_REGISTRYINDEX);
+
+//	remember number of arguments to be used
+	m_numArgs = numArgs;
+}
+*/
+
+/*
+SmartUserDataWrapper* CreateNewUserData(lua_State* L, const SmartPtr<void>& ptr,
+											  const char* metatableName)
+{
+//	create the userdata
+	SmartUserDataWrapper* udata = (SmartUserDataWrapper*)lua_newuserdata(L,
+											sizeof(SmartUserDataWrapper));
+	new(udata) SmartUserDataWrapper;
+
+//	associate the object with the userdata.
+	udata->smartPtr = ptr;
+	udata->type = SMART_POINTER;
+
+//	associate the metatable (userdata is already on the stack)
+	luaL_getmetatable(L, metatableName);
+	lua_setmetatable(L, -2);
+
+	return udata;
+}
+*/
+/*
+template <typename TData, typename TDataIn1, typename TDataIn2>
+void LuaFunction2<TData,TDataIn1,TDataIn2>::operator() (TData& out, int numArgs1, SmartPtr<TDataIn1> valsArgs1[],
+														int numArgs2, ...)
+{
+	PROFILE_CALLBACK_BEGIN(operatorBracket);
+
+		UG_ASSERT((numArgs1+numArgs2) == (int)m_numArgs, "Number of arguments mismatched.");
+
+	//	push the callback function on the stack
+		lua_rawgeti(m_L, LUA_REGISTRYINDEX, m_cbValueRef);
+
+	//	get list of arguments
+		va_list ap;
+		va_start(ap, numArgs2);
+
+	//	read all arguments and push them to the lua stack
+		for(int i = 0; i < numArgs1; ++i)
+		{
+
+			CreateNewUserData(m_L, &valArgs1[i], "");
+
+		}
+		for(int i = 0; i < numArgs2; ++i)
+		{
+			TDataIn2 val = va_arg(ap, TDataIn2);
+			lua_traits<TDataIn2>::push(m_L, val);
+		}
+
+
+	//	end read in of parameters
+		va_end(ap);
+
+	//	compute total args size
+		size_t argSize = lua_traits<TDataIn1>::size * numArgs1;
+		argSize += lua_traits<TDataIn2>::size * numArgs2;
+
+	//	compute total return size
+		size_t retSize = lua_traits<TData>::size;
+
+	//	call lua function
+		if(lua_pcall(m_L, argSize, retSize, 0) != 0)
+			UG_THROW("LuaFunction::operator(...): Error while "
+						"running callback '" << m_cbValueName << "',"
+						" lua message: "<< lua_tostring(m_L, -1));
+
+		try{
+		//	read return value
+			lua_traits<TData>::read(m_L, out);
+			UG_COND_THROW(IsFiniteAndNotTooBig(out)==false, out);
+		}
+		UG_CATCH_THROW("LuaFunction::operator(...): Error while running "
+						"callback '" << m_cbValueName << "'");
+
+	//	pop values
+		lua_pop(m_L, retSize);
+
+	    PROFILE_CALLBACK_END();
+}
+*/
 /// Integration observer: Output using Lua callback
 /**!
  * TODO: Calls a LUA function with signature
  * func (SmartPtr<G> u, int step, number dt, number t)
  */
 template<class TDomain, class TAlgebra>
-class LuaOutputObserver
+class LuaCallbackObserver
 : public ITimeIntegratorObserver<TDomain, TAlgebra>
 {
 public:
@@ -158,24 +303,34 @@ public:
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 	typedef LuaFunction<number, number> lua_function_type;
 
-	LuaOutputObserver()
+	LuaCallbackObserver()
 	{}
 
-	virtual ~LuaOutputObserver()
+	virtual ~LuaCallbackObserver()
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
 	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
 	{
+		number dummy_return;
+		m_u = u;
+		m_callback(dummy_return, numArgs2, (number) step, time, dt);
+
 	}
 	void set_callback(const char* luaCallback)
 	{
-		m_callback.set_lua_callback(luaCallback, numArgs);
+		m_callback.set_lua_callback(luaCallback, numArgs2);
 	};
+
+	SmartPtr<grid_function_type> get_current_solution()
+	{ return m_u; }
+
 protected:
 	// TODO: replace by appropriate call-back
 	LuaFunction<number, number> m_callback;
-	const static size_t numArgs=4;
+	const static size_t numArgs1=0;  // num SmartPtr
+	const static size_t numArgs2=3;
+	SmartPtr<grid_function_type> m_u;
 };
 
 

@@ -148,14 +148,15 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 	{
 			// LuaOutputObserver
-			typedef LuaOutputObserver<TDomain, TAlgebra> T;
+			typedef LuaCallbackObserver<TDomain, TAlgebra> T;
 
-			string name = string("LuaOutputObserver").append(suffix);
+			string name = string("LuaCallbackObserver").append(suffix);
 			reg.add_class_<T, typename T::base_type>(name, grp)
 				.template add_constructor<void (*)() >("")
 		 	 	.add_method("set_callback", &T::set_callback)
+				.add_method("get_current_solution", &T::get_current_solution)
 				.set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "LuaOutputObserver", tag);
+			reg.add_class_to_group(name, "LuaCallbackObserver", tag);
 	}
 
 	{
