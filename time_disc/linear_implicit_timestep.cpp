@@ -169,6 +169,16 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 				" Number of previous solutions must be at least "<<
 				m_prevSteps <<", but only "<< m_pPrevSol->size() << " passed.");
 
+	//	push unknown solution to solution time series
+	//	ATTENTION: Here, we must cast away the constness of the solution, but note,
+	//			   that we pass pPrevSol as a const object in assemble_... Thus,
+	//			   the solution will not be changed there and we pop it from the
+	//			   Solution list afterwards, such that nothing happens to u
+		// \todo: avoid this hack, use smart ptr properly
+		int DummyRefCount = 2;
+		SmartPtr<vector_type> pU(const_cast<vector_type*>(&u), &DummyRefCount);
+		m_pPrevSol->push(pU, m_futureTime);
+
 	// assemble "jacobian"  using current iterate
 	try{
 		// (M_{k-1} + \tau J)
@@ -188,6 +198,8 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 		 */
 	} UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble jacobian.");
 
+	//	pop unknown solution to solution time series
+	m_pPrevSol->remove_latest();
 }
 
 /** WARNING: This function is abused
@@ -203,7 +215,15 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		UG_THROW("LinearImplicitEuler::assemble_defect:"
 				" Number of previous solutions must be at least "<<
 				m_prevSteps <<", but only "<< m_pPrevSol->size() << " passed.");
-
+	//	push unknown solution to solution time series
+	//	ATTENTION: Here, we must cast away the constness of the solution, but note,
+	//			   that we pass pPrevSol as a const object in assemble_... Thus,
+	//			   the solution will not be changed there and we pop it from the
+	//			   Solution list afterwards, such that nothing happens to u
+		// \todo: avoid this hack, use smart ptr properly
+		int DummyRefCount = 2;
+		SmartPtr<vector_type> pU(const_cast<vector_type*>(&u), &DummyRefCount);
+		m_pPrevSol->push(pU, m_futureTime);
 
 
 // 	future solution part
@@ -222,6 +242,9 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		m_JLinOp->apply_sub(d, deltau);
 
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
+
+	//	pop unknown solution to solution time series
+	m_pPrevSol->remove_latest();
 
 }
 

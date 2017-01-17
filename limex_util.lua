@@ -71,6 +71,13 @@ ug_load_script("util/table_util.lua")
 util = util or {}
 util.limex = util.limex or {}
 
+util.limex.defaultDesc = util.limex.defaultDesc or 
+{
+    nstages = 2,
+    steps = {1,2,3,4,5,6,7,8,9,10},
+    nthreads = 1,
+    tol = 0.001,
+}
 
 -- function for creating an integrator
 function util.limex.CreateIntegrator(limexDesc)
@@ -104,7 +111,9 @@ local nthreads = limexDesc.nthreads or 1;
 
 -- create integrator and initialize stages
 local limex = LimexTimeIntegrator(nstages)
-if ((ndiscs>0 and nsolvers>0) or nthreads > 1) then 
+if ((ndiscs>0 
+    and nsolvers>0) 
+    or nthreads > 1) then 
 
   -- multiples discs/solvers 
   if (ndiscs < nstages) then print ("ERROR: Number of discretizations too small:"..ndiscs)  return nil end
