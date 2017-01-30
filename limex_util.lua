@@ -67,6 +67,7 @@ local limexDescParallel = {
 
 ug_load_script("util/table_desc_util.lua")
 ug_load_script("util/table_util.lua")
+ug_load_script("util/solver_util.lua")
 
 util = util or {}
 util.limex = util.limex or {}
@@ -77,9 +78,23 @@ util.limex.defaultDesc = util.limex.defaultDesc or
     steps = {1,2,3,4,5,6,7,8,9,10},
     nthreads = 1,
     tol = 0.001,
+    
+    makeConsistent = false,
 }
 
--- function for creating an integrator
+-- aux function creating a solver
+function util.limex.CreateLimexSolver(nlsolverDesc, solverutil)
+     local limexSolverDesc = {
+        type = "newton",
+        lineSearch = "none",
+        convCheck = nlsolverDesc.convCheck,
+     }
+     
+    return util.solver.CreateSolver(limexSolverDesc, solverutil)
+  
+end
+
+-- aux function creating an integrator
 function util.limex.CreateIntegrator(limexDesc)
 
 -- max number of stages [scalar]
@@ -92,6 +107,7 @@ local nsteps = table.getn(limexDesc.steps)
 if ((nsteps < nstages)) then print ("ERROR: Array too short!") return nil 
 end
 
+print(limexDesc.nonlinSolver:config_string())
 
 local ndiscs = 0 -- discretization(s) [object or table of objects]
 if (type(limexDesc.domainDisc) == "table") then ndiscs = table.getn(limexDesc.domainDisc) 
@@ -100,6 +116,7 @@ end
 local nsolvers = 0 -- solver(s) [object or table of objects]
 if (type(limexDesc.nonlinSolver) == "table") then nsolvers = table.getn(limexDesc.nonlinSolver)
 end
+
 
 if (ndiscs ~= nsolvers) then 
   print ("Discs: "..ndiscs..","..nsolvers)
