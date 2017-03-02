@@ -109,6 +109,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		   .template add_constructor<void (*)(const char*, int, number) >("")
 		   .add_method("set_reference_norm", &T::set_reference_norm)
 		   .add_method("add", &T::add4)
+		   .add_method("config_string", &T::config_string)
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
 
@@ -426,7 +427,8 @@ static void Algebra(Registry& reg, string parentGroup)
 				std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
 				typedef ISubDiagErrorEst<vector_type> T;
 				string name = string("ISubDiagErrorEst").append(suffix);
-				reg.add_class_<T>(name, grp);
+				reg.add_class_<T>(name, grp)
+				   .add_method("config_string", &T::config_string);
 				reg.add_class_to_group(name, "ISubDiagErrorEst", tag);
 		}
 

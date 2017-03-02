@@ -42,6 +42,7 @@
 
 #include "lib_algebra/lib_algebra.h"
 //#include "lib_algebra/parallelization/parallel_vector.h"
+#include "lib_algebra/operator/debug_writer.h"
 
 #include "lib_disc/function_spaces/grid_function.h"
 #include "lib_disc/function_spaces/grid_function_user_data.h"
@@ -148,6 +149,7 @@ public:
 	number get_current_estimate() {return m_est; };
 	void reset_estimate() {  m_est=0.0; };
 
+	virtual std::string config_string() const {}
 
 protected:
 	number m_est;
@@ -254,10 +256,38 @@ public:
 	}
 };
 
+/*
+template<class TVector>
+class VectorDebugWritingEstimator
+		: public VectorDebugWritingObject<TVector>
+{
+public:
+///	type of vector
+	typedef TVector vector_type;
+
+public:
+	VectorDebugWritingEstimator()
+	: VectorDebugWritingObject<vector_type>() {}
+
+	VectorDebugWritingEstimator(SmartPtr<IVectorDebugWriter<vector_type> > spDebugWriter)
+	: VectorDebugWritingObject<vector_type>(spDebugWriter) {}
+
+	int get_call_id() { return m_dgbCall; }
+	void inc_call_id() { m_dgbCall++; }
+
+protected:
+	///	call counter
+	int m_dgbCall;
+};
+*/
 
 /// Evaluate using (algebraic) L2 norm
 template <class TDomain, class TAlgebra>
-class GridFunctionEstimator : public ISubDiagErrorEst<typename TAlgebra::vector_type>
+class GridFunctionEstimator :
+		public ISubDiagErrorEst<typename TAlgebra::vector_type>
+		
+	//	, public VectorDebugWritingEstimator<typename TAlgebra::vector_type>
+
 {
 protected:
 	typedef typename TAlgebra::vector_type TVector;
@@ -295,19 +325,37 @@ protected:
 
 		double compute_norm(SmartPtr<grid_function_type> uFine) const
 		{
-			return (m_type ==1) ? H1SemiNorm<grid_function_type>(uFine, m_fctNames.c_str(), m_quadorder)
-			: L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
+			if (m_type ==0)
+			{ return L2Norm(uFine, m_fctNames.c_str(), m_quadorder); }
+			else if (m_type ==1)
+			{ return H1SemiNorm<grid_function_type>(uFine, m_fctNames.c_str(), m_quadorder); }
+			else return 0.0;
 		};
 
 		double compute_error(SmartPtr<grid_function_type> uFine, SmartPtr<grid_function_type> uCoarse) const
 		{
-			return (m_type ==1) ? H1Error<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder)
-			: L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			double val = 0.0;
+
+			if (m_type ==0) {
+				val = L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			} else if (m_type ==1) {
+				val = H1SemiError<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			}
+			return val;
 		};
+
+		/// print config string
+		std::string config_string() const
+		{
+			std::stringstream ss;
+			ss << this->m_fctNames << ", " << this->m_quadorder << ", type=" << this->m_type << ", scale=" << this->m_scale << std::endl;
+			return ss.str();
+		}
 
 	};
 
 	std::vector<GridFunctionEvaluator> m_evaluators;
+
 
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
@@ -374,11 +422,9 @@ public:
 		else
 		{
 			// weighted error estimator
-		//	number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
 			number enorm = 0.0;
 			for (typename std::vector<GridFunctionEvaluator>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 			{
-
 				enorm +=  alpha * it->compute_error(uFine, uCoarse);
 			}
 			base_type::m_est = enorm/m_refNormValue;
@@ -394,6 +440,19 @@ public:
 
 	void set_reference_norm(number norm)
 	{m_refNormValue = norm; }
+
+
+	/// print config string
+	std::string config_string() const
+	{
+		std::stringstream ss;
+		ss << "GridFunctionEstimator:\n";
+		for (typename std::vector<GridFunctionEvaluator>::const_iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		{
+			ss << it->config_string();
+		}
+		return ss.str();
+	}
 };
 
 
