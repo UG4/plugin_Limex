@@ -375,6 +375,7 @@ public:
 			// time integration loop
 			SmartPtr<grid_function_type> ubest = SPNULL;
 			int limex_step = 1;
+			size_t limex_total = 1;
 			size_t ntest;    // active number of stages <= kmax
 			while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
 			{
@@ -401,7 +402,7 @@ public:
 				// write_debug
 				for (size_t i=0; i<ntest; ++i)
 				{
-						sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03d", limex_step, i);
+						sprintf(name, "Limex_BeforeSerial_stage%03lu_iter%03d_total%04lu", i, limex_step, limex_total);
 						write_debug(*m_vThreadData[i].get_solution(), name);
 				}
 
@@ -411,7 +412,7 @@ public:
 				// write_debug
 				for (size_t i=0; i<ntest; ++i)
 				{
-					sprintf(name, "Limex_AfterSerial_iter%03d_stage%03d", limex_step, i);
+					sprintf(name, "Limex_AfterSerial_stage%03lu_iter%03d_total%04lu", i, limex_step, limex_total);
 					write_debug(*m_vThreadData[i].get_solution(), name);
 				}
 
@@ -446,11 +447,12 @@ public:
 					timex.apply(ntest);
 
 					// write_debug
-					for (unsigned int i=0; i<ntest; ++i)
+					for (size_t i=0; i<ntest; ++i)
 					{
-						sprintf(name, "Limex_Extra_iter%03d_stage%03d", limex_step, i);
+						sprintf(name, "Limex_Extrapolates_stage%03lu_iter%03d_total%04lu", i, limex_step, limex_total);
 						write_debug(*m_vThreadData[i].get_solution(), name);
 					}
+					limex_total++;
 
 					// obtain sub-diagonal error estimates
 					const std::vector<number>& eps = timex.get_error_estimates();
@@ -467,9 +469,11 @@ public:
 					// best solution
 					ubest  = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
 					epsmin = eps[kbest];
-					limexConverved = (epsmin <= m_tol);   // check for convergence
 
-					// use predicted order for next step
+					// check for convergence
+					limexConverved = (epsmin <= m_tol);
+
+					// select predicted order for next step
 					double dtpred = dtcurr*m_lambda[qpred];
 					UG_LOG("koptim=\t" << kbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred] << ", alpha(q,q)=" << monitor(qpred, qpred) << "dt(q)=" << dtpred<< std::endl);
 
@@ -528,7 +532,7 @@ public:
 
 					// make sure that all threads continue
 					// with identical initial value u(t)
-					update_integrator_threads(ubest, t);
+					// update_integrator_threads(ubest, t);
 
 
 					// working on last row => increase order
@@ -547,7 +551,7 @@ public:
 
 				// SERIAL EXECUTION: END
 				///////////////////////////////////////
-
+				update_integrator_threads(u, t);
 
 
 			} // time integration loop
