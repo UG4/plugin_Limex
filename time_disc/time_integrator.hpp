@@ -561,7 +561,7 @@ class ITimeIntegrator
 
 	//! Set initial time step
 	void set_time_step(double dt)
-	{ m_dt = dt; return; }
+	{ m_dt = dt; }
 
 	double get_time_step()
 	{ return m_dt; }
@@ -1076,12 +1076,15 @@ public:
 	{ return m_spSolver;}
 
 	void set_dt_min(double min) { m_dtBounds.set_dt_min(min); }
-	void set_dt_max(double max) { m_dtBounds.set_dt_max(max); }
 	double get_dt_min() { return m_dtBounds. get_dt_min(); }
+
+	void set_dt_max(double max) { m_dtBounds.set_dt_max(max); }
 	double get_dt_max() { return m_dtBounds.get_dt_max(); }
+
 	void set_reduction_factor(double dec) { m_dtBounds.set_reduction_factor(dec); }
-	void set_increase_factor(double inc) { m_dtBounds.set_increase_factor(inc); }
 	double get_reduction_factor() { return m_dtBounds.get_reduction_factor(); }
+
+	void set_increase_factor(double inc) { m_dtBounds.set_increase_factor(inc); }
 	double get_increase_factor() { return m_dtBounds.get_increase_factor(); }
 
 protected:
@@ -1112,7 +1115,8 @@ public:
 
 	// constructor
 	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc)
-	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc) {}
+	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc)
+	{}
 
 	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 	{
@@ -1126,6 +1130,15 @@ public:
 protected:
 	bool apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 	bool apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
+
+	inline bool hasTerminated(double tCurrent, double tStart, double tFinal)
+	{
+	 	/*return (! ((tCurrent < tFinal) && (tFinal-tCurrent > base_type::m_precisionBound)));*/
+		return ((tCurrent >= tFinal) ||
+				(tFinal-tCurrent < (tFinal-tStart)*base_type::m_precisionBound + base_type::m_precisionBound));
+	
+	}
+
 };
 
 
@@ -1163,7 +1176,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: [\t"<< t0 <<"\t, \t"<< t1 <<"\t] with\t" << currdt <<"\n");
 
-	 while((t < t1) && (t1-t > base_type::m_precisionBound))
+	 while(!hasTerminated(t, t0, t1))
 	 {
 			if(!base_type::m_bNoLogOut)
 			 UG_LOG("+++ Timestep +++" << step << "\n");
@@ -1267,7 +1280,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	if(!base_type::m_bNoLogOut)
 		UG_LOG("+++ Integrating: ["<< t0 <<", "<< t1 <<"] with " << currdt <<"\n");
 
-	while((t < t1) && (t1-t > base_type::m_precisionBound))
+	while(!hasTerminated(t, t0, t1))
 	{
 		if(!base_type::m_bNoLogOut)
 			UG_LOG("++++++ TIMESTEP " << step++ << " BEGIN (current time: " << t << ") ++++++\n");
