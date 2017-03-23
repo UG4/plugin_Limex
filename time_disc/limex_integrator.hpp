@@ -44,6 +44,7 @@
 #include "lib_algebra/operator/interface/operator_inverse.h"
 #include "lib_algebra/operator/linear_solver/linear_solver.h"
 #include "lib_algebra/operator/debug_writer.h"
+
 #include "lib_disc/function_spaces/grid_function.h"
 #include "lib_disc/assemble_interface.h" // TODO: missing IAssemble in following file:
 #include "lib_disc/operator/linear_operator/assembled_linear_operator.h"
@@ -54,6 +55,8 @@
 #include "lib_disc/time_disc/solution_time_series.h"
 #include "lib_disc/function_spaces/grid_function_util.h" // SaveVectorForConnectionViewer
 #include "lib_disc/io/vtkoutput.h"
+
+#include "lib_grid/refinement/refiner_interface.h"
 
 
 // own headers
@@ -83,6 +86,24 @@ class TimeIntegratorThread : public TI
 
 
 };*/
+
+static void MyPrintError(UGError &err)
+{
+	for(size_t i=0;i<err.num_msg();++i)
+	{
+		UG_LOG("MYERROR "<<i<<":"<<err.get_msg(i)<<std::endl);
+		UG_LOG("     [at "<<err.get_file(i)<<
+		       ", line "<<err.get_line(i)<<"]\n");
+	}
+}
+
+class ILimexRefiner
+{
+	virtual ~ILimexRefiner(){};
+
+protected:
+	SmartPtr<IRefiner> m_spRefiner;
+};
 
 template<class TDomain, class TAlgebra>
 class LimexTimeIntegrator
@@ -215,17 +236,6 @@ public:
 
 protected:
 
-
-		// initialize integrator threads
-		// (w/ solutions)
-
-		/*m_vThreadData[k--].solution() = u1;
-		while(k>=0)
-		{
-			m_vThreadData[k--].solution() = u1->clone();
-		}
-*/
-
 		//! Initialize integrator threads (w/ solutions)
 		/*! Create private solutions for each thread */
 		void init_integrator_threads(ConstSmartPtr<grid_function_type> u)
@@ -297,7 +307,8 @@ protected:
 				{
 					exec = false;
 					error += (1 << i);
-					UG_LOG("Step "<< i<< " failed: " << error << " "<< (1<< i));
+					UG_LOG("Step "<< i<< " failed: " << error << " "<< (1<< i) << ":");
+					MyPrintError(err);
 
 				}
 
@@ -328,6 +339,7 @@ protected:
 			const int nstages = m_vThreadData.size()-1;
 			for (int i=nstages; i>=0; --i)
 			{
+				UG_ASSERT(m_vThreadData[i].get_solution()->size()==ucommon->size(), "LIMEX: Vectors must match in size!")
 				*m_vThreadData[i].get_solution() = *ucommon;
 			}
 		}
@@ -402,7 +414,7 @@ public:
 				// write_debug
 				for (size_t i=0; i<ntest; ++i)
 				{
-						sprintf(name, "Limex_BeforeSerial_stage%03lu_iter%03d_total%04lu", i, limex_step, limex_total);
+						sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
 						write_debug(*m_vThreadData[i].get_solution(), name);
 				}
 
@@ -412,7 +424,7 @@ public:
 				// write_debug
 				for (size_t i=0; i<ntest; ++i)
 				{
-					sprintf(name, "Limex_AfterSerial_stage%03lu_iter%03d_total%04lu", i, limex_step, limex_total);
+					sprintf(name, "Limex_AfterSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
 					write_debug(*m_vThreadData[i].get_solution(), name);
 				}
 
@@ -449,7 +461,7 @@ public:
 					// write_debug
 					for (size_t i=0; i<ntest; ++i)
 					{
-						sprintf(name, "Limex_Extrapolates_stage%03lu_iter%03d_total%04lu", i, limex_step, limex_total);
+						sprintf(name, "Limex_Extrapolates_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
 						write_debug(*m_vThreadData[i].get_solution(), name);
 					}
 					limex_total++;
@@ -460,9 +472,7 @@ public:
 
 					// select optimal solution (w.r.t error) AND
 					// predict optimal order (w.r.t. workload) for next step
-					// size_t kf;   // index of last admissible solution
-
-					size_t kbest = find_optimal_solution(eps, ntest, /*kf,*/ qpred);
+					size_t kbest = find_optimal_solution(eps, ntest, qpred);
 					UG_ASSERT(kbest < ntest, "Huhh: Not enough solutions?");
 
 
@@ -508,15 +518,12 @@ public:
 					dtcurr = std::min(dtpred, itime_integrator_type::get_dt_max());
 
 
-
-
 				}
 				else
 				{
 					// solver failed -> cut time step
 					dtcurr *= m_sigmaReduction;
 				}
-
 
 
 				if ((err==0) && limexConverved)
@@ -554,12 +561,20 @@ public:
 				update_integrator_threads(u, t);
 
 
+
+				// SOLVE
+
+				// ESTIMATE
+
+				// MARK
+
+
+
+				// REFINE
+
+
 			} // time integration loop
 
-			// copy solution
-			//*u = *ubest;
-
-			// notify_step_postprocess(u, 1, 10.0*dtcurr, dtcurr);
 
 			return true;
 		} // apply

@@ -64,8 +64,8 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 //	prepare time step (elemDisc-wise)
 	try
 	{
-		this->m_spDomDisc->prepare_timestep(m_pPrevSol);
-		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol);
+		this->m_spDomDisc->prepare_timestep(m_pPrevSol, m_futureTime);
+		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol, m_futureTime);
 	}
 	UG_CATCH_THROW("ThetaTimeStep: Cannot prepare time step.");
 
@@ -103,8 +103,8 @@ prepare_step_elem(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 // 	prepare timestep
 	try{
 
-		this->m_spDomDisc->prepare_timestep(m_pPrevSol, gl);
-		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol, gl);
+		this->m_spDomDisc->prepare_timestep(m_pPrevSol, m_futureTime, gl);
+		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol, m_futureTime, gl);
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot prepare timestep.");
 
 	// Aux linear operator

@@ -326,9 +326,13 @@ protected:
 		double compute_norm(SmartPtr<grid_function_type> uFine) const
 		{
 			if (m_type ==0)
-			{ return L2Norm(uFine, m_fctNames.c_str(), m_quadorder); }
+			{
+				return L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
+			}
 			else if (m_type ==1)
-			{ return H1SemiNorm<grid_function_type>(uFine, m_fctNames.c_str(), m_quadorder); }
+			{
+				return H1SemiNorm<grid_function_type>(uFine, m_fctNames.c_str(), m_quadorder);
+			}
 			else return 0.0;
 		};
 
@@ -339,7 +343,7 @@ protected:
 			if (m_type ==0) {
 				val = L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
 			} else if (m_type ==1) {
-				val = H1SemiError<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+				// val = H1SemiError<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
 			}
 			return val;
 		};
@@ -399,7 +403,6 @@ public:
 		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
 		SmartPtr<grid_function_type> uCoarse = vCoarse.template cast_dynamic<grid_function_type>();
 		if (uFine.invalid() || uCoarse.invalid()) return false;
-
 
 		// error estimate
 		if (m_refNormValue<=0.0)
@@ -551,7 +554,7 @@ class AitkenNevilleTimex
 			for (size_t k=1; k<nstages; ++k)
 			{
 
-				// process rows (bottom up, allows recycling memory)
+				// process rows (bottom-up -> recycling memory)
 				for (size_t i=nstages-1; i>=k; --i)
 				{
 					UG_ASSERT(m_solution[i].valid(), "Invalid SmarPtr!");
