@@ -446,7 +446,7 @@ public:
 
 				double epsmin = 0.0;
 
-				bool limexConverved = false;
+				bool limexConverged = false;
 				if (err==0)
 				{
 					// compute extrapolation at t+dtcurr (SERIAL)
@@ -478,38 +478,41 @@ public:
 
 					// best solution
 					ubest  = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
-					epsmin = eps[kbest];
+					epsmin = eps[kbest]; /*were: kbest*/
 
 					// check for convergence
-					limexConverved = (epsmin <= m_tol);
+					limexConverged = (epsmin <= m_tol);
 
 					// select predicted order for next step
-					double dtpred = dtcurr*m_lambda[qpred];
+					double dtpred = m_lambda[qpred]*dtcurr;
 					UG_LOG("koptim=\t" << kbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred] << ", alpha(q,q)=" << monitor(qpred, qpred) << "dt(q)=" << dtpred<< std::endl);
 
 					// EXTENSIONS: convergence model
-					// a) should we aim for order increase in next step?
-					if ((qpred+1 == ntest) && (kmax>ntest) && limexConverved)
+					if (limexConverged)
 					{
-						double alpha = monitor(qpred, qpred+1);
-						UG_LOG("CHECKING for order increase: "<< m_costA[qpred] << "*" << alpha << ">" << m_costA[qpred+1]);
-						// check, whether further increase could still be efficient
-						if (m_costA[qpred] * alpha > m_costA[qpred+1])
+						// a) aim for order increase in next step
+						if ((qpred+1==ntest)  /* increase by one possible? */
+							 && (kmax>ntest)) /* still below max? */
 						{
-							qpred++;    			// go for higher order
-							// dtpred *= alpha;		// & adapt time step  // TODO: check required!
-							UG_LOG("... yes.\n")
+							const double alpha = monitor(qpred, qpred+1);
+							UG_LOG("CHECKING for order increase: "<< m_costA[qpred] << "*" << alpha << ">" << m_costA[qpred+1]);
+							// check, whether further increase could still be efficient
+							if (m_costA[qpred] * alpha > m_costA[qpred+1])
+							{
+								qpred++;    			// go for higher order
+								// dtpred *= alpha;		// & adapt time step  // TODO: check required!
+								UG_LOG("... yes.\n")
 
-						} else {
-
-							UG_LOG("... nope.\n")
+							} else {
+								UG_LOG("... nope.\n")
+							}
 
 						}
+
+
+						// b) monitor convergence (a-priori check!)
+
 					}
-
-					// monitor convergence
-
-
 
 					// parameters for subsequent step
 					// step length increase/reduction
@@ -526,7 +529,7 @@ public:
 				}
 
 
-				if ((err==0) && limexConverved)
+				if ((err==0) && limexConverged)
 				{
 					// ACCEPT time step
 					UG_LOG("+++ LimexTimestep +++" << limex_step << " ACCEPTED"<< std::endl);
@@ -653,13 +656,15 @@ public:
 				size_t k=1;
 				m_lambda[k] = pow(m_rhoSafety*m_tol/eps[k], 1.0/m_gamma[k]);   // 1/epsilon(k)
 				m_workload[k] = m_costA[k]/m_lambda[k];
-				UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]  << ", epsilon(k)=" <<1.0/m_lambda[k] << ", alpha(k, q)=" << monitor(k-1,qold) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
+				UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]  << ", epsilon(k)=" <<1.0/m_lambda[k] << "<= alpha(k, qcurr)=" << monitor(k-1,qold) << "< alpha(k, qcurr+1)=" << monitor(k-1,qold+1) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
 
 				for (k=2; k<ntest; ++k)
 				{
 					m_lambda[k] = pow(m_rhoSafety*m_tol/eps[k], 1.0/m_gamma[k]);
 					m_workload[k] = m_costA[k]/m_lambda[k];
-					UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]   << ", epsilon(k)=" <<1.0/m_lambda[k] << ", alpha(k, q)=" << monitor(k-1,qold) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
+					UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]   << ", epsilon(k)=" <<1.0/m_lambda[k] << "<= alpha(k, qcurr)=" << monitor(k-1,qold) << "< alpha(k, qcurr+1)=" << monitor(k-1,qold+1) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
+
+					// TODO: Convergence monitor
 
 					qpred = (m_workload[qpred] > m_workload[k]) ? k : qpred;
 					kbest = (eps[kbest] > eps [k]) ? k : kbest;

@@ -87,34 +87,102 @@ struct Functionality
 template <typename TDomain, typename TAlgebra>
 static void DomainAlgebra(Registry& reg, string grp)
 {
-	//	useful defines
+	//	some defines/typedefs
 	string suffix = GetDomainAlgebraSuffix<TDomain,TAlgebra>();
 	string tag = GetDomainAlgebraTag<TDomain,TAlgebra>();
 	typedef MultiStepTimeDiscretization<TAlgebra> TMultiStepTimeDisc;
 	typedef ITimeDiscretization<TAlgebra> TTimeDisc;
-
-	//typedef ApproximationSpace<TDomain> TApproximationSpace;
+	typedef typename TAlgebra::vector_type TVector;
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
 
 	{
-		/// (subdiagonal) GridFunctionEstimator
-		typedef typename TAlgebra::vector_type TVector;
-		typedef ISubDiagErrorEst<TVector> TBase;
-		typedef GridFunctionEstimator<TDomain, TAlgebra> T;
-		string name = string("GridFunctionEstimator").append(suffix);
+			/// GridFunctionEstimator (DEPRECATED, sub-diagonal)
+			typedef ISubDiagErrorEst<TVector> TBase;
+			typedef GridFunctionEstimator<TDomain, TAlgebra> T;
+			string name = string("GridFunctionEstimator").append(suffix);
 
-		reg.add_class_<T, TBase>(name, grp)
-		   .template add_constructor<void (*)(const char*) >("")
-		   .template add_constructor<void (*)(const char*, int) >("")
-		   .template add_constructor<void (*)(const char*, int, number) >("")
-		   .add_method("set_reference_norm", &T::set_reference_norm)
-		   .add_method("add", &T::add4)
-		   .add_method("config_string", &T::config_string)
-		   .set_construct_as_smart_pointer(true);
-		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
-
-
+			reg.add_class_<T, TBase>(name, grp)
+			   .template add_constructor<void (*)(const char*) >("")
+			   .template add_constructor<void (*)(const char*, int) >("")
+			   .template add_constructor<void (*)(const char*, int, number) >("")
+			   .add_method("set_reference_norm", &T::set_reference_norm)
+			   .add_method("add", &T::add4)
+			   .add_method("config_string", &T::config_string)
+			   .set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "GridFunctionEstimator", tag);
 	}
+
+
+	{
+			// IErrorEvaluator (abstract base class)
+			typedef IErrorEvaluator<TGridFunction> T;
+
+			string name = string("IErrorEvaluator").append(suffix);
+			reg.add_class_<T>(name, grp)
+				.add_method("compute_norm", &T::compute_norm)
+				.add_method("compute_error", &T::compute_error);
+		/*	   .template add_constructor<void (*)() >("Default constructor")
+			   .set_construct_as_smart_pointer(true);*/
+			reg.add_class_to_group(name, "IErrorEvaluator", tag);
+	}
+
+
+	{
+		// L2ErrorEvaluator
+		typedef L2ErrorEvaluator<TGridFunction> T;
+		typedef IErrorEvaluator<TGridFunction> TBase;
+
+		string name = string("L2ErrorEvaluator").append(suffix);
+		reg.add_class_<T, TBase>(name, grp)
+		   .template add_constructor<void (*)(const char *) >("fctNames")
+		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
+		   .template add_constructor<void (*)(const char *, int, int) >("fctNames, order, scale")
+		   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "L2ErrorEvaluator", tag);
+	}
+
+	{
+			// H1SemiErrorEvaluator
+			typedef H1SemiErrorEvaluator<TGridFunction> T;
+			typedef IErrorEvaluator<TGridFunction> TBase;
+
+			string name = string("H1SemiErrorEvaluator").append(suffix);
+			reg.add_class_<T, TBase>(name, grp)
+			   .template add_constructor<void (*)(const char *) >("fctNames")
+			   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
+			   .template add_constructor<void (*)(const char *, int, int) >("fctNames, order, scale")
+			   .set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "H1SemiErrorEvaluator", tag);
+	}
+
+	{
+				// H1ErrorEvaluator
+				typedef H1ErrorEvaluator<TGridFunction> T;
+				typedef IErrorEvaluator<TGridFunction> TBase;
+
+				string name = string("H1ErrorEvaluator").append(suffix);
+				reg.add_class_<T, TBase>(name, grp)
+				   .template add_constructor<void (*)(const char *) >("fctNames")
+				   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
+				   .template add_constructor<void (*)(const char *, int, int) >("fctNames, order, scale")
+				   .set_construct_as_smart_pointer(true);
+				reg.add_class_to_group(name, "H1ErrorEvaluator", tag);
+	}
+
+	{
+			// ScaledGridFunctionEstimator (sub-diagonal)
+			typedef ISubDiagErrorEst<TVector> TBase;
+			typedef ScaledGridFunctionEstimator<TDomain, TAlgebra> T;
+			string name = string("ScaledGridFunctionEstimator").append(suffix);
+
+			reg.add_class_<T, TBase>(name, grp)
+			   .template add_constructor<void (*)() >("Default constructor")
+			   .add_method("add", &T::add)
+			   .add_method("config_string", &T::config_string)
+			   .set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "ScaledGridFunctionEstimator", tag);
+	}
+
 
 	{
 		// ITimeIntegratorObserver (virtual base class)

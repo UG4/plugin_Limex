@@ -281,21 +281,225 @@ protected:
 };
 */
 
-/// Evaluate using (algebraic) L2 norm
+
+
+/** Estimate the error (based on the difference between two grid functions)*/
+template <typename TGridFunction>
+class IErrorEvaluator
+{
+protected:
+	std::string m_fctNames;
+	int m_quadorder;
+	// int m_type; // type obsolete -> moved to different classes
+	double m_scale;
+
+public:
+	IErrorEvaluator(const IErrorEvaluator<TGridFunction> &val)
+	{
+		this->m_fctNames = val.m_fctNames;
+		this->m_quadorder = val.m_quadorder;
+		this->m_scale = val.m_scale;
+	}
+
+	IErrorEvaluator(const char *fctNames) :
+		m_fctNames(fctNames), m_quadorder(3), m_scale(1.0) {}
+
+	IErrorEvaluator(const char *fctNames, int order) :
+		m_fctNames(fctNames), m_quadorder(order), m_scale(1.0) {}
+
+	IErrorEvaluator(const char *fctNames, int order, double scale) :
+		m_fctNames(fctNames), m_quadorder(order), m_scale(scale) {}
+
+	virtual ~IErrorEvaluator() {};
+
+	virtual double compute_norm(SmartPtr<TGridFunction> u) const
+	{ return 0.0; }
+
+	virtual double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	{ return 0.0; }
+
+	/// print config string
+	std::string config_string() const
+	{
+		std::stringstream ss;
+		ss << this->m_fctNames << ", " << this->m_quadorder << ", type=" <<", scale=" << this->m_scale << std::endl;
+		return ss.str();
+	}
+
+};
+
+/** Evaluates difference between two grid functions in L2 norm */
+template <typename TGridFunction>
+class L2ErrorEvaluator :
+		public IErrorEvaluator<TGridFunction>
+{
+public:
+	typedef IErrorEvaluator<TGridFunction> base_type;
+
+	L2ErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
+	L2ErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
+	L2ErrorEvaluator(const char *fctNames, int order, double scale) : base_type(fctNames, order, scale) {};
+	~L2ErrorEvaluator() {};
+
+	double compute_norm(SmartPtr<TGridFunction> uFine) const
+	{ return L2Norm(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+
+	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	{ return L2Error(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder);}
+};
+
+
+/** Evaluates difference between two grid functions in H1 semi-norm */
+template <typename TGridFunction>
+class H1SemiErrorEvaluator :
+		public IErrorEvaluator<TGridFunction>
+{
+public:
+	typedef IErrorEvaluator<TGridFunction> base_type;
+
+	H1SemiErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
+	H1SemiErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
+	H1SemiErrorEvaluator(const char *fctNames, int order, double scale) : base_type(fctNames, order, scale) {};
+	~H1SemiErrorEvaluator() {};
+
+	double compute_norm(SmartPtr<TGridFunction> uFine) const
+	{ return H1SemiNorm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+
+	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	{ return H1SemiError<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+
+};
+
+/** Evaluates difference between two grid functions in H1 semi-norm */
+template <typename TGridFunction>
+class H1ErrorEvaluator :
+		public IErrorEvaluator<TGridFunction>
+{
+public:
+	typedef IErrorEvaluator<TGridFunction> base_type;
+
+	H1ErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
+	H1ErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
+	H1ErrorEvaluator(const char *fctNames, int order, double scale) : base_type(fctNames, order, scale) {};
+	~H1ErrorEvaluator() {};
+
+	double compute_norm(SmartPtr<TGridFunction> uFine) const
+	{ return H1Norm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+
+	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	{ return H1Error<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+
+};
+
+
+
+/*
+/// Evaluate difference between two functions (w.r.t various norms)
 template <class TDomain, class TAlgebra>
 class GridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
-		
-	//	, public VectorDebugWritingEstimator<typename TAlgebra::vector_type>
-
 {
 protected:
 	typedef typename TAlgebra::vector_type TVector;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef IErrorEvaluator<grid_function_type> evaluator_type;
 
-	int m_quadorder;
+	std::vector<SmartPtr<evaluator_type> > m_evaluators;
 	number m_refNormValue;
 
+public:
+	typedef ISubDiagErrorEst<TVector> base_type;
+
+	// constructor
+	ScaledGridFunctionEstimator() : m_refNormValue(0.0) {}
+	ScaledGridFunctionEstimator(number ref) : m_refNormValue(ref) {}
+
+	void add(SmartPtr<evaluator_type> eval)
+	{
+		m_evaluators.push_back(eval);
+	}
+
+	// apply w/ rel norm
+	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
+	{
+		// typedef ScaleAddLinker<number, TDomain::dim, number> linker_type;
+		typedef GridFunctionNumberData<TGridFunction> TNumberData;
+
+		// try upcast
+		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
+		SmartPtr<grid_function_type> uCoarse = vCoarse.template cast_dynamic<grid_function_type>();
+		if (uFine.invalid() || uCoarse.invalid()) return false;
+
+		// error estimate
+		if (m_refNormValue<=0.0)
+		{
+			// relative error estimator
+			//number unorm = L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
+			//number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+			number unorm = 0.0;
+			number enorm = 0.0;
+			double est = 0.0;
+			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			{
+				enorm =  alpha * it->compute_error(uFine, uCoarse);
+				unorm =  std::max(it->compute_norm(uFine), 1e-10);
+				est += (enorm*enorm)/(unorm*unorm);
+				std::cerr << "unorm=" << unorm << "enorm=" << enorm << "est="<<est << std::endl;
+			}
+
+			base_type::m_est = sqrt(est)/m_evaluators.size();
+			std::cerr << "eps="<< base_type::m_est << std::endl;
+
+		}
+		else
+		{
+			// weighted error estimator
+			number enorm = 0.0;
+			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			{
+				enorm +=  alpha * it->compute_error(uFine, uCoarse);
+			}
+			base_type::m_est = enorm/m_refNormValue;
+
+			std::cerr << "unorm (FIXED)=" << m_refNormValue << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
+
+		}
+
+		// update
+		VecScaleAdd(*vUpdate, 1.0+alpha, *vFine, -alpha, *vCoarse);
+		return true;
+	}
+
+	void set_reference_norm(number norm)
+	{m_refNormValue = norm; }
+
+
+	/// print config string
+	std::string config_string() const
+	{
+		std::stringstream ss;
+		ss << "GridFunctionEstimator:\n";
+		for (typename std::vector<GridFunctionEvaluator>::const_iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		{
+			ss << it->config_string();
+		}
+		return ss.str();
+	}
+};
+*/
+
+/// Evaluate using contiuous norm (DEPRECATED!)
+template <class TDomain, class TAlgebra>
+class GridFunctionEstimator :
+		public ISubDiagErrorEst<typename TAlgebra::vector_type>
+{
+protected:
+	typedef typename TAlgebra::vector_type TVector;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef IErrorEvaluator<grid_function_type> evaluator_type;
+
+	number m_refNormValue;
+/*
 	struct GridFunctionEvaluator
 	{
 		std::string m_fctNames;
@@ -343,7 +547,7 @@ protected:
 			if (m_type ==0) {
 				val = L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
 			} else if (m_type ==1) {
-				// val = H1SemiError<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
+				val = H1SemiError<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
 			}
 			return val;
 		};
@@ -357,8 +561,8 @@ protected:
 		}
 
 	};
-
-	std::vector<GridFunctionEvaluator> m_evaluators;
+*/
+	std::vector<evaluator_type> m_evaluators;
 
 
 public:
@@ -366,40 +570,44 @@ public:
 
 	// constructor
 	GridFunctionEstimator(const char *fctNames) :
-	ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
+		ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
 	{ this->add(fctNames); }
 
 	GridFunctionEstimator(const char *fctNames, int order) :
-	ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
+		ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
 	{ this->add(fctNames, order); }
 
 	GridFunctionEstimator(const char *fctNames, int order, double ref) :
-	ISubDiagErrorEst<TVector>(), m_refNormValue(ref)
+		ISubDiagErrorEst<TVector>(), m_refNormValue(ref)
 	{ this->add(fctNames, order); }
 
 	void add(const char *fctNames)
 	{
-		m_evaluators.push_back(GridFunctionEvaluator(fctNames));
+		m_evaluators.push_back(L2ErrorEvaluator<grid_function_type>(fctNames));
 	}
 
 	void add(const char *fctNames, int order)
 	{
-		m_evaluators.push_back(GridFunctionEvaluator(fctNames, order));
+		m_evaluators.push_back(L2ErrorEvaluator<grid_function_type>(fctNames, order));
 	}
 
 	void add4(const char *fctNames, int order, int type, double scale)
 	{
-		m_evaluators.push_back(GridFunctionEvaluator(fctNames, order, type, scale));
+		if (type == 0) {
+			m_evaluators.push_back(L2ErrorEvaluator<grid_function_type>(fctNames, order, scale));
+		} else if (type == 1) {
+			m_evaluators.push_back(H1SemiErrorEvaluator<grid_function_type>(fctNames, order, scale));
+		} else { UG_LOG(""); }
 	}
 
 	// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
+		// typedefs
 		typedef ScaleAddLinker<number, TDomain::dim, number> linker_type;
 		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-		typedef GridFunctionNumberData<grid_function_type> TNumberData;
 
-		// try upcast
+		//  upcast to GridFunction
 		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
 		SmartPtr<grid_function_type> uCoarse = vCoarse.template cast_dynamic<grid_function_type>();
 		if (uFine.invalid() || uCoarse.invalid()) return false;
@@ -412,7 +620,7 @@ public:
 			//number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
 			number unorm = 0.0;
 			number enorm = 0.0;
-			for (typename std::vector<GridFunctionEvaluator>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 			{
 				unorm +=  it->compute_norm(uFine);
 				enorm +=  alpha * it->compute_error(uFine, uCoarse);
@@ -420,13 +628,13 @@ public:
 
 			base_type::m_est = enorm/unorm;
 
-			std::cerr << "unorm=" << unorm << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
+			std::cerr << "unorm=" << unorm << "\tenorm=" << enorm << "\teps="<< base_type::m_est << std::endl;
 		}
 		else
 		{
 			// weighted error estimator
 			number enorm = 0.0;
-			for (typename std::vector<GridFunctionEvaluator>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 			{
 				enorm +=  alpha * it->compute_error(uFine, uCoarse);
 			}
@@ -450,13 +658,78 @@ public:
 	{
 		std::stringstream ss;
 		ss << "GridFunctionEstimator:\n";
-		for (typename std::vector<GridFunctionEvaluator>::const_iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		for (typename std::vector<evaluator_type>::const_iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 		{
 			ss << it->config_string();
 		}
 		return ss.str();
 	}
 };
+
+/// Evaluate difference between two functions (w.r.t various norms)
+template <class TDomain, class TAlgebra>
+class ScaledGridFunctionEstimator :
+		public ISubDiagErrorEst<typename TAlgebra::vector_type>
+{
+protected:
+	typedef typename TAlgebra::vector_type TVector;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef IErrorEvaluator<grid_function_type> evaluator_type;
+
+	std::vector<SmartPtr<evaluator_type> > m_evaluators;
+
+public:
+	typedef ISubDiagErrorEst<TVector> base_type;
+
+	// constructor
+	ScaledGridFunctionEstimator() : base_type() {}
+
+	void add(SmartPtr<evaluator_type> eval)
+	{ m_evaluators.push_back(eval); }
+
+	// apply w/ rel norm
+	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
+	{
+		// typedef GridFunctionNumberData<TGridFunction> TNumberData;
+
+		// upcast
+		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
+		SmartPtr<grid_function_type> uCoarse = vCoarse.template cast_dynamic<grid_function_type>();
+		if (uFine.invalid() || uCoarse.invalid()) return false;
+
+		// error estimate
+		number est = 0.0;
+		for (typename std::vector<SmartPtr<evaluator_type> >::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		{
+			double enorm =  alpha * (*it)->compute_error(uFine, uCoarse);
+			double unorm =  std::max((*it)->compute_norm(uFine), 1e-10);
+			est += (enorm*enorm)/(unorm*unorm);
+			std::cerr << "unorm=" << unorm << "\tenorm=" << enorm << "\tratio2="<< (enorm*enorm)/(unorm*unorm) << std::endl;
+		}
+
+		base_type::m_est = sqrt(est)/m_evaluators.size();
+		std::cerr << "eps="<< base_type::m_est << std::endl;
+
+		// update
+		VecScaleAdd(*vUpdate, 1.0+alpha, *vFine, -alpha, *vCoarse);
+		return true;
+	}
+
+
+	/// print config string
+	std::string config_string() const
+	{
+		std::stringstream ss;
+		ss << "ScaledGridFunctionEstimator:\n";
+		for (typename std::vector<SmartPtr<evaluator_type> >::const_iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		{
+			ss << (*it)->config_string();
+		}
+		return ss.str();
+	}
+};
+
+
 
 
 template <typename TVector>
