@@ -813,14 +813,18 @@ class AitkenNevilleTimex
 		 *
 		 * for T_ik
  		 * */
-		void apply(size_t nstages)
+		void apply(size_t nstages, bool with_error=true)
 		{
 			UG_ASSERT(nstages <= m_solution.size(),
 					 "Dimensions do not match:"  << nstages << ">" << m_solution.size());
 
-			// clear (for safety reasons...)
-			for (size_t k=1; k<m_solution.size(); ++k)
-			{ m_subdiag_error_est[k] = INFINITY; }
+
+			if (with_error)
+			{
+				// reset (for safety reasons...)
+				for (size_t k=1; k<m_solution.size(); ++k)
+				{ m_subdiag_error_est[k] = INFINITY; }
+			}
 
 			//m_subdiag_error_est[0] = ;
 			// process columns (left to right)
@@ -843,7 +847,7 @@ class AitkenNevilleTimex
 							": ns["<<i<<"]="<< m_num_steps[i] <<
 							"ns2["<<i-k<<"]=" <<  m_num_steps[i-k] <<"=" << scaling << std::endl);
 
-					if (i==k)
+					if (with_error && (i==k))
 					{
 						// compute subdiagonal error estimate
 						m_subdiag->update(solfine, (1.0/scaling), solfine,  solcoarse);

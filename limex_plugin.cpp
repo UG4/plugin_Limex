@@ -381,6 +381,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 			string name = string("LimexTimeIntegrator").append(suffix);
 			reg.add_class_<T,TBase>(name, grp)
+
 			  //.template add_constructor<void (*)() >("")
 			  //.ADD_CONSTRUCTOR( (SmartPtr<TDomainDisc>, int) ) ("Domain disc|number of steps (vector)")
 			  .ADD_CONSTRUCTOR( (int) ) ("number of stages")
@@ -392,8 +393,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 			  .add_method("add_stage", (void (T::*)(size_t, size_t, SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::solver_type>) ) &T::add_stage)
 			  .add_method("add_stage", (void (T::*)(size_t, SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::solver_type>) ) &T::add_stage)
 			  .add_method("set_debug", &T::set_debug)
+			  .add_method("has_time_derivative", &T::has_time_derivative)
+			  .add_method("get_time_derivative", &T::get_time_derivative)
+			  .add_method("set_time_derivative", &T::set_time_derivative)
 			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 			  .set_construct_as_smart_pointer(true);
+
 			reg.add_class_to_group(name, "LimexTimeIntegrator", tag);
 	}
 
@@ -464,6 +469,7 @@ static void Algebra(Registry& reg, string parentGroup)
 				string name = string("LinearImplicitEuler").append(suffix);
 				reg.add_class_<T, TBase>(name, grp)
 						.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >)>("LinearImplicitEuler")
+						.add_method("set_gamma_disc", &T::set_gamma_disc)
 						.set_construct_as_smart_pointer(true);
 				reg.add_class_to_group(name, "LinearImplicitEuler", tag);
 		}
@@ -481,7 +487,7 @@ static void Algebra(Registry& reg, string parentGroup)
 						.add_method("set_solution", &T::set_solution)
 						.add_method("get_solution", &T::get_solution)
 						.add_method("apply", (void (T::*)()) &T::apply)
-						.add_method("apply", (void (T::*)(size_t)) &T::apply)
+						.add_method("apply", (void (T::*)(size_t, bool)) &T::apply)
 						//.add_method("get_error_estimate", &T::get_error_estimate())
 						//.add_method("get_error_estimate", &T::get_error_estimate(int))
 						.add_method("get_error_estimate",  (double (T::*)(void)) &T::get_error_estimate, "","")

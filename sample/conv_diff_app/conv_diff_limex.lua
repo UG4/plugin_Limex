@@ -39,7 +39,6 @@ local withRedist = util.HasParamOption("--withRedist", false, "Enables a more so
 util.CheckAndPrintHelp("Time-dependent problem setup example\n(by Andreas Vogel)");
 
 local gridName = nil
--- if dim == 2 then gridName = util.GetParam("-grid", "grids/unit_square_01_tri_2x2.ugx")
 if dim == 2 then gridName = util.GetParam("-grid", "./grids/unit_square_01_quads_2x2.ugx")
 else print("Dimension "..dim.." not supported."); exit(); end
 
@@ -171,6 +170,7 @@ if (false) then
 --------------------------------------------------------------------------------
 print (">> Setting up Assembling (1)")
 local elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
+
 elemDisc:set_upwind(FullUpwind())
 elemDisc:set_diffusion(eps)
 elemDisc:set_velocity("Velocity")
@@ -323,7 +323,7 @@ local limexEstimator = GridFunctionEstimator("c", 2)
 local limexDesc = {
 
   nstages = nstages,
-  steps = {1,2,3,4,5},
+  steps = {1,2,3,4,5,6},
   domainDisc=domainDisc,
   nonlinSolver = limexNLSolver,
   lSolver = limexLSolver,

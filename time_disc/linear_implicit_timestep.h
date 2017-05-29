@@ -91,14 +91,20 @@ public:
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDD)
 		: ITimeDiscretization<TAlgebra>(spDD),
 		  m_spMatrixDisc(spDD),
-		  m_pPrevSol(NULL)
+		  m_pPrevSol(NULL),
+		  m_spGammaDisc(SPNULL),
+		  m_spGammaOp(SPNULL),
+		  m_bGammaNeedsUpdate(true)
 	{}
 
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
 				SmartPtr<IDomainDiscretization<algebra_type> > spMatrixDisc)
 			: ITimeDiscretization<TAlgebra>(spDefectDisc),
 			  m_spMatrixDisc(spMatrixDisc),
-			  m_pPrevSol(NULL)
+			  m_pPrevSol(NULL),
+			  m_spGammaDisc(SPNULL),
+			  m_spGammaOp(SPNULL),
+			  m_bGammaNeedsUpdate(true)
 		{}
 
 	virtual ~LinearImplicitEuler(){};
@@ -183,6 +189,19 @@ protected:
 	number m_futureTime;						///< Future Time
 
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixDisc;
+
+	// Gamma[u0, u0']
+	SmartPtr<IDomainDiscretization<algebra_type> > m_spGammaDisc;
+	SmartPtr<AssembledLinearOperator<algebra_type> > m_spGammaOp;	   ///< Gamma operator
+	bool m_bGammaNeedsUpdate;
+
+public:
+	void invalidate_gamma()
+	{ m_spGammaOp = SPNULL; m_bGammaNeedsUpdate = true; }
+
+	void set_gamma_disc(SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
+	{m_spGammaDisc = spGammaDisc;}
+
 };
 
 

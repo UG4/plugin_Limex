@@ -375,13 +375,10 @@ public:
 				write_debug(*m_vThreadData[i].get_solution(), name);
 			}
 
-
-
-
 			number t = t0;
 			double dtcurr = ITimeIntegrator<TDomain, TAlgebra>::get_time_step();
 
-			const size_t kmax = m_vThreadData.size();   // maximum number of stages
+			const size_t kmax = m_vThreadData.size();   		// maximum number of stages
 			size_t qpred = kmax-1;  	 						// predicted optimal order
 			size_t qcurr = qpred;
 
@@ -433,7 +430,6 @@ public:
 
 
 				join_integrator_threads();
-
 				// PARALLEL EXECUTION: END
 				///////////////////////////////////////
 
@@ -477,7 +473,6 @@ public:
 					// predict optimal order (w.r.t. workload) for next step
 					size_t kbest = find_optimal_solution(eps, ntest, qpred);
 					UG_ASSERT(kbest < ntest, "Huhh: Not enough solutions?");
-
 
 					// best solution
 					ubest  = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
@@ -539,6 +534,15 @@ public:
 					// ACCEPT time step
 					UG_LOG("+++ LimexTimestep +++" << limex_step << " ACCEPTED"<< std::endl);
 					UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
+
+
+					// compute time derivative
+					if (this->has_time_derivative())
+					{
+						UG_LOG("Computing derivative" << std::endl);
+						vector_type &udot = *get_time_derivative();
+						VecScaleAdd(udot, 1.0/dt, *ubest, -1.0/dt, *u0);
+					}
 
 					// copy best solution
 					UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
@@ -678,6 +682,10 @@ public:
 				return kbest;
 			}
 
+public:
+			void set_time_derivative(SmartPtr<grid_function_type> udot) {m_spDtSol = udot;}
+			SmartPtr<grid_function_type> get_time_derivative() {return m_spDtSol;}
+			bool has_time_derivative() {return m_spDtSol!=SPNULL;}
 
 protected:
 
@@ -687,22 +695,23 @@ protected:
 		SmartPtr<error_estim_type> m_spErrorEstimator;     // (smart ptr for) error estimator
 
 
-		unsigned int m_nstages; 							// stages in Aitken-Neville
-		std::vector<size_t> m_vSteps;						// generating sequence for extrapolation
-		std::vector<ThreadData> m_vThreadData;				// vector with thread information
-
-
-
+		unsigned int m_nstages; 				/// stages in Aitken-Neville
+		std::vector<size_t> m_vSteps;			/// generating sequence for extrapolation
+		std::vector<ThreadData> m_vThreadData;	/// vector with thread information
 
 		std::vector<number> m_gamma;			/// gamma_i: exponent
 
-		std::vector<number> m_costA;			// A_i: cost (for completing stage i)
+		std::vector<number> m_costA;			/// A_i: cost (for completing stage i)
 		std::vector<number> m_monitor;			/// convergence monitor \alpha
 
 		std::vector<number> m_workload;
 		std::vector<number> m_lambda;
 
-  double m_greedyOrderIncrease;
+
+  		double m_greedyOrderIncrease;
+
+		SmartPtr<grid_function_type> m_spDtSol;   ///< Time derivative
+
 
 };
 
