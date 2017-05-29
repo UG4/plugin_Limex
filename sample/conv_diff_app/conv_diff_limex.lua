@@ -359,7 +359,10 @@ Interpolate("exactSolution", u, "c", startTime)
 
 -- solve problem
 print(">> Solve problem")
+local cstart=os.clock()
 limex:apply(u, endTime, u, startTime)
+local cend=os.clock()
+print ("CDELTA=\t"..cend - cstart)
 
 end
 

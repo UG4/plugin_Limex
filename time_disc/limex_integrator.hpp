@@ -187,7 +187,8 @@ public:
 		  m_gamma(m_nstages+1),
 		  m_monitor(((m_nstages+1)*(m_nstages+1))), // TODO: wasting memory here!
 		  m_workload(m_nstages+1),
-		  m_lambda(m_nstages+1)
+		  m_lambda(m_nstages+1), 
+		  m_greedyOrderIncrease(0.0)
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -200,6 +201,8 @@ public:
 		void set_tolerance(double tol) { m_tol = tol;}
 		void set_stepsize_safety_factor(double rho) { m_rhoSafety = rho;}
 		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;}
+		void set_stepsize_greedy_order_factor(double sigma) { m_greedyOrderIncrease = sigma;}
+
 
 		void add_error_estimator(SmartPtr<error_estim_type> spErrorEstim)
 		{ m_spErrorEstimator = spErrorEstim; }
@@ -500,7 +503,9 @@ public:
 							if (m_costA[qpred] * alpha > m_costA[qpred+1])
 							{
 								qpred++;    			// go for higher order
-								// dtpred *= alpha;		// & adapt time step  // TODO: check required!
+								if (m_greedyOrderIncrease >0.0) {
+								  dtpred *= m_greedyOrderIncrease*alpha;		// & adapt time step  // TODO: check required!
+								}
 								UG_LOG("... yes.\n")
 
 							} else {
@@ -600,18 +605,18 @@ public:
 			}
 		}
 
-			/// Updating workloads A_i for computing T_ii
-			//  (depends on m_vSteps, which must have been initialized!)
-			void update_cost()
-			{
-				//UG_LOG("A_0="<< m_vSteps[0] << std::endl);
-				m_costA[0] = (1.0)*m_vSteps[0];
-				for (size_t i=1; i<=m_nstages; ++i)
-				{
-					m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
-					//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
-				}
-			}
+  /// Updating workloads A_i for computing T_ii
+  //  (depends on m_vSteps, which must have been initialized!)
+  void update_cost()
+  {
+    //UG_LOG("A_0="<< m_vSteps[0] << std::endl);
+    m_costA[0] = (1.0)*m_vSteps[0];
+    for (size_t i=1; i<=m_nstages; ++i)
+      {
+	m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
+	//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
+      }
+  }
 
 			/// convergence monitor
 			// (depends on cost, which must have been initialized!)
@@ -697,7 +702,7 @@ protected:
 		std::vector<number> m_workload;
 		std::vector<number> m_lambda;
 
-
+  double m_greedyOrderIncrease;
 
 };
 

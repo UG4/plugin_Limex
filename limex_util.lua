@@ -107,7 +107,7 @@ local nsteps = table.getn(limexDesc.steps)
 if ((nsteps < nstages)) then print ("ERROR: Array too short!") return nil 
 end
 
-print(limexDesc.nonlinSolver:config_string())
+-- print(limexDesc.nonlinSolver:config_string())
 
 local ndiscs = 0 -- discretization(s) [object or table of objects]
 if (type(limexDesc.domainDisc) == "table") then ndiscs = table.getn(limexDesc.domainDisc) 

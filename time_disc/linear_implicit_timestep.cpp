@@ -235,12 +235,12 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		this->m_spDomDisc->assemble_defect(d, m_pPrevSol, vScaleMass, vScaleStiff, gl);
 
 		// d := d + (M - \tau J) (u(k-1)-u)
-		vector_type deltau = *m_pPrevSol->oldest()->clone();
+		/*	vector_type deltau = *m_pPrevSol->oldest()->clone();
 		deltau -= u;
 
 		this->m_spDomDisc->assemble_jacobian(m_JLinOp->get_matrix(), m_pPrevSol, m_dt, gl);
 		m_JLinOp->apply_sub(d, deltau);
-
+		*/
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
 
 	//	pop unknown solution to solution time series

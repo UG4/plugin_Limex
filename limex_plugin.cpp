@@ -381,18 +381,19 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 			string name = string("LimexTimeIntegrator").append(suffix);
 			reg.add_class_<T,TBase>(name, grp)
-								  //.template add_constructor<void (*)() >("")
-								  //.ADD_CONSTRUCTOR( (SmartPtr<TDomainDisc>, int) ) ("Domain disc|number of steps (vector)")
-								  .ADD_CONSTRUCTOR( (int) ) ("number of stages")
-								  .add_method("set_tolerance", &T::set_tolerance)
-								  .add_method("set_stepsize_safety_factor",&T::set_stepsize_safety_factor)
-								  .add_method("set_stepsize_reduction_factor", &T::set_stepsize_reduction_factor)
-								  .add_method("add_error_estimator", &T::add_error_estimator)
-								  .add_method("add_stage", (void (T::*)(size_t, size_t, SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::solver_type>) ) &T::add_stage)
-								  .add_method("add_stage", (void (T::*)(size_t, SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::solver_type>) ) &T::add_stage)
-								  .add_method("set_debug", &T::set_debug)
-								  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
-								  .set_construct_as_smart_pointer(true);
+			  //.template add_constructor<void (*)() >("")
+			  //.ADD_CONSTRUCTOR( (SmartPtr<TDomainDisc>, int) ) ("Domain disc|number of steps (vector)")
+			  .ADD_CONSTRUCTOR( (int) ) ("number of stages")
+			  .add_method("set_tolerance", &T::set_tolerance)
+			  .add_method("set_stepsize_safety_factor",&T::set_stepsize_safety_factor)
+			  .add_method("set_stepsize_reduction_factor", &T::set_stepsize_reduction_factor)
+			  .add_method("set_stepsize_greedy_order_factor", &T::set_stepsize_greedy_order_factor)
+			  .add_method("add_error_estimator", &T::add_error_estimator)
+			  .add_method("add_stage", (void (T::*)(size_t, size_t, SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::solver_type>) ) &T::add_stage)
+			  .add_method("add_stage", (void (T::*)(size_t, SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::solver_type>) ) &T::add_stage)
+			  .add_method("set_debug", &T::set_debug)
+			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
+			  .set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "LimexTimeIntegrator", tag);
 	}
 
