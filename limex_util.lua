@@ -113,6 +113,13 @@ local ndiscs = 0 -- discretization(s) [object or table of objects]
 if (type(limexDesc.domainDisc) == "table") then ndiscs = table.getn(limexDesc.domainDisc) 
 end
 
+
+local ngamma = 0 -- discretization(s) [object or table of objects]
+if (limexDesc.gammaDisc) then
+if (type(limexDesc.gammaDisc) == "table") then ngamma = table.getn(limexDesc.gammaDisc) 
+end
+end
+
 local nsolvers = 0 -- solver(s) [object or table of objects]
 if (type(limexDesc.nonlinSolver) == "table") then nsolvers = table.getn(limexDesc.nonlinSolver)
 end
@@ -136,14 +143,25 @@ if ((ndiscs>0
   if (ndiscs < nstages) then print ("ERROR: Number of discretizations too small:"..ndiscs)  return nil end
   if (nsolvers < nstages) then print ("ERROR: Number of solvers too small:"..nsolvers)  return nil end
   
+  
+  
   for i=1,nstages do 
     limex:add_stage(limexDesc.steps[i], limexDesc.domainDisc[i], limexDesc.nonlinSolver[i])
   end
 else 
 
   -- single disc/solver (=>serial version) 
-  for i=1,nstages do 
-     limex:add_stage(limexDesc.steps[i], limexDesc.domainDisc, limexDesc.nonlinSolver)
+  
+  
+  if (not limexDesc.gammaDiscOPT) then
+    for i=1,nstages do 
+      limex:add_stage(limexDesc.steps[i], limexDesc.nonlinSolver, limexDesc.domainDisc)
+    end
+  else
+    print("Creating w/Gamma")
+    for i=1,nstages do 
+      limex:add_stage(limexDesc.steps[i], limexDesc.nonlinSolver, limexDesc.domainDisc, limexDesc.gammaDiscOPT)
+    end
   end
 end
 

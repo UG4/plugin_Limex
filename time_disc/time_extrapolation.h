@@ -818,7 +818,6 @@ class AitkenNevilleTimex
 			UG_ASSERT(nstages <= m_solution.size(),
 					 "Dimensions do not match:"  << nstages << ">" << m_solution.size());
 
-
 			if (with_error)
 			{
 				// reset (for safety reasons...)

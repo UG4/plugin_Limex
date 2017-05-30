@@ -140,11 +140,7 @@ public:
 			SmartPtr<timestep_type> get_time_stepper()
 			{ return m_stepper; }
 
-			void set_solution(SmartPtr<grid_function_type> sol)
-			{ m_sol = sol;}
 
-			SmartPtr<grid_function_type> get_solution()
-			{ return m_sol;}
 
 			void set_solver(SmartPtr<solver_type> solver)
 			{ m_solver = solver;}
@@ -159,11 +155,25 @@ public:
 			{ return m_error; }
 
 
+			void set_solution(SmartPtr<grid_function_type> sol)
+			{ m_sol = sol;}
+
+			SmartPtr<grid_function_type> get_solution()
+			{ return m_sol;}
+
+			void set_derivative(SmartPtr<grid_function_type> sol)
+			{ m_dot = sol;}
+
+			SmartPtr<grid_function_type> get_derivative()
+			{ return m_dot;}
+
 		protected:
 			 // includes time step series
 			SmartPtr<timestep_type> m_stepper;
-			SmartPtr<grid_function_type> m_sol;
 			SmartPtr<solver_type> m_solver;
+
+			SmartPtr<grid_function_type> m_sol;
+			SmartPtr<grid_function_type> m_dot;
 			int m_error;
 
 		};
@@ -171,6 +181,17 @@ public:
 		typedef std::vector<SmartPtr<ThreadData> > thread_vector_type;
 
 public:
+	void set_debug_for_timestepper(SmartPtr<IDebugWriter<algebra_type> > spDebugWriter)
+	{
+
+		for(size_t i=0; i<m_vThreadData.size(); ++i)
+		{
+				m_vThreadData[i].get_time_stepper()->set_debug(spDebugWriter);
+		}
+		UG_LOG("set_debug:" << m_vThreadData.size());
+
+	}
+
 	using VectorDebugWritingObject<vector_type>::set_debug;
 protected:
 	using VectorDebugWritingObject<vector_type>::write_debug;
@@ -208,31 +229,43 @@ public:
 		{ m_spErrorEstimator = spErrorEstim; }
 
 		//! add a new stage (at end of list)
-		void add_stage(size_t nsteps, SmartPtr<domain_discretization_type> spDD, SmartPtr<solver_type> solver)
+		void add_stage_base(size_t nsteps, SmartPtr<solver_type> solver, SmartPtr<domain_discretization_type> spDD, SmartPtr<domain_discretization_type> spGamma=SPNULL)
 		{
 			UG_ASSERT(m_vThreadData.size() == m_vSteps.size(), "ERROR: m_vThreadData and m_vSteps differ in size!");
 
 			UG_ASSERT(m_vThreadData.empty() || m_vSteps.back()<nsteps, "ERROR: Sequence of steps must be increasing." );
 
 			if (m_vThreadData.size() == m_nstages)
-			{
-				return;
-			}
+			{ return; }
 
 			m_vSteps.push_back(nsteps);
 
-			m_vThreadData.push_back(ThreadData(make_sp(new timestep_type(spDD))));
+			if (spGamma.invalid()) {
+				m_vThreadData.push_back(ThreadData(make_sp(new timestep_type(spDD))));
+			} else {
+				m_vThreadData.push_back(ThreadData(make_sp(new timestep_type(spDD, spDD, spGamma))));
+			}
+
 			m_vThreadData.back().set_solver(solver);
+
+			// propagate debug info
+			m_vThreadData.back().get_time_stepper()->set_debug(VectorDebugWritingObject<vector_type>::vector_debug_writer());
 
 			UG_ASSERT(solver.valid(), "Huhh: Need to supply solver!");
 			UG_ASSERT(m_vThreadData.back().get_solver().valid(), "Huhh: Need to supply solver!");
 		}
 
+		void add_stage(size_t nsteps, SmartPtr<solver_type> solver, SmartPtr<domain_discretization_type> spDD)
+		{ add_stage_base(nsteps, solver, spDD); }
+
+		void add_stage_ext(size_t nsteps, SmartPtr<solver_type> solver, SmartPtr<domain_discretization_type> spDD, SmartPtr<domain_discretization_type> spGamma)
+		{ add_stage_base(nsteps, solver, spDD, spGamma); }
+
 		///! TODO: remove this function!
 		void add_stage(size_t i, size_t nsteps, SmartPtr<domain_discretization_type> spDD, SmartPtr<solver_type> solver)
 		{
 			UG_LOG("WARNING: add_stage(i, nsteps ,...) is deprecated. Please use 'add_stage(nsteps ,...) instead!'");
-			add_stage(nsteps, spDD, solver);
+			add_stage(nsteps, solver, spDD);
 		}
 
 
@@ -247,6 +280,7 @@ protected:
 			for (int i=nstages; i>=0; --i)
 			{
 				m_vThreadData[i].set_solution(u->clone());
+				m_vThreadData[i].set_derivative(u->clone());
 			}
 		}
 
@@ -300,6 +334,7 @@ protected:
 				integrator.set_dt_max(dtcurr/m_vSteps[i]);
 				integrator.set_reduction_factor(0.0);                 // quit immediately, if step fails
 				integrator.set_solver(m_vThreadData[i].get_solver());
+				integrator.set_derivative(m_vThreadData[i].get_derivative());
 
 				bool exec = true;
 				try
@@ -351,246 +386,7 @@ protected:
 
 public:
 		//! integrating from t0 -> t1
-		bool apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
-		{
-#ifdef UG_OPENMP
-			// create multi-threading environment
-			//int nt = std::min(omp_get_max_threads(), m_nstages);
-
-#endif
-
-			// NOTE: we use u as common storage for future (and intermediate) solution(s)
-			*u = *u0;
-
-			// initialize integrator threads
-			// (w/ solutions)
-			init_integrator_threads(u0);
-
-
-			// write_debug
-			char name[40];
-			for (unsigned int i=0; i<m_vThreadData.size(); ++i)
-			{
-				sprintf(name, "Limex_Init_iter%03d_stage%03d", 0, i);
-				write_debug(*m_vThreadData[i].get_solution(), name);
-			}
-
-			number t = t0;
-			double dtcurr = ITimeIntegrator<TDomain, TAlgebra>::get_time_step();
-
-			const size_t kmax = m_vThreadData.size();   		// maximum number of stages
-			size_t qpred = kmax-1;  	 						// predicted optimal order
-			size_t qcurr = qpred;
-
-			// double lambda=1.0;   						// step length increase/decrease
-
-			// time integration loop
-			SmartPtr<grid_function_type> ubest = SPNULL;
-			int limex_step = 1;
-			size_t limex_total = 1;
-			size_t ntest;    // active number of stages <= kmax
-			while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
-			{
-				int err = 0;
-
-				UG_DLOG(LIB_LIMEX, 5, "+++ LimexTimestep +++" << limex_step << "\n");
-
-				// determine step size
-				number dt = std::min(dtcurr, t1-t);
-				UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
-
-				// number of stages to investigate
-				qcurr = qpred;
-				ntest = std::min(kmax, qcurr+1);
-				UG_LOG("ntest="<< ntest << std::endl);
-
-				// checks
-				UG_ASSERT(m_vSteps.size() >= ntest, "Huhh: sizes do not match: " << m_vSteps.size() << "<"<<ntest);
-				UG_ASSERT(m_vThreadData.size() >= ntest, "Huhh: sizes do not match: " << m_vThreadData.size() << "< "<< ntest);
-
-				///////////////////////////////////////
-				// PARALLEL EXECUTION: BEGIN
-
-				// write_debug
-				for (size_t i=0; i<ntest; ++i)
-				{
-						sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-						write_debug(*m_vThreadData[i].get_solution(), name);
-				}
-
-				// integrate: t -> t+dt
-				err = apply_integrator_threads(dt, u, t, ntest-1);
-
-				// write_debug
-				for (size_t i=0; i<ntest; ++i)
-				{
-					sprintf(name, "Limex_AfterSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-					write_debug(*m_vThreadData[i].get_solution(), name);
-				}
-
-
-				join_integrator_threads();
-				// PARALLEL EXECUTION: END
-				///////////////////////////////////////
-
-
-
-
-				///////////////////////////////////////
-				// SERIAL EXECUTION: BEGIN
-
-
-				// sanity checks
-				UG_ASSERT(m_spErrorEstimator.valid(), "Huhh: Invalid Error estimator?");
-
-				double epsmin = 0.0;
-
-				bool limexConverged = false;
-				if (err==0)
-				{
-					// compute extrapolation at t+dtcurr (SERIAL)
-					timex_type timex(m_vSteps);
-					timex.set_error_estimate(m_spErrorEstimator);
-					for (unsigned int i=0; i<ntest; ++i)
-					{
-						timex.set_solution(m_vThreadData[i].get_solution(), i);
-					}
-					timex.apply(ntest);
-
-					// write_debug
-					for (size_t i=0; i<ntest; ++i)
-					{
-						sprintf(name, "Limex_Extrapolates_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-						write_debug(*m_vThreadData[i].get_solution(), name);
-					}
-					limex_total++;
-
-					// obtain sub-diagonal error estimates
-					const std::vector<number>& eps = timex.get_error_estimates();
-					UG_ASSERT(ntest<=eps.size(), "Huhh: Not enough solutions?");
-
-					// select optimal solution (w.r.t error) AND
-					// predict optimal order (w.r.t. workload) for next step
-					size_t kbest = find_optimal_solution(eps, ntest, qpred);
-					UG_ASSERT(kbest < ntest, "Huhh: Not enough solutions?");
-
-					// best solution
-					ubest  = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
-					epsmin = eps[kbest]; /*were: kbest*/
-
-					// check for convergence
-					limexConverged = (epsmin <= m_tol);
-
-					// select predicted order for next step
-					double dtpred = m_lambda[qpred]*dtcurr;
-					UG_LOG("koptim=\t" << kbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred] << ", alpha(q,q)=" << monitor(qpred, qpred) << "dt(q)=" << dtpred<< std::endl);
-
-					// EXTENSIONS: convergence model
-					if (limexConverged)
-					{
-						// a) aim for order increase in next step
-						if ((qpred+1==ntest)  /* increase by one possible? */
-							 && (kmax>ntest)) /* still below max? */
-						{
-							const double alpha = monitor(qpred, qpred+1);
-							UG_LOG("CHECKING for order increase: "<< m_costA[qpred] << "*" << alpha << ">" << m_costA[qpred+1]);
-							// check, whether further increase could still be efficient
-							if (m_costA[qpred] * alpha > m_costA[qpred+1])
-							{
-								qpred++;    			// go for higher order
-								if (m_greedyOrderIncrease >0.0) {
-								  dtpred *= m_greedyOrderIncrease*alpha;		// & adapt time step  // TODO: check required!
-								}
-								UG_LOG("... yes.\n")
-
-							} else {
-								UG_LOG("... nope.\n")
-							}
-
-						}
-
-
-						// b) monitor convergence (a-priori check!)
-
-					}
-
-					// parameters for subsequent step
-					// step length increase/reduction
-					/*double dtpred = std::min(dtcurr*lambda,
-							dtcurr*itime_integrator_type::get_increase_factor());*/
-					dtcurr = std::min(dtpred, itime_integrator_type::get_dt_max());
-
-
-				}
-				else
-				{
-					// solver failed -> cut time step
-					dtcurr *= m_sigmaReduction;
-				}
-
-
-				if ((err==0) && limexConverged)
-				{
-					// ACCEPT time step
-					UG_LOG("+++ LimexTimestep +++" << limex_step << " ACCEPTED"<< std::endl);
-					UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
-
-
-					// compute time derivative
-					if (this->has_time_derivative())
-					{
-						UG_LOG("Computing derivative" << std::endl);
-						vector_type &udot = *get_time_derivative();
-						VecScaleAdd(udot, 1.0/dt, *ubest, -1.0/dt, *u0);
-					}
-
-					// copy best solution
-					UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
-					*u = *ubest;
-					t += dt;
-
-					// make sure that all threads continue
-					// with identical initial value u(t)
-					// update_integrator_threads(ubest, t);
-
-
-					// working on last row => increase order
-					//if (ntest == q+1) ntest++;
-
-					// post process
-					itime_integrator_type::notify_step_postprocess(ubest, limex_step++, t, dt);
-				}
-				else
-				{
-					// DISCARD time step
-					UG_LOG("+++ LimexTimestep +++" << limex_step << " FAILED" << std::endl);
-					UG_LOG("LIMEX-REJECTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << std::endl);
-
-				}
-
-				// SERIAL EXECUTION: END
-				///////////////////////////////////////
-				update_integrator_threads(u, t);
-
-
-
-				// SOLVE
-
-				// ESTIMATE
-
-				// MARK
-
-
-
-				// REFINE
-
-
-			} // time integration loop
-
-
-			return true;
-		} // apply
-
+		bool apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 
 		number 	get_cost(size_t i) { return m_costA[i]; }
 		number 	get_gamma(size_t i) { return m_gamma[i]; }
@@ -714,6 +510,258 @@ protected:
 
 
 };
+
+template<class TDomain, class TAlgebra>
+bool LimexTimeIntegrator<TDomain,TAlgebra>::
+apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+{
+#ifdef UG_OPENMP
+			// create multi-threading environment
+			//int nt = std::min(omp_get_max_threads(), m_nstages);
+
+#endif
+
+			// NOTE: we use u as common storage for future (and intermediate) solution(s)
+			*u = *u0;
+
+			// initialize integrator threads
+			// (w/ solutions)
+			init_integrator_threads(u0);
+
+
+			// write_debug
+			char name[40];
+			for (unsigned int i=0; i<m_vThreadData.size(); ++i)
+			{
+				sprintf(name, "Limex_Init_iter%03d_stage%03d", 0, i);
+				write_debug(*m_vThreadData[i].get_solution(), name);
+			}
+
+			number t = t0;
+			double dtcurr = ITimeIntegrator<TDomain, TAlgebra>::get_time_step();
+
+			const size_t kmax = m_vThreadData.size();   		// maximum number of stages
+			size_t qpred = kmax-1;  	 						// predicted optimal order
+			size_t qcurr = qpred;
+
+			// double lambda=1.0;   						// step length increase/decrease
+
+			// time integration loop
+			SmartPtr<grid_function_type> ubest = SPNULL;
+			int limex_step = 1;
+			size_t limex_total = 1;
+			size_t ntest;    ///< active number of stages <= kmax
+			size_t kbest;
+
+			timex_type timex(m_vSteps);
+			while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
+			{
+				int err = 0;
+
+				//UG_DLOG(LIB_LIMEX, 5, "+++ LimexTimestep +++" << limex_step << "\n");
+				UG_LOG("+++ LimexTimestep +++" << limex_step << "\n");
+				// determine step size
+				number dt = std::min(dtcurr, t1-t);
+				UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
+
+				// number of stages to investigate
+				qcurr = qpred;
+				ntest = std::min(kmax, qcurr+1);
+				UG_LOG("ntest="<< ntest << std::endl);
+
+				// checks
+				UG_ASSERT(m_vSteps.size() >= ntest, "Huhh: sizes do not match: " << m_vSteps.size() << "<"<<ntest);
+				UG_ASSERT(m_vThreadData.size() >= ntest, "Huhh: sizes do not match: " << m_vThreadData.size() << "< "<< ntest);
+
+				///////////////////////////////////////
+				// PARALLEL EXECUTION: BEGIN
+
+				// write_debug
+				for (size_t i=0; i<ntest; ++i)
+				{
+						sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
+						write_debug(*m_vThreadData[i].get_solution(), name);
+				}
+
+				// integrate: t -> t+dt
+				err = apply_integrator_threads(dt, u, t, ntest-1);
+
+				// write_debug
+				for (size_t i=0; i<ntest; ++i)
+				{
+					sprintf(name, "Limex_AfterSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
+					write_debug(*m_vThreadData[i].get_solution(), name);
+				}
+
+				join_integrator_threads();
+				// PARALLEL EXECUTION: END
+				///////////////////////////////////////
+
+
+				///////////////////////////////////////
+				// SERIAL EXECUTION: BEGIN
+
+				// sanity checks
+				UG_ASSERT(m_spErrorEstimator.valid(), "Huhh: Invalid Error estimator?");
+
+				double epsmin = 0.0;
+
+				bool limexConverged = false;
+				if (err==0)
+				{
+					// compute extrapolation at t+dtcurr (SERIAL)
+
+					timex.set_error_estimate(m_spErrorEstimator);
+					for (unsigned int i=0; i<ntest; ++i)
+					{
+						timex.set_solution(m_vThreadData[i].get_solution(), i);
+					}
+					timex.apply(ntest);
+
+					// write_debug
+					for (size_t i=0; i<ntest; ++i)
+					{
+						sprintf(name, "Limex_Extrapolates_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
+						write_debug(*m_vThreadData[i].get_solution(), name);
+					}
+					limex_total++;
+
+					// obtain sub-diagonal error estimates
+					const std::vector<number>& eps = timex.get_error_estimates();
+					UG_ASSERT(ntest<=eps.size(), "Huhh: Not enough solutions?");
+
+					// select optimal solution (w.r.t error) AND
+					// predict optimal order (w.r.t. workload) for next step
+					kbest = find_optimal_solution(eps, ntest, qpred);
+					UG_ASSERT(kbest < ntest, "Huhh: Not enough solutions?");
+
+					// best solution
+					ubest  = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
+					epsmin = eps[kbest]; /*were: kbest*/
+
+					// check for convergence
+					limexConverged = (epsmin <= m_tol);
+
+					// select predicted order for next step
+					double dtpred = m_lambda[qpred]*dtcurr;
+					UG_LOG("koptim=\t" << kbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred] << ", alpha(q,q)=" << monitor(qpred, qpred) << "dt(q)=" << dtpred<< std::endl);
+
+					// EXTENSIONS: convergence model
+					if (limexConverged)
+					{
+						// a) aim for order increase in next step
+						if ((qpred+1==ntest)  /* increase by one possible? */
+							 && (kmax>ntest)) /* still below max? */
+						{
+							const double alpha = monitor(qpred, qpred+1);
+							UG_LOG("CHECKING for order increase: "<< m_costA[qpred] << "*" << alpha << ">" << m_costA[qpred+1]);
+							// check, whether further increase could still be efficient
+							if (m_costA[qpred] * alpha > m_costA[qpred+1])
+							{
+								qpred++;    			// go for higher order
+								if (m_greedyOrderIncrease >0.0) {
+								  dtpred *= m_greedyOrderIncrease*alpha;		// & adapt time step  // TODO: check required!
+								}
+								UG_LOG("... yes.\n")
+
+							} else {
+								UG_LOG("... nope.\n")
+							}
+
+						}
+
+
+						// b) monitor convergence (a-priori check!)
+
+					}
+
+					// parameters for subsequent step
+					// step length increase/reduction
+					/*double dtpred = std::min(dtcurr*lambda,
+							dtcurr*itime_integrator_type::get_increase_factor());*/
+					dtcurr = std::min(dtpred, itime_integrator_type::get_dt_max());
+
+
+				}
+				else
+				{
+					// solver failed -> cut time step
+					dtcurr *= m_sigmaReduction;
+				}
+
+
+				if ((err==0) && limexConverged)
+				{
+					// ACCEPT time step
+					UG_LOG("+++ LimexTimestep +++" << limex_step << " ACCEPTED"<< std::endl);
+					UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
+
+
+					// compute time derivative (by extrapolation)
+					if (this->has_time_derivative())
+					{
+						UG_LOG("Computing derivative" << std::endl);
+						grid_function_type &udot = *get_time_derivative();
+
+						for (size_t i=0; i<=kbest; ++i)
+						{
+							timex.set_solution(m_vThreadData[i].get_derivative(), i);
+						}
+						timex.apply(kbest+1, false); // do not compute error
+
+						udot = *timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
+
+						sprintf(name, "Limex_Derivative_iter%03d_total%04lu", limex_step, limex_total);
+						write_debug(udot, name);
+					}
+
+					// copy best solution
+					UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
+					*u = *ubest;
+					t += dt;
+
+					// make sure that all threads continue
+					// with identical initial value u(t)
+					// update_integrator_threads(ubest, t);
+
+
+					// working on last row => increase order
+					//if (ntest == q+1) ntest++;
+
+					// post process
+					itime_integrator_type::notify_step_postprocess(ubest, limex_step++, t, dt);
+				}
+				else
+				{
+					// DISCARD time step
+					UG_LOG("+++ LimexTimestep +++" << limex_step << " FAILED" << std::endl);
+					UG_LOG("LIMEX-REJECTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << std::endl);
+
+				}
+
+				// SERIAL EXECUTION: END
+				///////////////////////////////////////
+				update_integrator_threads(u, t);
+
+
+
+				// SOLVE
+
+				// ESTIMATE
+
+				// MARK
+
+
+
+				// REFINE
+
+
+			} // time integration loop
+
+
+			return true;
+		} // apply
+
 
 } // namespace ug
 

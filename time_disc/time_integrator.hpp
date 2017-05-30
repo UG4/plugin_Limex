@@ -1115,7 +1115,7 @@ public:
 
 	// constructor
 	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc)
-	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc)
+	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc), m_spDerivative(SPNULL)
 	{}
 
 	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
@@ -1126,6 +1126,12 @@ public:
 		else
 			return apply_multi_stage(u1,t1,u0,t0);
 	}
+
+	void set_derivative(SmartPtr<grid_function_type> udot)
+	{ m_spDerivative = udot; }
+
+	SmartPtr<grid_function_type> get_derivative()
+	{ return m_spDerivative; }
 
 protected:
 	bool apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
@@ -1138,6 +1144,8 @@ protected:
 				(tFinal-tCurrent < (tFinal-tStart)*base_type::m_precisionBound + base_type::m_precisionBound));
 	
 	}
+
+	SmartPtr<grid_function_type> m_spDerivative;
 
 };
 
@@ -1154,16 +1162,16 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	typename base_type::solver_type &solver = *base_type::m_spSolver;
 
 	// create solution vector & right hand side
-	SmartPtr<typename base_type::vector_type> uold= u0->clone();
+	SmartPtr<typename base_type::vector_type> uold;
 
 	// init solution time series
-	SmartPtr<vector_time_series_type> m_spSolTimeSeries;
+	SmartPtr<vector_time_series_type> m_spSolTimeSeries;        ///< contains all solutions compute so far
 	m_spSolTimeSeries=make_sp(new vector_time_series_type());
 	m_spSolTimeSeries->clear();
-	m_spSolTimeSeries->push(uold, t0);
+	m_spSolTimeSeries->push(u0->clone(), t0);
 
 	// init solver (and matrix operator)
-	SmartPtr<typename base_type::assembled_operator_type> spAssOp=make_sp(new typename base_type::assembled_operator_type(tdisc_dep_type::m_spTimeDisc, gl));
+	SmartPtr<typename base_type::assembled_operator_type> spAssOp = make_sp(new typename base_type::assembled_operator_type(tdisc_dep_type::m_spTimeDisc, gl));
 	solver.init(spAssOp);
 
 	// integrate
@@ -1178,13 +1186,12 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	 while(!hasTerminated(t, t0, t1))
 	 {
-			if(!base_type::m_bNoLogOut)
+		if(!base_type::m_bNoLogOut)
 			 UG_LOG("+++ Timestep +++" << step << "\n");
 
 		 // determine step size
 		 UG_COND_THROW(currdt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!")
 		 number dt = std::min(currdt, t1-t);
-
 		 final_dt = dt;
 
 		 // prepare step
@@ -1197,7 +1204,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 			 currdt *= base_type::get_reduction_factor();
 			 continue;
 		 }
-
+		 UG_LOG("m_spSolTimeSeries.size="<< m_spSolTimeSeries->size());
 		 // execute step
 		 if (solver.apply(*u1))
 		 {
@@ -1205,7 +1212,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				// ACCEPT step
 				//
 
-				// Print physics
+			 	// post prcess (e.g. physics)
 				if(!base_type::m_bNoLogOut)
 				{
 					this->notify_step_postprocess(u1, step, t, dt);
@@ -1215,9 +1222,9 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				t += dt;
 
 				// push updated solution into time series (and continue)
-				SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-				VecAssign(*tmp, static_cast<typename base_type::vector_type> (*u1) );
-				m_spSolTimeSeries->push_discard_oldest(tmp, t);
+				//SmartPtr<typename base_type::vector_type> utmp = m_spSolTimeSeries->oldest();
+				//VecAssign(*utmp, static_cast<typename base_type::vector_type> (*u1) );
+				uold = m_spSolTimeSeries->push_discard_oldest(u1->clone(), t);
 		 }
 		 else
 		 {
@@ -1225,7 +1232,6 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				// REJECT step
 				//
 			 	UG_LOG("Solution failed! RETRY");
-
 				currdt *= base_type::get_reduction_factor();
 				continue;
 		 }
@@ -1239,6 +1245,19 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	{
 		this->notify_step_postprocess(u1, step, t, final_dt);
 	}
+
+
+	if (m_spDerivative.valid())
+	{
+		//
+		// approximate derivative (by forward difference)
+		//
+		UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*uold),
+				  "Huhh: Should point to different vectors");
+		VecScaleAdd(*m_spDerivative, 1.0/final_dt, *u1, -1.0/final_dt, *uold);
+	}
+
+	m_spSolTimeSeries->clear();
 
 	return true;
 

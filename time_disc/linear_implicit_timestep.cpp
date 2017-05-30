@@ -33,7 +33,7 @@
 #include "linear_implicit_timestep.h"
 #include "lib_algebra/cpu_algebra_types.h"
 #include "lib_algebra/algebra_common/sparsematrix_util.h"
-
+#include "lib_disc/function_spaces/grid_function_util.h"
 namespace ug{
 
 template <typename TAlgebra>
@@ -67,7 +67,8 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 		this->m_spDomDisc->prepare_timestep(m_pPrevSol, m_futureTime);
 		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol, m_futureTime);
 
-		this->m_spGammaDisc->prepare_timestep(m_pPrevSol, m_futureTime);
+		if (m_spGammaDisc.valid())
+		{ m_spGammaDisc->prepare_timestep(m_pPrevSol, m_futureTime);}
 	}
 	UG_CATCH_THROW("ThetaTimeStep: Cannot prepare time step.");
 
@@ -115,7 +116,7 @@ prepare_step_elem(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spMatrixDisc));
 
 
-	if (m_spGammaDisc != SPNULL && m_spGammaOp == SPNULL)
+	if (m_spGammaDisc.valid() && m_spGammaOp == SPNULL)
 	{ m_spGammaOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spGammaDisc)); }
 
 	// m_JLinOp->init(*m_pPrevSol->oldest());
@@ -206,24 +207,30 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 		MatAdd(J, 1.0, J, -1.0, M);
 		 */
 
-		// (Re-)assemble Gamma
-		if (m_bGammaNeedsUpdate == true)
-		{
-			UG_LOG("Assembling GAMMA")
-			this->m_spGammaDisc->assemble_jacobian(m_spGammaOp->get_matrix(), m_pPrevSol, m_dt, gl);
-			m_bGammaNeedsUpdate = false;
-		}
 
-		//
-		if (m_spGammaDisc != SPNULL)
+		if (m_spGammaDisc.valid())
 		{
 			UG_ASSERT(m_spGammaOp != SPNULL, "Huhh: No operator??? ");
-			UG_LOG("Adding GAMMA")
+
+			// (Re-)assemble Gamma
+			if (m_bGammaNeedsUpdate == true)
+			{
+				UG_LOG("Assembling GAMMA"<< std::endl);
+				this->m_spGammaDisc->assemble_jacobian(m_spGammaOp->get_matrix(), m_pPrevSol, m_dt, gl);
+				m_bGammaNeedsUpdate = false;
+			}
+
+			UG_LOG("Adding GAMMA"<< std::endl)
+			write_debug(m_spGammaOp->get_matrix(), "myGamma.mat");
+			write_debug(J, "myJacobian.mat");
+
 			MatAdd(J, 1.0, J, 1.0, m_spGammaOp->get_matrix());
+
+
 		}
 
 
-	} UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble jacobian.");
+	} UG_CATCH_THROW("LinearlyImplicitEuler: Cannot assemble jacobian(s).");
 
 	//	pop unknown solution to solution time series
 	m_pPrevSol->remove_latest();

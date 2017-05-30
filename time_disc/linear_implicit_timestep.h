@@ -42,12 +42,12 @@
 #include "common/util/smart_pointer.h"
 
 #include "lib_disc/time_disc/time_disc_interface.h"
-
 #include "lib_disc/assemble_interface.h"
 #include "lib_disc/operator/non_linear_operator/assembled_non_linear_operator.h"
 #include "lib_disc/operator/linear_operator/assembled_linear_operator.h"
-#include "lib_algebra/algebra_template_define_helper.h"
 
+#include "lib_algebra/algebra_template_define_helper.h"
+#include "lib_algebra/operator/debug_writer.h"
 
 namespace ug{
 
@@ -67,7 +67,8 @@ namespace ug{
  */
 template <class TAlgebra>
 class LinearImplicitEuler
-: public ITimeDiscretization<TAlgebra>
+: public ITimeDiscretization<TAlgebra>,
+  public DebugWritingObject<TAlgebra>
 
 {
 public:
@@ -106,6 +107,17 @@ public:
 			  m_spGammaOp(SPNULL),
 			  m_bGammaNeedsUpdate(true)
 		{}
+
+	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
+					SmartPtr<IDomainDiscretization<algebra_type> > spMatrixDisc,
+					SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
+				: ITimeDiscretization<TAlgebra>(spDefectDisc),
+				  m_spMatrixDisc(spMatrixDisc),
+				  m_pPrevSol(NULL),
+				  m_spGammaDisc(spGammaDisc),
+				  m_spGammaOp(SPNULL),
+				  m_bGammaNeedsUpdate(true)
+			{}
 
 	virtual ~LinearImplicitEuler(){};
 
@@ -191,8 +203,8 @@ protected:
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixDisc;
 
 	// Gamma[u0, u0']
-	SmartPtr<IDomainDiscretization<algebra_type> > m_spGammaDisc;
-	SmartPtr<AssembledLinearOperator<algebra_type> > m_spGammaOp;	   ///< Gamma operator
+	SmartPtr<IDomainDiscretization<algebra_type> > m_spGammaDisc;		///< Gamma disc
+	SmartPtr<AssembledLinearOperator<algebra_type> > m_spGammaOp;	    ///< Gamma operator
 	bool m_bGammaNeedsUpdate;
 
 public:
@@ -201,6 +213,12 @@ public:
 
 	void set_gamma_disc(SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
 	{m_spGammaDisc = spGammaDisc;}
+
+	using DebugWritingObject<TAlgebra>::set_debug;
+
+protected:
+	using DebugWritingObject<TAlgebra>::write_debug;
+	using DebugWritingObject<TAlgebra>::debug_writer;
 
 };
 
