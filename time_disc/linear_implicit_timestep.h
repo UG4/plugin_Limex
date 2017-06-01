@@ -193,9 +193,9 @@ protected:
 	// discretization for defect
 	using base_type::m_spDomDisc;
 
-	// constant matrix $$ M0- \tau J$$
+	// constant matrix $$ M0 - \tau J$$
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixJDisc;
-	SmartPtr<AssembledLinearOperator<algebra_type> > m_spMatrixJOp;	///< Operator
+	SmartPtr<AssembledLinearOperator<algebra_type> > m_spMatrixJOp;		///< Operator
 	bool m_bMatrixJNeedsUpdate;
 
 	// Matrix $\Gamma[u0, u0']$

@@ -295,7 +295,6 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 				UG_DLOG(LIB_LIMEX, 3,  "( at " << m_pPrevSol->oldest_time() <<", " << GetNNZs(m_spGammaOp->get_matrix()) << " nonzeros)" << std::endl);
 			}
 
-
 			write_debug(m_spGammaOp->get_matrix(), "myGamma.mat");
 			write_debug(J, "myJacobianPreGamma.mat");
 
