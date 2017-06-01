@@ -66,7 +66,13 @@ using namespace ug::bridge;
 #endif
 
 namespace ug{
+
+/* Define LIB_LIMEX DebugID */
+DebugID LIB_LIMEX("LIB_LIMEX");
+
 namespace Limex{
+
+
 
 /**
  * Class exporting the functionality of the plugin. All functionality that is to

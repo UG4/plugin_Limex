@@ -44,4 +44,14 @@
 	#define LIMEX_PROFILE_END()
 #endif
 
+#include "common/debug_id.h"
+namespace ug{
+
+
+extern DebugID LIB_LIMEX;
+
+
+}
+
+
 #endif
