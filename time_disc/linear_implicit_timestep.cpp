@@ -30,11 +30,18 @@
  * GNU Lesser General Public License for more details.
  */
 
-#include "linear_implicit_timestep.h"
+
+// ug4 headers
 #include "lib_algebra/cpu_algebra_types.h"
 #include "lib_algebra/algebra_common/sparsematrix_util.h"
 #include "lib_disc/function_spaces/grid_function_util.h"
+
+// plugin headers
+#include "linear_implicit_timestep.h"
+#include "../limex_tools.h"
+
 namespace ug{
+
 
 template <typename TAlgebra>
 void LinearImplicitEuler<TAlgebra>::
@@ -65,21 +72,23 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 	try
 	{
 		this->m_spDomDisc->prepare_timestep(m_pPrevSol, m_futureTime);
-		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol, m_futureTime);
+		this->m_spMatrixJDisc->prepare_timestep(m_pPrevSol, m_futureTime);
 
 		if (m_spGammaDisc.valid())
 		{ m_spGammaDisc->prepare_timestep(m_pPrevSol, m_futureTime);}
 	}
 	UG_CATCH_THROW("ThetaTimeStep: Cannot prepare time step.");
 
-	//m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(m_spJAss));
+	// create matrix J
+	if (m_spMatrixJOp.invalid())
+	{ m_spMatrixJOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spMatrixJDisc)); }
 
-	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spMatrixDisc));
-
+	// create matrix Gamma
 	if (m_spGammaDisc != SPNULL && m_spGammaOp == SPNULL)
 	{ m_spGammaOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spGammaDisc)); }
+
 	/*{
-		m_JLinOp->init(*m_pPrevSol->oldest());
+		m_spMatrixJOp->init(*m_pPrevSol->oldest());
 	}
 */
 }
@@ -109,17 +118,20 @@ prepare_step_elem(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 // 	prepare timestep
 	try{
 		this->m_spDomDisc->prepare_timestep(m_pPrevSol, m_futureTime, gl);
-		this->m_spMatrixDisc->prepare_timestep(m_pPrevSol, m_futureTime, gl);
+		this->m_spMatrixJDisc->prepare_timestep(m_pPrevSol, m_futureTime, gl);
 	} UG_CATCH_THROW("LinearImplicitEuler: Cannot prepare timestep.");
 
 	// Aux linear operator
-	m_JLinOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spMatrixDisc));
+	if (m_spMatrixJOp.invalid()) {
+		m_spMatrixJOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spMatrixJDisc));
+	}
 
 
-	if (m_spGammaDisc.valid() && m_spGammaOp == SPNULL)
-	{ m_spGammaOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spGammaDisc)); }
+	if (m_spGammaDisc.valid() && m_spGammaOp == SPNULL) {
+		m_spGammaOp = make_sp(new AssembledLinearOperator<TAlgebra>(this->m_spGammaDisc));
+	}
 
-	// m_JLinOp->init(*m_pPrevSol->oldest());
+	// m_spMatrixJOp->init(*m_pPrevSol->oldest());
 	//std::cout << "PREPELEM: "<< m_vScaleMass[0] <<", " << m_vScaleStiff[0] << ", " <<m_dt << ", " << m_pPrevSol->time(0) << std::endl;
 
 }
@@ -189,14 +201,35 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 		SmartPtr<vector_type> pU(const_cast<vector_type*>(&u), &DummyRefCount);
 		m_pPrevSol->push(pU, m_futureTime);
 
-	// assemble "jacobian"  using current iterate
+	// assemble "Jacobian"  using current iterate
 	try{
 		// (M_{k-1} + \tau J)
 		// WARNING: This would only work for constant mass matrix !!!
-		this->m_spDomDisc->assemble_jacobian(J, m_pPrevSol, m_dt, gl);
+
+		UG_ASSERT(m_spMatrixJDisc.valid(), "Huhh: Invalid matrix discretization")
+
+		bool m_useCachedMatrices = true;
+
+		if (!m_useCachedMatrices)
+		{
+			// un-cached, (i.e., approximate Newton)
+			this->m_spMatrixJDisc->assemble_jacobian(J, m_pPrevSol, m_dt, gl);
+		}
+		else
+		{
+
+			if (m_bMatrixJNeedsUpdate == true)
+			{
+				// Cache first part of matrix J (aka df/du)
+				this->m_spMatrixJDisc->assemble_jacobian(m_spMatrixJOp->get_matrix(), m_pPrevSol, m_dt, gl);
+				m_bMatrixJNeedsUpdate = false;
+				UG_DLOG(LIB_LIMEX, 3, "Cached matrix J=" << m_spMatrixJOp->get_matrix() << std::endl);
+
+			}
+			J = m_spMatrixJOp->get_matrix();
 
 
-		/* Add (M_k-M_{k-1})
+			/* Add (M_k-M_{k-1})
 		matrix_type M;
 		M=J;
 
@@ -205,28 +238,70 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 
 		this->m_spDomDisc->assemble_mass_matrix(M, *m_pPrevSol->oldest(), gl);
 		MatAdd(J, 1.0, J, -1.0, M);
-		 */
+			 */
 
 
+			if (m_spMatrixCacheM0.invalid())
+			{
+				// Assemble & cache M0
+				m_spMatrixCacheM0 = make_sp(new matrix_type());
+				*m_spMatrixCacheM0 = J;
+				// this->m_spDomDisc->assemble_mass_matrix(*m_spMatrixCacheM0, *m_pPrevSol->oldest(), gl);
+				//this->m_spGammaDisc->assemble_mass_matrix(*m_spMatrixCacheM0, *m_pPrevSol->oldest(), gl);
+				this->m_spMatrixJDisc->assemble_jacobian(*m_spMatrixCacheM0, m_pPrevSol, 0.0, gl);
+				UG_DLOG(LIB_LIMEX, 3, "Cached matrix M0=" << *m_spMatrixCacheM0 <<
+					   "( at " << m_pPrevSol->oldest_time() << ", " << GetNNZs(*m_spMatrixCacheM0) << " nonzeros)" << std::endl);
+				write_debug(*m_spMatrixCacheM0, "myM0.mat");
+			}
+			else
+			{
+				// Correct J with (Mk-M0)
+
+				// Assemble Mk
+				matrix_type Mk;
+				Mk = *m_spMatrixCacheM0;
+				// this->m_spDomDisc->assemble_mass_matrix(Mk, *m_pPrevSol->oldest(), gl);  // was: u
+				//this->m_spGammaDisc->assemble_mass_matrix(Mk, u, gl);  // was: u
+				this->m_spMatrixJDisc->assemble_jacobian(Mk, m_pPrevSol, 0.0, gl);
+
+				// Compute Delta
+				matrix_type DeltaMk;
+				DeltaMk = Mk;
+				MatAdd(DeltaMk, 1.0, DeltaMk, -1.0, *m_spMatrixCacheM0);
+				write_debug(DeltaMk, "myDeltaMk.mat");
+
+				// Updating Jnew = Jold + Delta
+				MatAddNonDirichlet<matrix_type>(J, 1.0, J, 1.0, DeltaMk);
+				UG_DLOG(LIB_LIMEX, 3, "Updated J with matrix DeltaMk=" << DeltaMk);
+				UG_DLOG(LIB_LIMEX, 3,  "( at " << m_pPrevSol->oldest_time() <<", " << GetNNZs(DeltaMk) << " nonzeros)" << std::endl);
+			}
+
+		} // if(! matrices_cached)
+
+
+		/// Gamma update (second part of J)
 		if (m_spGammaDisc.valid())
 		{
 			UG_ASSERT(m_spGammaOp != SPNULL, "Huhh: No operator??? ");
 
-			// (Re-)assemble Gamma
+			// (Re-)assemble $\tau *Gamma $
 			if (m_bGammaNeedsUpdate == true)
 			{
-				UG_LOG("Assembling GAMMA"<< std::endl);
+
 				this->m_spGammaDisc->assemble_jacobian(m_spGammaOp->get_matrix(), m_pPrevSol, m_dt, gl);
 				m_bGammaNeedsUpdate = false;
+
+				UG_DLOG(LIB_LIMEX, 3, "Assembled Gamma0"<< m_spGammaOp->get_matrix());
+				UG_DLOG(LIB_LIMEX, 3,  "( at " << m_pPrevSol->oldest_time() <<", " << GetNNZs(m_spGammaOp->get_matrix()) << " nonzeros)" << std::endl);
 			}
 
-			UG_LOG("Adding GAMMA"<< std::endl)
+
 			write_debug(m_spGammaOp->get_matrix(), "myGamma.mat");
-			write_debug(J, "myJacobian.mat");
+			write_debug(J, "myJacobianPreGamma.mat");
 
-			MatAdd(J, 1.0, J, 1.0, m_spGammaOp->get_matrix());
-
-
+			MatAddNonDirichlet<matrix_type>(J, 1.0, J, 1.0, m_spGammaOp->get_matrix());
+			write_debug(J, "myJacobianPostGamma.mat");
+			UG_DLOG(LIB_LIMEX, 3, "Added Gamma0"<< std::endl)
 		}
 
 
@@ -272,8 +347,8 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		/*	vector_type deltau = *m_pPrevSol->oldest()->clone();
 		deltau -= u;
 
-		this->m_spDomDisc->assemble_jacobian(m_JLinOp->get_matrix(), m_pPrevSol, m_dt, gl);
-		m_JLinOp->apply_sub(d, deltau);
+		this->m_spDomDisc->assemble_jacobian(m_spMatrixJOp->get_matrix(), m_pPrevSol, m_dt, gl);
+		m_spMatrixJOp->apply_sub(d, deltau);
 		*/
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
 
@@ -325,7 +400,7 @@ assemble_linear(matrix_type& A, vector_type& b, const GridLevel& gl)
 	// 	future solution part
 		try{
 			// A:= (M(k-1) + tau A(k-1) )
-			this->m_spDomDisc->assemble_jacobian(A, m_pPrevSol, m_dt, gl);
+			this->m_spMatrixJDisc->assemble_jacobian(A, m_pPrevSol, m_dt, gl);
 
 			std::vector<number> vScaleMass(1, 0.0);
 			std::vector<number> vScaleStiff(1, m_dt);
@@ -361,5 +436,6 @@ assemble_rhs(vector_type& b, const GridLevel& gl)
 //	template instantiations for all current algebra types.
 
 UG_ALGEBRA_CPP_TEMPLATE_DEFINE_ALL(LinearImplicitEuler)
+
 
 }; // namespace ug

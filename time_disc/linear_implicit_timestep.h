@@ -91,32 +91,24 @@ public:
 /// constructor
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDD)
 		: ITimeDiscretization<TAlgebra>(spDD),
-		  m_spMatrixDisc(spDD),
 		  m_pPrevSol(NULL),
-		  m_spGammaDisc(SPNULL),
-		  m_spGammaOp(SPNULL),
-		  m_bGammaNeedsUpdate(true)
+		  m_spMatrixJDisc(spDD), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true)
 	{}
 
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
-				SmartPtr<IDomainDiscretization<algebra_type> > spMatrixDisc)
-			: ITimeDiscretization<TAlgebra>(spDefectDisc),
-			  m_spMatrixDisc(spMatrixDisc),
-			  m_pPrevSol(NULL),
-			  m_spGammaDisc(SPNULL),
-			  m_spGammaOp(SPNULL),
-			  m_bGammaNeedsUpdate(true)
+						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc)
+			: ITimeDiscretization<TAlgebra>(spDefectDisc), m_pPrevSol(NULL),
+			  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+			  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true)
 		{}
 
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
-					SmartPtr<IDomainDiscretization<algebra_type> > spMatrixDisc,
-					SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
-				: ITimeDiscretization<TAlgebra>(spDefectDisc),
-				  m_spMatrixDisc(spMatrixDisc),
-				  m_pPrevSol(NULL),
-				  m_spGammaDisc(spGammaDisc),
-				  m_spGammaOp(SPNULL),
-				  m_bGammaNeedsUpdate(true)
+						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc,
+						SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
+				: ITimeDiscretization<TAlgebra>(spDefectDisc), m_pPrevSol(NULL),
+				  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+				  m_spGammaDisc(spGammaDisc), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true)
 			{}
 
 	virtual ~LinearImplicitEuler(){};
@@ -162,13 +154,13 @@ public:
 
 protected:
 
-	 using base_type::m_spDomDisc;
+
 
 	 /*SmartPtr<IDomainDiscretization<algebra_type> > defect_disc()
 	 {return m_spDomDisc;}
 
 	SmartPtr<IDomainDiscretization<algebra_type> > matrix_disc()
-	{return m_spMatrixDisc;}
+	{return m_spMatrixJDisc;}
 */
 	virtual number update_scaling(std::vector<number>& vSM,
 			                              std::vector<number>& vSA,
@@ -195,19 +187,33 @@ protected:
 	std::vector<number> m_vScaleStiff;			///< Scaling for stiffness part
 
 	SmartPtr<VectorTimeSeries<vector_type> > m_pPrevSol;		///< Previous solutions
-	SmartPtr<AssembledLinearOperator<algebra_type> > m_JLinOp;	///< Operator
-
 	number m_dt; 								///< Time Step size
 	number m_futureTime;						///< Future Time
 
-	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixDisc;
+	// discretization for defect
+	using base_type::m_spDomDisc;
 
-	// Gamma[u0, u0']
+	// constant matrix $$ M0- \tau J$$
+	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixJDisc;
+	SmartPtr<AssembledLinearOperator<algebra_type> > m_spMatrixJOp;	///< Operator
+	bool m_bMatrixJNeedsUpdate;
+
+	// Matrix $\Gamma[u0, u0']$
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spGammaDisc;		///< Gamma disc
 	SmartPtr<AssembledLinearOperator<algebra_type> > m_spGammaOp;	    ///< Gamma operator
 	bool m_bGammaNeedsUpdate;
 
+	SmartPtr<matrix_type> m_spMatrixCacheM0;
+
 public:
+
+	void invalidate()
+	{
+		m_spMatrixCacheM0 = SPNULL;
+		m_bMatrixJNeedsUpdate = true;
+		invalidate_gamma();
+	}
+
 	void invalidate_gamma()
 	{ m_spGammaOp = SPNULL; m_bGammaNeedsUpdate = true; }
 
