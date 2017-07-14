@@ -217,7 +217,7 @@ assemble_jacobian(matrix_type& J, const vector_type& u, const GridLevel& gl)
 		}
 		else
 		{
-
+		  UG_LOG("CACHE=ON");
 			if (m_bMatrixJNeedsUpdate == true)
 			{
 				// Cache first part of matrix J (aka df/du)
