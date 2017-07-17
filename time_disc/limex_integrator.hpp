@@ -228,7 +228,7 @@ public:
 		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;}
 		void set_stepsize_greedy_order_factor(double sigma) { m_greedyOrderIncrease = sigma;}
 
-
+		/// add an error estimator
 		void add_error_estimator(SmartPtr<error_estim_type> spErrorEstim)
 		{ m_spErrorEstimator = spErrorEstim; }
 
@@ -319,7 +319,7 @@ public:
 		number 	get_workload(size_t i) { return m_workload[i]; }
 
 
-	protected:
+protected:
 		number& monitor(size_t k, size_t q) { return m_monitor[k+(m_nstages+1)*q]; }
 
 		/// aux: compute exponents gamma_k (for roots)
@@ -331,56 +331,61 @@ public:
 			}
 		}
 
-  /// Updating workloads A_i for computing T_ii
-  //  (depends on m_vSteps, which must have been initialized!)
-  void update_cost()
-  {
-    //UG_LOG("A_0="<< m_vSteps[0] << std::endl);
-    m_costA[0] = (1.0)*m_vSteps[0];
-    for (size_t i=1; i<=m_nstages; ++i)
-      {
-	m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
-	//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
-      }
-  }
-
-			/// convergence monitor
-			// (depends on cost, which must have been initialized!)
-			void update_monitor()
+		/// Updating workloads A_i for computing T_ii
+		//  (depends on m_vSteps, which must have been initialized!)
+		void update_cost()
+		{
+			//UG_LOG("A_0="<< m_vSteps[0] << std::endl);
+			m_costA[0] = (1.0)*m_vSteps[0];
+			for (size_t i=1; i<=m_nstages; ++i)
 			{
-				for (size_t k=0; k<=m_nstages; ++k)
+				m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
+				//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
+			}
+		}
+
+		/// convergence monitor
+		// (depends on cost, which must have been initialized!)
+		void update_monitor()
+		{
+			for (size_t k=0; k<=m_nstages; ++k)
+			{
+				UG_LOG("A[k]=" << m_costA[k] << ", gamma[k]=" << m_gamma[k] << "\t");
+				for (size_t q=0; q<=m_nstages; ++q)
 				{
-					UG_LOG("A[k]=" << m_costA[k] << ", gamma[k]=" << m_gamma[k] << "\t");
-					for (size_t q=0; q<=m_nstages; ++q)
-					{
-						// Deuflhard: order and stepsize, ... eq. (3.7)
-						double gamma = (m_costA[k] - m_costA[0] + 1.0)/(m_costA[q] - m_costA[0] + 1.0);
-						double alpha = pow(m_tol, gamma);
+					// Deuflhard: Order and stepsize, ... eq. (3.7)
+					double gamma = (m_costA[k] - m_costA[0] + 1.0)/(m_costA[q] - m_costA[0] + 1.0);
+					double alpha = pow(m_tol, gamma);
 
-						// for fixed order q, the monitor indicates the performance penalty compared to a strategy using k stages only
-						// cf. eq. (4.6)
-						monitor(k,q) = pow(alpha/(m_tol*m_rhoSafety), 1.0/m_gamma[k]);
-						UG_LOG(monitor(k,q) << "[" << pow(alpha/(m_tol), 1.0/m_gamma[k]) << "]" << "\t");
-						// UG_LOG(  << "\t");
+					// for fixed order q, the monitor indicates the performance penalty compared to a strategy using k stages only
+					// cf. eq. (4.6)
+					monitor(k,q) = pow(alpha/(m_tol*m_rhoSafety), 1.0/m_gamma[k]);
+					UG_LOG(monitor(k,q) << "[" << pow(alpha/(m_tol), 1.0/m_gamma[k]) << "]" << "\t");
+					// UG_LOG(  << "\t");
 
-					}
-					UG_LOG(std::endl);
 				}
-
+				UG_LOG(std::endl);
 			}
 
-			// Find row k=1, ..., ntest-1 minimizing (estimated) error eps[kmin]
-			// Also: predict column q with minimal workload W_{k+1,k} = A_{k+1} * lambda_{k+1}
-			size_t find_optimal_solution(const std::vector<number>& eps, size_t ntest, /*size_t &kf,*/ size_t &qpred);
+		}
+
+		// Find row k=1, ..., ntest-1 minimizing (estimated) error eps[kmin]
+		// Also: predict column q with minimal workload W_{k+1,k} = A_{k+1} * lambda_{k+1}
+		size_t find_optimal_solution(const std::vector<number>& eps, size_t ntest, /*size_t &kf,*/ size_t &qpred);
 
 public:
-			void set_time_derivative(SmartPtr<grid_function_type> udot) {m_spDtSol = udot;}
-			SmartPtr<grid_function_type> get_time_derivative() {return m_spDtSol;}
-			bool has_time_derivative() {return m_spDtSol!=SPNULL;}
+		/// setter for time derivative info (optional for setting $\Gamma$)
+		void set_time_derivative(SmartPtr<grid_function_type> udot) {m_spDtSol = udot;}
+
+		/// getter for time derivative info (optional for setting $\Gamma$)
+		SmartPtr<grid_function_type> get_time_derivative() {return m_spDtSol;}
+
+		/// status for time derivative info (optional for setting $\Gamma$)
+		bool has_time_derivative() {return m_spDtSol!=SPNULL;}
 
 
-			void enable_matrix_cache() { m_useCachedMatrices = true; }  	///< Select classic LIMEX
-			void disable_matrix_cache() { m_useCachedMatrices = false; }    ///< Select approximate Newton (default)
+		void enable_matrix_cache() { m_useCachedMatrices = true; }  	///< Select classic LIMEX
+		void disable_matrix_cache() { m_useCachedMatrices = false; }    ///< Select approximate Newton (default)
 
 protected:
 
