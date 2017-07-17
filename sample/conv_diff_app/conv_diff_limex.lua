@@ -28,8 +28,8 @@ local limex_partial_mask = util.GetParamNumber("--limex-partial", 0, "limex part
 
 
 -- This scales the amount of diffusion of the problem
-local eps       = util.GetParamNumber("--eps", 1e-1, "strength of diffusion")
-
+local eps       = util.GetParamNumber("--eps", 1e-0, "strength of diffusion")
+local doVelocity = false
 
 -- if withRedist == true, you may alter the redistribution behavior over the
 -- parameters declared in util/load_balancing_util.lua.
@@ -173,8 +173,9 @@ local elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
 
 elemDisc:set_upwind(FullUpwind())
 elemDisc:set_diffusion(eps)
+if (doVelocity) then
 elemDisc:set_velocity("Velocity")
-
+end
 elemDisc:set_partial_velocity(limex_partial_mask) -- 3 
 elemDisc:set_partial_flux(0) 
 elemDisc:set_partial_mass(0)  

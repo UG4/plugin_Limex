@@ -65,6 +65,7 @@
 #include "../limex_tools.h"
 //#include "../multi_thread_tools.h"
 
+#undef LIMEX_MULTI_THREAD
 
 namespace ug {
 
@@ -105,6 +106,7 @@ protected:
 	SmartPtr<IRefiner> m_spRefiner;
 };
 
+//! Base class for LIMEX time integrator
 template<class TDomain, class TAlgebra>
 class LimexTimeIntegrator
 : public INonlinearTimeIntegrator<TDomain, TAlgebra>,
@@ -137,9 +139,9 @@ public:
 			: m_stepper(spTimeStep)
 			{}
 
+			ThreadData(){}
 			SmartPtr<timestep_type> get_time_stepper()
 			{ return m_stepper; }
-
 
 
 			void set_solver(SmartPtr<solver_type> solver)
@@ -153,7 +155,6 @@ public:
 
 			void get_error()
 			{ return m_error; }
-
 
 			void set_solution(SmartPtr<grid_function_type> sol)
 			{ m_sol = sol;}
@@ -181,15 +182,15 @@ public:
 		typedef std::vector<SmartPtr<ThreadData> > thread_vector_type;
 
 public:
+
+	/// forward debug info to time integrators
 	void set_debug_for_timestepper(SmartPtr<IDebugWriter<algebra_type> > spDebugWriter)
 	{
-
 		for(size_t i=0; i<m_vThreadData.size(); ++i)
 		{
 				m_vThreadData[i].get_time_stepper()->set_debug(spDebugWriter);
 		}
 		UG_LOG("set_debug:" << m_vThreadData.size());
-
 	}
 
 	using VectorDebugWritingObject<vector_type>::set_debug;
@@ -209,7 +210,9 @@ public:
 		  m_monitor(((m_nstages+1)*(m_nstages+1))), // TODO: wasting memory here!
 		  m_workload(m_nstages+1),
 		  m_lambda(m_nstages+1), 
-		  m_greedyOrderIncrease(0.0)
+		  m_consistency_error(m_nstages),
+		  m_greedyOrderIncrease(0.0),
+		  m_useCachedMatrices(false)
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -217,6 +220,7 @@ public:
 			// init exponents (i.e. k+1, k, 2k+1, ...)
 			init_gamma();
 		}
+
 
 		/// tolerance
 		void set_tolerance(double tol) { m_tol = tol;}
@@ -235,23 +239,43 @@ public:
 
 			UG_ASSERT(m_vThreadData.empty() || m_vSteps.back()<nsteps, "ERROR: Sequence of steps must be increasing." );
 
+			// all entries have been set
 			if (m_vThreadData.size() == m_nstages)
 			{ return; }
 
+
+			// a) set number of steps
 			m_vSteps.push_back(nsteps);
 
-			if (spGamma.invalid()) {
-				m_vThreadData.push_back(ThreadData(make_sp(new timestep_type(spDD))));
-			} else {
-				m_vThreadData.push_back(ThreadData(make_sp(new timestep_type(spDD, spDD, spGamma))));
+			// b) set time-stepper
+			SmartPtr<timestep_type> limexStepSingleton;
+#ifndef LIMEX_MULTI_THREAD
+
+			if(m_vThreadData.size()>0) {
+				// re-use time-stepper (if applicable)
+				limexStepSingleton = m_vThreadData.back().get_time_stepper();
 			}
-
-			m_vThreadData.back().set_solver(solver);
-
+			else
+			{
+				// create time-stepper
+#endif
+				// for mult-threading, each info object has own time-stepper
+				if (spGamma.invalid()) {
+					limexStepSingleton = make_sp(new timestep_type(spDD));
+				} else {
+					limexStepSingleton = make_sp(new timestep_type(spDD, spDD, spGamma));
+				}
+				UG_ASSERT(limexStepSingleton.valid(), "Huhh: Invalid pointer")
+#ifndef LIMEX_MULTI_THREAD
+			}
+#endif
 			// propagate debug info
-			m_vThreadData.back().get_time_stepper()->set_debug(VectorDebugWritingObject<vector_type>::vector_debug_writer());
+			limexStepSingleton->set_debug(VectorDebugWritingObject<vector_type>::vector_debug_writer());
+			m_vThreadData.push_back(ThreadData(limexStepSingleton));
 
+			// c) set solver
 			UG_ASSERT(solver.valid(), "Huhh: Need to supply solver!");
+			m_vThreadData.back().set_solver(solver);
 			UG_ASSERT(m_vThreadData.back().get_solver().valid(), "Huhh: Need to supply solver!");
 		}
 
@@ -282,6 +306,9 @@ protected:
 
 		//! Override thread-wise solutions with common solution
 		void update_integrator_threads(ConstSmartPtr<grid_function_type> ucommon, number t);
+
+		//! Dispose integrator threads (w/ solutions)
+		void dispose_integrator_threads();
 
 public:
 		//! Integrating from t0 -> t1
@@ -351,6 +378,10 @@ public:
 			SmartPtr<grid_function_type> get_time_derivative() {return m_spDtSol;}
 			bool has_time_derivative() {return m_spDtSol!=SPNULL;}
 
+
+			void enable_matrix_cache() { m_useCachedMatrices = true; }  	///< Select classic LIMEX
+			void disable_matrix_cache() { m_useCachedMatrices = false; }    ///< Select approximate Newton (default)
+
 protected:
 
 		double m_tol;
@@ -359,22 +390,25 @@ protected:
 		SmartPtr<error_estim_type> m_spErrorEstimator;     // (smart ptr for) error estimator
 
 
-		unsigned int m_nstages; 				/// stages in Aitken-Neville
-		std::vector<size_t> m_vSteps;			/// generating sequence for extrapolation
-		std::vector<ThreadData> m_vThreadData;	/// vector with thread information
+		unsigned int m_nstages; 				///< Number of Aitken-Neville stages
+		std::vector<size_t> m_vSteps;			///< generating sequence for extrapolation
+		std::vector<ThreadData> m_vThreadData;	///< vector with thread information
 
-		std::vector<number> m_gamma;			/// gamma_i: exponent
+		std::vector<number> m_gamma;			///< gamma_i: exponent
 
-		std::vector<number> m_costA;			/// A_i: cost (for completing stage i)
-		std::vector<number> m_monitor;			/// convergence monitor \alpha
+		std::vector<number> m_costA;			///< Cost A_i (for completing stage i)
+		std::vector<number> m_monitor;			///< Convergence monitor \alpha
 
 		std::vector<number> m_workload;
 		std::vector<number> m_lambda;
 
-
+		std::vector<number> m_consistency_error;///<Consistency error
   		double m_greedyOrderIncrease;
 
 		SmartPtr<grid_function_type> m_spDtSol;   ///< Time derivative
+
+		bool m_useCachedMatrices;
+
 
 
 };
@@ -386,11 +420,27 @@ protected:
 template<class TDomain, class TAlgebra>
 void LimexTimeIntegrator<TDomain,TAlgebra>::init_integrator_threads(ConstSmartPtr<grid_function_type> u)
 {
+	PROFILE_FUNC_GROUP("limex");
 	const int nstages = m_vThreadData.size()-1;
 	for (int i=nstages; i>=0; --i)
 	{
 		m_vThreadData[i].set_solution(u->clone());
 		m_vThreadData[i].set_derivative(u->clone());
+		m_vThreadData[i].get_time_stepper()->set_matrix_cache(m_useCachedMatrices);
+	}
+}
+
+/*! Create private solutions for each thread */
+template<class TDomain, class TAlgebra>
+void LimexTimeIntegrator<TDomain,TAlgebra>::dispose_integrator_threads()
+{
+	PROFILE_FUNC_GROUP("limex");
+	const int nstages = m_vThreadData.size()-1;
+	for (int i=nstages; i>=0; --i)
+	{
+		m_vThreadData[i].set_solution(SPNULL);
+		m_vThreadData[i].set_derivative(SPNULL);
+		// m_vThreadData[i].get_time_stepper()->set_matrix_cache(m_useCachedMatrices);
 	}
 }
 
@@ -413,7 +463,7 @@ void LimexTimeIntegrator<TDomain,TAlgebra>::init_integrator_threads(ConstSmartPt
 template<class TDomain, class TAlgebra>
 int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcurr, ConstSmartPtr<grid_function_type> u0, number t0, size_t nstages)
 {
-
+	PROFILE_FUNC_GROUP("limex");
 	update_cost();		// compute cost A_i (alternative: measure times?)
 	update_monitor();	// convergence monitor
 
@@ -451,6 +501,7 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 		try
 		{
 			exec = integrator.apply(m_vThreadData[i].get_solution(), t0+dtcurr, u0, t0);
+			m_consistency_error[i] = integrator.get_consistency_error();
 		}
 		catch(ug::UGError& err)
 		{
@@ -463,7 +514,7 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 
 		if (!exec)
 		{
-
+			// Additional actions at failure
 		}
 
 		// switch to "parent" comm
@@ -534,6 +585,7 @@ template<class TDomain, class TAlgebra>
 bool LimexTimeIntegrator<TDomain,TAlgebra>::
 apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
+	PROFILE_FUNC_GROUP("limex");
 #ifdef UG_OPENMP
 	// create multi-threading environment
 	//int nt = std::min(omp_get_max_threads(), m_nstages);
@@ -608,6 +660,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		// write_debug
 		for (size_t i=0; i<ntest; ++i)
 		{
+			UG_ASSERT(m_vThreadData[i].get_solution().valid(), "Huhh: no valid solution?");
 			sprintf(name, "Limex_AfterSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
 			write_debug(*m_vThreadData[i].get_solution(), name);
 		}
@@ -629,10 +682,16 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		if (err==0)
 		{
 			// compute extrapolation at t+dtcurr (SERIAL)
+			for (unsigned int i=1; i<ntest; ++i)
+			{
+				UG_LOG("Checking consistency:" <<m_consistency_error[i] <<"/" << m_consistency_error[i-1] << "="<< m_consistency_error[i]/m_consistency_error[i-1] << std::endl);
+			}
+
 
 			timex.set_error_estimate(m_spErrorEstimator);
 			for (unsigned int i=0; i<ntest; ++i)
 			{
+				UG_ASSERT(m_vThreadData[i].get_solution().valid(), "Huhh: no valid solution?");
 				timex.set_solution(m_vThreadData[i].get_solution(), i);
 			}
 			timex.apply(ntest);
@@ -758,10 +817,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 		}
 
+
 		// SERIAL EXECUTION: END
 		///////////////////////////////////////
 		update_integrator_threads(u, t);
-
 
 
 		// SOLVE
@@ -770,13 +829,12 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 		// MARK
 
-
-
 		// REFINE
 
 
 	} // time integration loop
 
+	dispose_integrator_threads();
 
 	return true;
 } // apply

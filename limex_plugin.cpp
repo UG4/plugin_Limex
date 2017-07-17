@@ -404,6 +404,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 			  .add_method("has_time_derivative", &T::has_time_derivative)
 			  .add_method("get_time_derivative", &T::get_time_derivative)
 			  .add_method("set_time_derivative", &T::set_time_derivative)
+			  .add_method("enable_matrix_cache", &T::enable_matrix_cache)
+			  .add_method("disable_matrix_cache", &T::disable_matrix_cache)
 			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 			  .set_construct_as_smart_pointer(true);
 
@@ -478,6 +480,8 @@ static void Algebra(Registry& reg, string parentGroup)
 				reg.add_class_<T, TBase>(name, grp)
 						.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >)>("LinearImplicitEuler")
 						.add_method("set_gamma_disc", &T::set_gamma_disc)
+						.add_method("enable_matrix_cache", &T::enable_matrix_cache)
+						.add_method("disable_matrix_cache", &T::disable_matrix_cache)
 						.set_construct_as_smart_pointer(true);
 				reg.add_class_to_group(name, "LinearImplicitEuler", tag);
 		}

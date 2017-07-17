@@ -1115,7 +1115,7 @@ public:
 
 	// constructor
 	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc)
-	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc), m_spDerivative(SPNULL)
+	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc), m_spDerivative(SPNULL), m_initial_consistency_error(0.0)
 	{}
 
 	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
@@ -1133,11 +1133,14 @@ public:
 	SmartPtr<grid_function_type> get_derivative()
 	{ return m_spDerivative; }
 
+	number get_consistency_error() const
+	{ return m_initial_consistency_error; }
+
 protected:
 	bool apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 	bool apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 
-	inline bool hasTerminated(double tCurrent, double tStart, double tFinal)
+	inline bool hasTerminated(double tCurrent, double tStart, double tFinal) const
 	{
 	 	/*return (! ((tCurrent < tFinal) && (tFinal-tCurrent > base_type::m_precisionBound)));*/
 		return ((tCurrent >= tFinal) ||
@@ -1147,6 +1150,7 @@ protected:
 
 	SmartPtr<grid_function_type> m_spDerivative;
 
+	number m_initial_consistency_error;
 };
 
 
@@ -1198,12 +1202,13 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 tdisc.prepare_step(m_spSolTimeSeries, dt);
 		 if (solver.prepare(*u1) == false)
 		 {
-				if(!base_type::m_bNoLogOut)
+			if(!base_type::m_bNoLogOut)
 				 UG_LOG("Initialization failed! RETRY");
 
 			 currdt *= base_type::get_reduction_factor();
 			 continue;
 		 }
+
 		 UG_LOG("m_spSolTimeSeries.size="<< m_spSolTimeSeries->size());
 		 // execute step
 		 if (solver.apply(*u1))
@@ -1236,6 +1241,16 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				continue;
 		 }
 
+		 // consistency check
+		 if (step == 1 && m_spDerivative.valid())
+		 {
+		 UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*u0),
+		 					 				  "Huhh: Different vectors required!");
+		 		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0, *u1, -1.0, *u0);
+		 		m_initial_consistency_error = m_spDerivative->norm();
+
+		}
+
 		 step++;
 		// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
 
@@ -1249,12 +1264,19 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	if (m_spDerivative.valid())
 	{
+		/*
+		UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*u0),
+					 				  "Huhh: Different vectors required!");
+		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0, *u1, -1.0, *u0);
+		m_initial_consistency_error = m_spDerivative->norm();
+*/
+
 		//
 		// approximate derivative (by forward difference)
 		//
 		UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*uold),
-				  "Huhh: Should point to different vectors");
-		VecScaleAdd(*m_spDerivative, 1.0/final_dt, *u1, -1.0/final_dt, *uold);
+				  "Huhh: Different vectors required!");
+		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0/final_dt, *u1, -1.0/final_dt, *uold);
 	}
 
 	m_spSolTimeSeries->clear();
