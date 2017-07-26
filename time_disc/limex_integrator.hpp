@@ -205,8 +205,8 @@ public:
 		  m_rhoSafety(0.8),
 		  m_sigmaReduction(0.5),
 		  m_nstages(nstages),
-		  m_costA(m_nstages+1),
 		  m_gamma(m_nstages+1),
+		  m_costA(m_nstages+1),
 		  m_monitor(((m_nstages+1)*(m_nstages+1))), // TODO: wasting memory here!
 		  m_workload(m_nstages+1),
 		  m_lambda(m_nstages+1), 
@@ -394,7 +394,6 @@ protected:
 		double m_sigmaReduction;
 		SmartPtr<error_estim_type> m_spErrorEstimator;     // (smart ptr for) error estimator
 
-
 		unsigned int m_nstages; 				///< Number of Aitken-Neville stages
 		std::vector<size_t> m_vSteps;			///< generating sequence for extrapolation
 		std::vector<ThreadData> m_vThreadData;	///< vector with thread information
@@ -413,12 +412,7 @@ protected:
 		SmartPtr<grid_function_type> m_spDtSol;   ///< Time derivative
 
 		bool m_useCachedMatrices;
-
-
-
 };
-
-
 
 
 /*! Create private solutions for each thread */
@@ -510,9 +504,10 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 		}
 		catch(ug::UGError& err)
 		{
+
 			exec = false;
 			error += (1 << i);
-			UG_LOG("Step "<< i<< " failed: " << error << " "<< (1<< i) << ":");
+			UG_LOGN("Step "<< i<< " failed on stage " << i << ": " << err.get_msg());
 			MyPrintError(err);
 
 		}
@@ -598,7 +593,8 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 #endif
 
 	// NOTE: we use u as common storage for future (and intermediate) solution(s)
-	*u = *u0;
+	if (u.get() != u0.get())    // only copy if not already identical, otherwise: PST_UNDEFINED!
+		*u = *u0;
 
 	// initialize integrator threads
 	// (w/ solutions)
@@ -798,8 +794,12 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 				write_debug(udot, name);
 			}
 
-			// copy best solution
+
+			// post process
 			UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
+			itime_integrator_type::notify_step_postprocess(ubest, u, limex_step++, t+dt, dt);
+
+			// copy best solution
 			*u = *ubest;
 			t += dt;
 
@@ -810,9 +810,6 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 			// working on last row => increase order
 			//if (ntest == q+1) ntest++;
-
-			// post process
-			itime_integrator_type::notify_step_postprocess(ubest, limex_step++, t, dt);
 		}
 		else
 		{
