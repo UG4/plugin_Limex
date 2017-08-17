@@ -49,6 +49,8 @@ void LinearImplicitEuler<TAlgebra>::
 prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
              number dt)
 {
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:prepare_step" << std::endl);
+
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_prepare_step, "discretization LinearImplicitEuler");
 //	perform checks
 	if(prevSol->size() < m_prevSteps)
@@ -78,7 +80,7 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 		if (m_spGammaDisc.valid())
 		{ m_spGammaDisc->prepare_timestep(m_pPrevSol, m_futureTime);}
 	}
-	UG_CATCH_THROW("ThetaTimeStep: Cannot prepare time step.");
+	UG_CATCH_THROW("LinearImplicitEuler: Cannot prepare time step.");
 
 	// create matrix J
 	if (m_spMatrixJOp.invalid())
@@ -99,6 +101,8 @@ void LinearImplicitEuler<TAlgebra>::
 prepare_step_elem(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
                   number dt, const GridLevel& gl)
 {
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:prepare_step_elem" << std::endl);
+
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_step_elem, "discretization LinearImplicitEuler");
 //	perform checks
 	if(prevSol->size() < m_prevSteps)
@@ -141,6 +145,8 @@ template <typename TAlgebra>
 void LinearImplicitEuler<TAlgebra>::
 adjust_solution(vector_type& u, const GridLevel& gl)
 {
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:adjust_solution" << std::endl);
+
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_adjust_solution, "discretization LinearImplicitEuler");
 //	adjust solution
 	try{
@@ -157,6 +163,8 @@ void LinearImplicitEuler<TAlgebra>::
 finish_step_elem(SmartPtr<VectorTimeSeries<vector_type> > currSol,
                  const GridLevel& gl)
 {
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:finish_step_elem" << std::endl);
+	
 //	perform checks whether 'currSol' is a solutionTimeSeries only with the new values
 	if(currSol->time(0) != m_futureTime)
 		UG_THROW("LinearImplicitEuler::finish_step_elem:"
@@ -186,6 +194,8 @@ template <typename TAlgebra>
 void LinearImplicitEuler<TAlgebra>::
 assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& gl)
 {
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:assemble_jacobian" << std::endl);
+
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_assemble_jacobian, "discretization LinearImplicitEuler");
 
 	//	perform checks
@@ -308,6 +318,8 @@ template <typename TAlgebra>
 void LinearImplicitEuler<TAlgebra>::
 assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 {
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:assemble_defect" << std::endl);
+
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_assemble_defect, "discretization LinearImplicitEuler");
 
 	//	perform checks
@@ -377,8 +389,9 @@ assemble_rhs(vector_type& b, const vector_type& u, const GridLevel& gl)
 
 template <typename TAlgebra>
 void LinearImplicitEuler<TAlgebra>::
-assemble_linear(matrix_type& A, vector_type& b, const GridLevel& gl)
+assemble_linear(matrix_type& J, vector_type& b, const GridLevel& gl)
 {
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:assemble_linear" << std::endl);
 
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_assemble_linear, "discretization LinearImplicitEuler");
 
@@ -390,12 +403,14 @@ assemble_linear(matrix_type& A, vector_type& b, const GridLevel& gl)
 
 	// 	future solution part
 		try{
-			// A:= (M(k-1) + tau A(k-1) )
-			this->m_spMatrixJDisc->assemble_jacobian(A, m_pPrevSol, m_dt, gl);
+			UG_ASSERT(m_pPrevSol->size()<2, "Only need one solution,,,");
 
-			std::vector<number> vScaleMass(1, 0.0);
-			std::vector<number> vScaleStiff(1, m_dt);
-			this->m_spDomDisc->assemble_defect(b, m_pPrevSol, vScaleMass, vScaleStiff, gl);
+			// J(u_{k+1} - u_k) = \tau f_k
+			this->assemble_jacobian(J, *m_pPrevSol->oldest(), gl);
+			this->assemble_defect(b, *m_pPrevSol->oldest(), gl);
+
+			// J u_{k+1} = \tau f_k + J u_k
+			AxpyCommonSparseMatrix(J, b, 0.0, *m_pPrevSol->oldest(), +1.0, *m_pPrevSol->oldest());
 
 		}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
 }
@@ -411,7 +426,7 @@ assemble_rhs(vector_type& b, const GridLevel& gl)
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_assemble_rhs, "discretization LinearImplicitEuler");
 //	perform checks
 	if(m_pPrevSol->size() < m_prevSteps)
-		UG_THROW("LinearImplicitEuler::assemble_linear:"
+		UG_THROW("LinearImplicitEuler::assemble_rhs:"
 				" Number of previous solutions must be at least "<<
 				m_prevSteps <<", but only "<< m_pPrevSol->size() << " passed.");
 
