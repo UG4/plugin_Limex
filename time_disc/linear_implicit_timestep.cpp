@@ -146,13 +146,12 @@ void LinearImplicitEuler<TAlgebra>::
 adjust_solution(vector_type& u, const GridLevel& gl)
 {
 	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:adjust_solution" << std::endl);
-
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_adjust_solution, "discretization LinearImplicitEuler");
-//	adjust solution
+
+	//	adjust solution
 	try{
 		this->m_spDomDisc->adjust_solution(u, m_futureTime, gl);
 	}UG_CATCH_THROW("LinearImplicitEuler: Cannot adjust solution.");
-	//std::cout << "ADJUST: "<< m_futureTime << std::endl;
 
 }
 
@@ -223,7 +222,9 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 		if (!m_useCachedMatrices)
 		{
 			// un-cached, (i.e., approximate Newton)
+
 			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, m_dt, gl);
+			UG_DLOG(LIB_LIMEX, 5, "Computed J_limex =" << J_limex << " for dt=" << m_dt << std::endl);
 			write_debug(J_limex, "myMatrixAssembled.mat");
 		}
 		else
@@ -405,13 +406,14 @@ assemble_linear(matrix_type& J, vector_type& b, const GridLevel& gl)
 		try{
 			UG_ASSERT(m_pPrevSol->size()<2, "Only need one solution,,,");
 
-			// J(u_{k+1} - u_k) = \tau f_k
+			// J(u_{k+1} - u_k) = -\tau f_k
+			// NOTE: both routines have invoked the contraints, so constraint adjustment are assumed to be correct!
 			this->assemble_jacobian(J, *m_pPrevSol->oldest(), gl);
 			this->assemble_defect(b, *m_pPrevSol->oldest(), gl);
 
-			// J u_{k+1} = \tau f_k + J u_k
-			AxpyCommonSparseMatrix(J, b, 0.0, *m_pPrevSol->oldest(), +1.0, *m_pPrevSol->oldest());
-
+			// J u_{k+1} = -\tau f_k + J u_k
+			//AxpyCommonSparseMatrix(J, b, 0.0, *m_pPrevSol->oldest(), +1.0, *m_pPrevSol->oldest());
+			J.axpy(b, -1.0, b, 1.0, *m_pPrevSol->oldest());
 		}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
 }
 
