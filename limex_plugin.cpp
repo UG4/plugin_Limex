@@ -53,6 +53,7 @@
 #include "time_disc/time_extrapolation.h"
 #include "time_disc/linear_implicit_timestep.h"
 #include "time_disc/limex_integrator.hpp"
+#include "newton_limex.h"
 
 
 
@@ -575,7 +576,27 @@ static void Algebra(Registry& reg, string parentGroup)
 			reg.add_class_to_group(name, "NormRelEstimator", tag);
 		}
 
-
+		// LimexNewton
+		{
+			std::string grp = parentGroup;
+			grp.append("/Discretization/Nonlinear");
+			typedef LimexNewtonSolver<TAlgebra> T;
+			typedef IOperatorInverse<vector_type> TBase;
+			string name = string("LimexNewtonSolver").append(suffix);
+			reg.add_class_<T, TBase>(name, grp)
+				.add_constructor()
+				.template add_constructor<void (*)(SmartPtr<IOperator<vector_type> >)>("Operator")
+				.template add_constructor<void (*)(SmartPtr<IAssemble<TAlgebra> >)>("AssemblingRoutine")
+				.add_method("set_linear_solver", &T::set_linear_solver, "", "linear solver")
+				.add_method("init", &T::init, "success", "op")
+				.add_method("prepare", &T::prepare, "success", "u")
+				.add_method("apply", &T::apply, "success", "u")
+				.add_method("linear_solver_rate", &T::linear_solver_rate)
+				.add_method("linear_solver_steps", &T::linear_solver_steps)
+				.add_method("config_string", &T::config_string)
+				.set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "LimexNewtonSolver", tag);
+		}
 
 }
 
