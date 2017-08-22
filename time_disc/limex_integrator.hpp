@@ -40,6 +40,8 @@
 */
 #include <string>
 
+#include "common/stopwatch.h"
+
 #include "lib_algebra/operator/interface/operator.h"
 #include "lib_algebra/operator/interface/operator_inverse.h"
 #include "lib_algebra/operator/linear_solver/linear_solver.h"
@@ -632,6 +634,11 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 		//UG_DLOG(LIB_LIMEX, 5, "+++ LimexTimestep +++" << limex_step << "\n");
 		UG_LOG("+++ LimexTimestep +++" << limex_step << "\n");
+
+		// save time stamp for limex step start
+		Stopwatch stopwatch;
+		stopwatch.start();
+
 		// determine step size
 		number dt = std::min(dtcurr, t1-t);
 		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
@@ -768,6 +775,9 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			dtcurr *= m_sigmaReduction;
 		}
 
+		// output compute time for Limex step
+		number watchTime = stopwatch.ms()/1000.0;
+		UG_LOGN("Time: " << std::setprecision(3) << watchTime << "s");
 
 		if ((err==0) && limexConverged)
 		{
