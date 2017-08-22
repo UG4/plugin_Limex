@@ -476,7 +476,7 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 	int error = 0;
 	//const int nstages = m_vThreadData.size()-1;
 	//	#pragma omp for private(i) // shared (nstages, u1) schedule(static)
-	for (int i=0; i<=nstages; ++i)
+	for (int i=0; i<=(int)nstages; ++i)
 	{
 		/*
 				std::cerr << "I am " << tn << " of " << nt << " ("<< i<< "/" << nstages<<")!" << std::endl;
