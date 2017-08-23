@@ -53,6 +53,7 @@
 #include "time_disc/time_extrapolation.h"
 #include "time_disc/linear_implicit_timestep.h"
 #include "time_disc/limex_integrator.hpp"
+#include "newton_limex.h"
 
 
 
@@ -142,51 +143,66 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)(const char *) >("fctNames")
 		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
-		   .template add_constructor<void (*)(const char *, int, int) >("fctNames, order, scale")
+		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
+		   .template add_constructor<void (*)(const char *, const char *, int, number) >("fctNames, subsetNames, order, scale")
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "L2ErrorEvaluator", tag);
 	}
 
 	{
-			// H1SemiErrorEvaluator
-			typedef H1SemiErrorEvaluator<TGridFunction> T;
-			typedef IErrorEvaluator<TGridFunction> TBase;
+		// H1SemiErrorEvaluator
+		typedef H1SemiErrorEvaluator<TGridFunction> T;
+		typedef IErrorEvaluator<TGridFunction> TBase;
 
-			string name = string("H1SemiErrorEvaluator").append(suffix);
-			reg.add_class_<T, TBase>(name, grp)
-			   .template add_constructor<void (*)(const char *) >("fctNames")
-			   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
-			   .template add_constructor<void (*)(const char *, int, int) >("fctNames, order, scale")
-			   .set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "H1SemiErrorEvaluator", tag);
+		string name = string("H1SemiErrorEvaluator").append(suffix);
+		reg.add_class_<T, TBase>(name, grp)
+		   .template add_constructor<void (*)(const char *) >("fctNames")
+		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
+		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
+		   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "H1SemiErrorEvaluator", tag);
 	}
 
 	{
-				// H1ErrorEvaluator
-				typedef H1ErrorEvaluator<TGridFunction> T;
-				typedef IErrorEvaluator<TGridFunction> TBase;
+		// H1ErrorEvaluator
+		typedef H1ErrorEvaluator<TGridFunction> T;
+		typedef IErrorEvaluator<TGridFunction> TBase;
 
-				string name = string("H1ErrorEvaluator").append(suffix);
-				reg.add_class_<T, TBase>(name, grp)
-				   .template add_constructor<void (*)(const char *) >("fctNames")
-				   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
-				   .template add_constructor<void (*)(const char *, int, int) >("fctNames, order, scale")
-				   .set_construct_as_smart_pointer(true);
-				reg.add_class_to_group(name, "H1ErrorEvaluator", tag);
+		string name = string("H1ErrorEvaluator").append(suffix);
+		reg.add_class_<T, TBase>(name, grp)
+		   .template add_constructor<void (*)(const char *) >("fctNames")
+		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
+		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
+		   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "H1ErrorEvaluator", tag);
+}
+
+	{
+		// SupErrorEvaluator
+		typedef SupErrorEvaluator<TGridFunction> T;
+		typedef IErrorEvaluator<TGridFunction> TBase;
+
+		string name = string("SupErrorEvaluator").append(suffix);
+		reg.add_class_<T, TBase>(name, grp)
+		   .template add_constructor<void (*)(const char *) >("fctNames")
+		   .template add_constructor<void (*)(const char *, number) >("fctNames, scale")
+		   .template add_constructor<void (*)(const char *, const char *, number) >("fctNames, subsetNames, scale")
+		   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "SupErrorEvaluator", tag);
 	}
 
 	{
-			// ScaledGridFunctionEstimator (sub-diagonal)
-			typedef ISubDiagErrorEst<TVector> TBase;
-			typedef ScaledGridFunctionEstimator<TDomain, TAlgebra> T;
-			string name = string("ScaledGridFunctionEstimator").append(suffix);
+		// ScaledGridFunctionEstimator (sub-diagonal)
+		typedef ISubDiagErrorEst<TVector> TBase;
+		typedef ScaledGridFunctionEstimator<TDomain, TAlgebra> T;
+		string name = string("ScaledGridFunctionEstimator").append(suffix);
 
-			reg.add_class_<T, TBase>(name, grp)
-			   .template add_constructor<void (*)() >("Default constructor")
-			   .add_method("add", &T::add)
-			   .add_method("config_string", &T::config_string)
-			   .set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "ScaledGridFunctionEstimator", tag);
+		reg.add_class_<T, TBase>(name, grp)
+		   .template add_constructor<void (*)() >("Default constructor")
+		   .add_method("add", &T::add)
+		   .add_method("config_string", &T::config_string)
+		   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "ScaledGridFunctionEstimator", tag);
 	}
 
 
@@ -204,7 +220,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 		string name = string("VTKOutputObserver").append(suffix);
 		reg.add_class_<T, typename T::base_type>(name, grp)
-		    .template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
+			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
+			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>, number) >("")
 			.set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "VTKOutputObserver", tag);
 	}
@@ -559,7 +576,27 @@ static void Algebra(Registry& reg, string parentGroup)
 			reg.add_class_to_group(name, "NormRelEstimator", tag);
 		}
 
-
+		// LimexNewton
+		{
+			std::string grp = parentGroup;
+			grp.append("/Discretization/Nonlinear");
+			typedef LimexNewtonSolver<TAlgebra> T;
+			typedef IOperatorInverse<vector_type> TBase;
+			string name = string("LimexNewtonSolver").append(suffix);
+			reg.add_class_<T, TBase>(name, grp)
+				.add_constructor()
+				.template add_constructor<void (*)(SmartPtr<IOperator<vector_type> >)>("Operator")
+				.template add_constructor<void (*)(SmartPtr<IAssemble<TAlgebra> >)>("AssemblingRoutine")
+				.add_method("set_linear_solver", &T::set_linear_solver, "", "linear solver")
+				.add_method("init", &T::init, "success", "op")
+				.add_method("prepare", &T::prepare, "success", "u")
+				.add_method("apply", &T::apply, "success", "u")
+				.add_method("linear_solver_rate", &T::linear_solver_rate)
+				.add_method("linear_solver_steps", &T::linear_solver_steps)
+				.add_method("config_string", &T::config_string)
+				.set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "LimexNewtonSolver", tag);
+		}
 
 }
 

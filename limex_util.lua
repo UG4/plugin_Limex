@@ -53,8 +53,7 @@ local limexDescParallel = {
   steps = {1,2,3},
   domainDisc={domainDisc[1], domainDisc[2], domainDisc[3]}
   nonlinSolver = {nlSolver[1], nlSolver[2], nlSolver[3]}
- --lSolver = limexLSolver,
-  
+   
   nthreads = 2
   tol = tol,
   dt = dtlimex,
@@ -193,6 +192,16 @@ limex:set_tolerance(limexDesc.tol)
 limex:set_time_step(limexDesc.dt)    
 local dtmin = 1e-4*limexDesc.dt
 
+
+-- debug writer (optional)
+if (limexDesc.rhoSafetyOPT) then
+  limex:set_stepsize_safety_factor(limexDesc.rhoSafetyOPT)
+end
+
+-- debug writer (optional)
+if (limexDesc.debugOPT) then
+  limex:set_debug(limexDesc.debugOPT)
+end
 
 return limex
 end
