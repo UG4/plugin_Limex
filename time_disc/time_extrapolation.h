@@ -149,7 +149,7 @@ public:
 	number get_current_estimate() {return m_est; };
 	void reset_estimate() {  m_est=0.0; };
 
-	virtual std::string config_string() const {}
+	virtual std::string config_string() const {return "";}
 
 protected:
 	number m_est;
@@ -289,26 +289,31 @@ class IErrorEvaluator
 {
 protected:
 	std::string m_fctNames;
+	const char* m_ssNames;
 	int m_quadorder;
 	// int m_type; // type obsolete -> moved to different classes
-	double m_scale;
+	number m_scale;
 
 public:
 	IErrorEvaluator(const IErrorEvaluator<TGridFunction> &val)
 	{
 		this->m_fctNames = val.m_fctNames;
+		this->m_ssNames = val.m_ssNames;
 		this->m_quadorder = val.m_quadorder;
 		this->m_scale = val.m_scale;
 	}
 
 	IErrorEvaluator(const char *fctNames) :
-		m_fctNames(fctNames), m_quadorder(3), m_scale(1.0) {}
+		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(3), m_scale(1.0) {}
 
 	IErrorEvaluator(const char *fctNames, int order) :
-		m_fctNames(fctNames), m_quadorder(order), m_scale(1.0) {}
+		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(order), m_scale(1.0) {}
 
-	IErrorEvaluator(const char *fctNames, int order, double scale) :
-		m_fctNames(fctNames), m_quadorder(order), m_scale(scale) {}
+	IErrorEvaluator(const char *fctNames, int order, number scale) :
+		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(order), m_scale(scale) {}
+
+	IErrorEvaluator(const char *fctNames, const char* ssNames, int order, number scale) :
+		m_fctNames(fctNames), m_ssNames(ssNames), m_quadorder(order), m_scale(scale) {}
 
 	virtual ~IErrorEvaluator() {};
 
@@ -322,7 +327,8 @@ public:
 	std::string config_string() const
 	{
 		std::stringstream ss;
-		ss << this->m_fctNames << ", " << this->m_quadorder << ", type=" <<", scale=" << this->m_scale << std::endl;
+		ss << this->m_fctNames << ", " << this->m_ssNames << ", " << this->m_quadorder
+			<< ", type=" <<", scale=" << this->m_scale << std::endl;
 		return ss.str();
 	}
 
@@ -338,14 +344,17 @@ public:
 
 	L2ErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
 	L2ErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
-	L2ErrorEvaluator(const char *fctNames, int order, double scale) : base_type(fctNames, order, scale) {};
+	L2ErrorEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
+	L2ErrorEvaluator(const char *fctNames, const char* ssNames, int order, number scale)
+		: base_type(fctNames, ssNames, order, scale) {};
 	~L2ErrorEvaluator() {};
 
 	double compute_norm(SmartPtr<TGridFunction> uFine) const
-	{ return L2Norm(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+	{ return L2Norm(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder, base_type::m_ssNames); }
 
 	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
-	{ return L2Error(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder);}
+	{ return L2Error(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(),
+		base_type::m_quadorder, base_type::m_ssNames);}
 };
 
 
@@ -359,7 +368,7 @@ public:
 
 	H1SemiErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
 	H1SemiErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
-	H1SemiErrorEvaluator(const char *fctNames, int order, double scale) : base_type(fctNames, order, scale) {};
+	H1SemiErrorEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
 	~H1SemiErrorEvaluator() {};
 
 	double compute_norm(SmartPtr<TGridFunction> uFine) const
@@ -380,7 +389,7 @@ public:
 
 	H1ErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
 	H1ErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
-	H1ErrorEvaluator(const char *fctNames, int order, double scale) : base_type(fctNames, order, scale) {};
+	H1ErrorEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
 	~H1ErrorEvaluator() {};
 
 	double compute_norm(SmartPtr<TGridFunction> uFine) const
@@ -389,6 +398,104 @@ public:
 	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
 	{ return H1Error<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
 
+};
+
+/** Evaluates difference between two grid functions in L_inf norm */
+template <typename TGridFunction>
+class SupErrorEvaluator
+: public IErrorEvaluator<TGridFunction>
+{
+	public:
+		typedef IErrorEvaluator<TGridFunction> base_type;
+
+		SupErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
+		SupErrorEvaluator(const char *fctNames, number scale) : base_type(fctNames, 1, scale) {};
+		SupErrorEvaluator(const char *fctNames, const char* ssNames, number scale)
+			: base_type(fctNames, ssNames, 1, scale) {};
+		~SupErrorEvaluator() {};
+
+
+		double compute_norm(SmartPtr<TGridFunction> uFine) const
+		{
+			// gather subsets in group
+			SubsetGroup ssGrp(uFine->domain()->subset_handler());
+			if (base_type::m_ssNames != NULL)
+				ssGrp.add(TokenizeString(base_type::m_ssNames));
+			else
+				ssGrp.add_all();
+
+			double maxVal = 0.0;
+
+			// loop subsets
+			for (size_t i = 0; i < ssGrp.size(); ++i)
+			{
+				// get subset index
+				const int si = ssGrp[i];
+
+				// loop elements of subset and dim
+				switch (ssGrp.dim(i))
+				{
+					case DIM_SUBSET_EMPTY_GRID: break;
+					case 0: maxVal = std::max(maxVal, findFctMaxOnSubset<Vertex>(uFine, si)); break;
+					case 1: maxVal = std::max(maxVal, findFctMaxOnSubset<Edge>(uFine, si)); break;
+					case 2: maxVal = std::max(maxVal, findFctMaxOnSubset<Face>(uFine, si)); break;
+					case 3: maxVal = std::max(maxVal, findFctMaxOnSubset<Volume>(uFine, si)); break;
+					default: UG_THROW("IntegrateSubsets: Dimension " << ssGrp.dim(i) << " not supported.");
+				}
+			}
+
+			#ifdef UG_PARALLEL
+				// sum over processes
+				if (pcl::NumProcs() > 1)
+				{
+					pcl::ProcessCommunicator com;
+					number local = maxVal;
+					com.allreduce(&local, &maxVal, 1, PCL_DT_DOUBLE, PCL_RO_SUM);
+				}
+			#endif
+
+			// return the result
+			return maxVal;
+		}
+
+		double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+		{
+			UG_COND_THROW(uFine->dof_distribution().get() != uCoarse->dof_distribution().get(),
+				"Coarse and fine solutions do not have the same underlying dof distro.");
+
+			SmartPtr<TGridFunction> uErr = uCoarse->clone();
+			uErr->operator-=(*uFine);
+			return compute_norm(uErr);
+		}
+
+	protected:
+		template <typename TBaseElem>
+		number findFctMaxOnSubset(ConstSmartPtr<TGridFunction> u, int si) const
+		{
+			ConstSmartPtr<DoFDistribution> dd = u->dof_distribution();
+
+			size_t fct;
+			try {fct = dd->fct_id_by_name(base_type::m_fctNames.c_str());}
+			UG_CATCH_THROW("Function index could not be determined.\n"
+				"Bear in mind that only one function can be evaluated in this error evaluator.");
+
+			number maxVal = 0.0;
+			typename DoFDistribution::traits<TBaseElem>::const_iterator it = dd->begin<TBaseElem>(si);
+			typename DoFDistribution::traits<TBaseElem>::const_iterator itEnd = dd->end<TBaseElem>(si);
+			for (; it != itEnd; ++it)
+			{
+				std::vector<DoFIndex> vInd;
+
+				// we compare against all indices on the element
+				// which means most indices will be compared against quite often
+				// but as this is a sup norm, this is not a problem (only in terms of performance)
+				size_t nInd = dd->dof_indices(*it, fct, vInd, false, false);
+				for (size_t i = 0; i < nInd; ++i)
+					maxVal = std::max(maxVal, fabs(DoFRef(*u, vInd[i])));
+			}
+
+			return maxVal;
+		}
 };
 
 
@@ -488,7 +595,7 @@ public:
 };
 */
 
-/// Evaluate using contiuous norm (DEPRECATED!)
+/// Evaluate using continuous norm (DEPRECATED!)
 template <class TDomain, class TAlgebra>
 class GridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
@@ -702,13 +809,13 @@ public:
 		for (typename std::vector<SmartPtr<evaluator_type> >::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 		{
 			double enorm =  alpha * (*it)->compute_error(uFine, uCoarse);
-			double unorm =  std::max((*it)->compute_norm(uFine), 1e-10);
+			double unorm =  std::max((*it)->compute_norm(uFine), 1e-10*enorm);
 			est += (enorm*enorm)/(unorm*unorm);
-			std::cerr << "unorm=" << unorm << "\tenorm=" << enorm << "\tratio2="<< (enorm*enorm)/(unorm*unorm) << std::endl;
+			UG_LOGN("unorm=" << unorm << "\tenorm=" << enorm << "\tratio2="<< (enorm*enorm)/(unorm*unorm));
 		}
 
 		base_type::m_est = sqrt(est)/m_evaluators.size();
-		std::cerr << "eps="<< base_type::m_est << std::endl;
+		UG_LOGN("eps="<< base_type::m_est);
 
 		// update
 		VecScaleAdd(*vUpdate, 1.0+alpha, *vFine, -alpha, *vCoarse);
@@ -743,17 +850,17 @@ class AitkenNevilleTimex
 
 		/** Aitken Neville scheme with a given number */
 		AitkenNevilleTimex(std::vector<size_t> nsteps)
-		: m_num_steps(nsteps),
-		  m_stepsize(0.0),
+		: m_stepsize(0.0),
 		  m_subdiag (make_sp(new Norm2Estimator<TVector>())),
+		  m_num_steps(nsteps),
 		  m_solution(nsteps.size()),
 		  m_subdiag_error_est(nsteps.size(), INFINITY)
 		{};
 
 		AitkenNevilleTimex(std::vector<size_t> nsteps, SmartPtr<ISubDiagErrorEst<vector_type> > error)
-		: m_num_steps(nsteps),
-		  m_stepsize(0.0),
+		: m_stepsize(0.0),
 		  m_subdiag(error),
+		  m_num_steps(nsteps),
 		  m_solution(nsteps.size()),
 		  m_subdiag_error_est(nsteps.size(), INFINITY)
 		{};

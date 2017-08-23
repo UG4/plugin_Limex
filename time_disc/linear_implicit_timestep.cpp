@@ -328,16 +328,16 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		UG_THROW("LinearImplicitEuler::assemble_defect:"
 				" Number of previous solutions must be at least "<<
 				m_prevSteps <<", but only "<< m_pPrevSol->size() << " passed.");
+
 	//	push unknown solution to solution time series
 	//	ATTENTION: Here, we must cast away the constness of the solution, but note,
 	//			   that we pass pPrevSol as a const object in assemble_... Thus,
 	//			   the solution will not be changed there and we pop it from the
 	//			   Solution list afterwards, such that nothing happens to u
-		// \todo: avoid this hack, use smart ptr properly
-		int DummyRefCount = 2;
-		SmartPtr<vector_type> pU(const_cast<vector_type*>(&u), &DummyRefCount);
-		m_pPrevSol->push(pU, m_futureTime);
-
+    // \todo: avoid this hack, use smart ptr properly
+	int DummyRefCount = 2;
+	SmartPtr<vector_type> pU(const_cast<vector_type*>(&u), &DummyRefCount);
+	m_pPrevSol->push(pU, m_futureTime);
 
 // 	future solution part
 	try{
@@ -348,7 +348,8 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		this->m_spDomDisc->assemble_defect(d, m_pPrevSol, vScaleMass, vScaleStiff, gl);
 
 		// d := d + (M - \tau J) (u(k-1)-u)
-		/*	vector_type deltau = *m_pPrevSol->oldest()->clone();
+		/*
+		vector_type deltau = *m_pPrevSol->oldest()->clone();
 		deltau -= u;
 
 		this->m_spDomDisc->assemble_jacobian(m_spMatrixJOp->get_matrix(), m_pPrevSol, m_dt, gl);

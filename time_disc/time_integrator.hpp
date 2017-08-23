@@ -70,7 +70,7 @@ public:
 	//virtual void finish(){}
 
 	virtual void step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
-	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
+	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt) {}
 
 };
 
@@ -85,18 +85,48 @@ public:
 	typedef VTKOutput<TDomain::dim> vtk_type;
 
 	VTKOutputObserver()
-	:  m_sp_vtk(SPNULL), m_filename("0000"){}
+	:  m_sp_vtk(SPNULL), m_filename("0000"), m_plotStep(0.0) {}
 
 	VTKOutputObserver(const char *filename, SmartPtr<vtk_type> vtk)
-	: m_sp_vtk(vtk), m_filename(filename) {}
+	: m_sp_vtk(vtk), m_filename(filename), m_plotStep(0.0) {}
+
+	VTKOutputObserver(const char *filename, SmartPtr<vtk_type> vtk, number plotStep)
+	: m_sp_vtk(vtk), m_filename(filename), m_plotStep(plotStep) {}
 
 	virtual ~VTKOutputObserver()
 	{ m_sp_vtk = SPNULL; }
 
-	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
-		if (m_sp_vtk.valid())
-			m_sp_vtk->print(m_filename.c_str(), *u, step, time);
+		if (!m_sp_vtk.valid())
+			return;
+
+		if (m_plotStep == 0.0)
+		{
+			m_sp_vtk->print(m_filename.c_str(), *uNew, step, time);
+			return;
+		}
+
+		// otherwise, only plot data at multiples of given time step (interpolate if necessary)
+		number rem = fmod(time-dt, m_plotStep);
+		number curTime = time - dt - rem + m_plotStep;
+		int curStep = (int) ((curTime + 0.5*m_plotStep) / m_plotStep);
+
+		if (curTime > time)
+			return;
+
+		SmartPtr<grid_function_type> uCur = uNew->clone_without_values();
+		while (curTime <= time)
+		{
+			number alpha = (time-curTime) / dt;
+			VecScaleAdd(static_cast<typename TAlgebra::vector_type&>(*uCur),
+				alpha, static_cast<typename TAlgebra::vector_type&>(*uOld),
+				1.0 - alpha, static_cast<typename TAlgebra::vector_type&>(*uNew));
+
+			m_sp_vtk->print(m_filename.c_str(), *uCur, curStep, curTime);
+
+			curTime = (++curStep) * m_plotStep;
+		}
 	}
 
 	void close(SmartPtr<grid_function_type> u)
@@ -107,6 +137,7 @@ public:
 protected:
 	SmartPtr<vtk_type> m_sp_vtk;
 	std::string m_filename;
+	number m_plotStep;
 };
 
 
@@ -129,12 +160,12 @@ public:
 	virtual ~ConnectionViewerOutputObserver()
 	{}
 
-	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		// quit, if time does not match
 		if (m_outputTime >=0.0 && time != m_outputTime) return;
 
-		SaveVectorForConnectionViewer<grid_function_type>(*u, m_filename.c_str());
+		SaveVectorForConnectionViewer<grid_function_type>(*uNew, m_filename.c_str());
 	}
 
 protected:
@@ -144,7 +175,7 @@ protected:
 };
 
 
-/*
+#if 0
 template <typename TData, typename TDataIn1, typename TDataIn2>
 class LuaFunction2 // : public IFunction<TData, TDataIn1, typename TDataIn2>
 {
@@ -158,7 +189,7 @@ class LuaFunction2 // : public IFunction<TData, TDataIn1, typename TDataIn2>
 	 * This function sets the lua callback. The name of the function is
 	 * passed as a string. Make sure, that the function name is defined
 	 * when executing the script.
-	 * /
+	 */
 		void set_lua_callback(const char* luaCallback, size_t numArgs);
 
 	///	evaluates the data
@@ -207,7 +238,7 @@ void LuaFunction2<TData,TDataIn1,TDataIn2>::set_lua_callback(const char* luaCall
 //	remember number of arguments to be used
 	m_numArgs = numArgs;
 }
-*/
+#endif
 
 /*
 SmartUserDataWrapper* CreateNewUserData(lua_State* L, const SmartPtr<void>& ptr,
@@ -310,10 +341,10 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		number dummy_return;
-		m_u = u;
+		m_u = uNew;
 		m_callback(dummy_return, numArgs2, (number) step, time, dt);
 
 	}
@@ -362,12 +393,12 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
-		UG_LOG("L2Error(\t"<< time << "\t) = \t" << L2Error(m_spReference, u, "c", time, 4) << std::endl);
+		UG_LOG("L2Error(\t"<< time << "\t) = \t" << L2Error(m_spReference, uNew, "c", time, 4) << std::endl);
 		if (m_sp_vtk.valid())
 		{
-			SmartPtr<grid_function_type> ref = u->clone();
+			SmartPtr<grid_function_type> ref = uNew->clone();
 			Interpolate<grid_function_type> (m_spReference, ref, "c", time);
 			m_sp_vtk->print("MyReference", *ref, step, time);
 		}
@@ -415,13 +446,13 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 
 		for (typename std::vector<IntegralSpecs>::iterator it = m_vIntegralData.begin();
 			 it!=m_vIntegralData.end(); ++it)
 		{
-			number value=Integral(u, it->m_cmp.c_str(), it->m_subsets.c_str(), it->m_quadOrder);
+			number value=Integral(uNew, it->m_cmp.c_str(), it->m_subsets.c_str(), it->m_quadOrder);
 			UG_LOG("Integral(\t"<< it->m_idString << "\t"<< time << "\t)=\t" << value << std::endl);
 		}
 
@@ -469,10 +500,10 @@ public:
 	}
 
 	//! notify all observers that time step has been evolved (successfully)
-	void notify_step_postprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	void notify_step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
-		{(*it)->step_postprocess(u, step, time, dt); }
+		{(*it)->step_postprocess(uNew, uOld, step, time, dt); }
 	}
 
 };
@@ -724,6 +755,7 @@ bool LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 	}
 
+	return true;
 };
 
 
@@ -832,6 +864,7 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 
 	 }
 
+	 return true;
 };
 
 
@@ -1023,6 +1056,7 @@ bool TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 
 	 }
 
+	 return true;
 };
 
 class TimeStepBounds
@@ -1157,7 +1191,6 @@ protected:
 template<typename TDomain, typename TAlgebra>
 bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
-
 	LIMEX_PROFILE_FUNC()
 
 	// short-cuts
@@ -1166,7 +1199,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	typename base_type::solver_type &solver = *base_type::m_spSolver;
 
 	// create solution vector & right hand side
-	SmartPtr<typename base_type::vector_type> uold;
+	SmartPtr<grid_function_type> uold = u0->clone();
 
 	// init solution time series
 	SmartPtr<vector_time_series_type> m_spSolTimeSeries;        ///< contains all solutions compute so far
@@ -1175,7 +1208,8 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	m_spSolTimeSeries->push(u0->clone(), t0);
 
 	// init solver (and matrix operator)
-	SmartPtr<typename base_type::assembled_operator_type> spAssOp = make_sp(new typename base_type::assembled_operator_type(tdisc_dep_type::m_spTimeDisc, gl));
+	SmartPtr<typename base_type::assembled_operator_type> spAssOp;
+	spAssOp = make_sp(new typename base_type::assembled_operator_type(tdisc_dep_type::m_spTimeDisc, gl));
 	solver.init(spAssOp);
 
 	// integrate
@@ -1220,7 +1254,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 			 	// post prcess (e.g. physics)
 				if(!base_type::m_bNoLogOut)
 				{
-					this->notify_step_postprocess(u1, step, t, dt);
+					this->notify_step_postprocess(u1, uold, step, t, dt);
 				}
 
 				// update time
@@ -1229,7 +1263,9 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				// push updated solution into time series (and continue)
 				//SmartPtr<typename base_type::vector_type> utmp = m_spSolTimeSeries->oldest();
 				//VecAssign(*utmp, static_cast<typename base_type::vector_type> (*u1) );
-				uold = m_spSolTimeSeries->push_discard_oldest(u1->clone(), t);
+				m_spSolTimeSeries->push_discard_oldest(u1->clone(), t);
+
+				uold = u1;   // save solution
 		 }
 		 else
 		 {
@@ -1258,7 +1294,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	if(base_type::m_bNoLogOut)
 	{
-		this->notify_step_postprocess(u1, step, t, final_dt);
+		this->notify_step_postprocess(u1, uold, step, t, final_dt);
 	}
 
 
@@ -1299,7 +1335,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	//using TimeIntegratorSubject<TDomain,TAlgebra>::notify_step_postprocess;
 
 	// create solution vector & right hand side
-	SmartPtr<typename base_type::vector_type> uold= u0->clone();
+	SmartPtr<grid_function_type> uold= u0->clone();
 
 	// init solution time series
 	SmartPtr<vector_time_series_type> m_spSolTimeSeries;
@@ -1383,7 +1419,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		{
 			if(!base_type::m_bNoLogOut)
 			{
-				this->notify_step_postprocess(u1, step, t, dt);
+				this->notify_step_postprocess(u1, uold, step, t, dt);
 			}
 
 			// ACCEPT time step
@@ -1397,7 +1433,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 
 	if(base_type::m_bNoLogOut)
 	{
-		this->notify_step_postprocess(u1, step, t, final_dt);
+		this->notify_step_postprocess(u1, uold, step, t, final_dt);
 	}
 	return true;
 };

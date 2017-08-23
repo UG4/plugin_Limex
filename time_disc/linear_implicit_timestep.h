@@ -92,6 +92,8 @@ public:
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDD)
 		: ITimeDiscretization<TAlgebra>(spDD),
 		  m_pPrevSol(NULL),
+		  m_dt(0.0),
+		  m_futureTime(0.0),
 		  m_spMatrixJDisc(spDD), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
 		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
 		  m_useCachedMatrices(true)
@@ -99,20 +101,26 @@ public:
 
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc)
-			: ITimeDiscretization<TAlgebra>(spDefectDisc), m_pPrevSol(NULL),
-			  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
-			  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
-			  m_useCachedMatrices(true)
-		{}
+		: ITimeDiscretization<TAlgebra>(spDefectDisc),
+		  m_pPrevSol(NULL),
+		  m_dt(0.0),
+		  m_futureTime(0.0),
+		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+		  m_useCachedMatrices(true)
+	{}
 
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
-				: ITimeDiscretization<TAlgebra>(spDefectDisc), m_pPrevSol(NULL),
-				  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
-				  m_spGammaDisc(spGammaDisc), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
-				  m_useCachedMatrices(true)
-			{}
+		: ITimeDiscretization<TAlgebra>(spDefectDisc),
+		  m_pPrevSol(NULL),
+		  m_dt(0.0),
+		  m_futureTime(0.0),
+		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+		  m_spGammaDisc(spGammaDisc), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+		  m_useCachedMatrices(true)
+	{}
 
 	virtual ~LinearImplicitEuler(){};
 
