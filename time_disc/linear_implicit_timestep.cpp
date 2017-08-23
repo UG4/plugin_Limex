@@ -229,7 +229,6 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 		}
 		else
 		{
-
 			// Assemble (Mk + \tau J_a)
 			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, 0.0, gl);
 			UG_DLOG(LIB_LIMEX, 3, "Computed Mk (" << J_limex <<
