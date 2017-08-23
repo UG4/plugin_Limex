@@ -93,14 +93,16 @@ public:
 		: ITimeDiscretization<TAlgebra>(spDD),
 		  m_pPrevSol(NULL),
 		  m_spMatrixJDisc(spDD), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
-		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true)
+		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+		  m_useCachedMatrices(true)
 	{}
 
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc)
 			: ITimeDiscretization<TAlgebra>(spDefectDisc), m_pPrevSol(NULL),
 			  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
-			  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true)
+			  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+			  m_useCachedMatrices(true)
 		{}
 
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
@@ -108,7 +110,8 @@ public:
 						SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
 				: ITimeDiscretization<TAlgebra>(spDefectDisc), m_pPrevSol(NULL),
 				  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
-				  m_spGammaDisc(spGammaDisc), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true)
+				  m_spGammaDisc(spGammaDisc), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+				  m_useCachedMatrices(true)
 			{}
 
 	virtual ~LinearImplicitEuler(){};
@@ -152,6 +155,10 @@ public:
 	 virtual size_t num_stages() const {return 1;};
 	 virtual void set_stage(size_t stage) {};
 
+	void enable_matrix_cache() { m_useCachedMatrices = true; }
+	void disable_matrix_cache() { m_useCachedMatrices = false; }
+	void set_matrix_cache(bool useCache) { m_useCachedMatrices = useCache; }
+
 protected:
 
 
@@ -193,27 +200,31 @@ protected:
 	// discretization for defect
 	using base_type::m_spDomDisc;
 
-	// constant matrix $$ M0 - \tau J$$
+	// constant matrix $$ \tau J$$
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixJDisc;
 	SmartPtr<AssembledLinearOperator<algebra_type> > m_spMatrixJOp;		///< Operator
 	bool m_bMatrixJNeedsUpdate;
 
-	// Matrix $\Gamma[u0, u0']$
+	// Matrix: $\Gamma[u0, u0']$
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spGammaDisc;		///< Gamma disc
 	SmartPtr<AssembledLinearOperator<algebra_type> > m_spGammaOp;	    ///< Gamma operator
 	bool m_bGammaNeedsUpdate;
 
-	SmartPtr<matrix_type> m_spMatrixCacheM0;
+	SmartPtr<matrix_type> m_spMatrixCacheMk;
+
+	bool m_useCachedMatrices;
 
 public:
 
+	/// Invalidate all cached operators
 	void invalidate()
 	{
-		m_spMatrixCacheM0 = SPNULL;
+		m_spMatrixCacheMk = SPNULL;
 		m_bMatrixJNeedsUpdate = true;
 		invalidate_gamma();
 	}
 
+	/// Invalidate Gamma operator
 	void invalidate_gamma()
 	{ m_spGammaOp = SPNULL; m_bGammaNeedsUpdate = true; }
 

@@ -31,20 +31,19 @@
 
 --[[ (sample) solver descriptor
 
+-- descriptor for integrator
 local limexDescSerial = {
 
-  nstages = 2,
-  steps = {1,2,3},
-  domainDisc=domainDisc
-  nonlinSolver = nlSolver
- 
- --linSolver = linSolver,
+  nstages = 4,
+  steps = {1,2,3,4,5,6,7,8,9,10},
+  domainDisc=fullyCoupledDisc,
+  gammaDiscOPT= gammaTensorDisc,
+  nonlinSolver = limexNLSolver,
   
-  nthreads = 1
+  nthreads = 1,
   tol = tol,
-  dt = dtlimex,
-  dtmin = 1e-9,
-  
+  dt = dt,
+  dtmin = dtmin,
 }
 
 
@@ -81,6 +80,27 @@ util.limex.defaultDesc = util.limex.defaultDesc or
     
     makeConsistent = false,
 }
+
+
+function util.limex.CreateLimexErrorEstimator (id_string) 
+  local errorEst 
+  if (id_string == "Conc_GridFunction") then
+      -- relative grid function error
+      errorEst = GridFunctionEstimator("c", 4)
+      errorEst:add("c", 2, 1, 1.0)   -- add H1 Semi-norm for c
+  elseif (id_string == "Conc_L2_Absolute") then
+      -- absolute algebraic l2 error
+      errorEst = Norm2Estimator()
+      errorEst:set_offset(0)
+      errorEst:set_stride(2)
+  elseif (id_string == "Scaled_GridFunction") then
+      errorEst = ScaledGridFunctionEstimator()
+      errorEst:add(H1ErrorEvaluator("c", 4))         -- L2 norm for c
+      errorEst:add(H1SemiErrorEvaluator("p", 2))     -- H1 semi-norm for p
+  end
+  
+  return errorEst
+end
 
 -- aux function creating a solver
 function util.limex.CreateLimexSolver(nlsolverDesc, solverutil)
@@ -146,7 +166,7 @@ if ((ndiscs>0
   
   
   for i=1,nstages do 
-    limex:add_stage(limexDesc.steps[i], limexDesc.domainDisc[i], limexDesc.nonlinSolver[i])
+    limex:add_stage(limexDesc.steps[i],  limexDesc.nonlinSolver[i], limexDesc.domainDisc[i])
   end
 else 
 
