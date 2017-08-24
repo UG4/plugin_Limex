@@ -1199,7 +1199,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	typename base_type::solver_type &solver = *base_type::m_spSolver;
 
 	// create solution vector & right hand side
-	SmartPtr<grid_function_type> uold = u0->clone();
+	SmartPtr<grid_function_type> uold;
 
 	// init solution time series
 	SmartPtr<vector_time_series_type> m_spSolTimeSeries;        ///< contains all solutions compute so far
@@ -1254,7 +1254,10 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 			 	// post prcess (e.g. physics)
 				if(!base_type::m_bNoLogOut)
 				{
-					this->notify_step_postprocess(u1, uold, step, t, dt);
+					// m_spSolTimeSeries->oldest() actually holds a pointer to a grid function
+					// but as the time series does not know this, we have to cast ourselves
+					SmartPtr<grid_function_type> tmpOld = m_spSolTimeSeries->oldest().template cast_static<grid_function_type>();
+					this->notify_step_postprocess(u1, tmpOld, step, t, dt);
 				}
 
 				// update time
@@ -1263,9 +1266,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				// push updated solution into time series (and continue)
 				//SmartPtr<typename base_type::vector_type> utmp = m_spSolTimeSeries->oldest();
 				//VecAssign(*utmp, static_cast<typename base_type::vector_type> (*u1) );
-				m_spSolTimeSeries->push_discard_oldest(u1->clone(), t);
-
-				uold = u1;   // save solution
+				uold = m_spSolTimeSeries->push_discard_oldest(u1->clone(), t).template cast_static<grid_function_type>();
 		 }
 		 else
 		 {
@@ -1335,13 +1336,13 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	//using TimeIntegratorSubject<TDomain,TAlgebra>::notify_step_postprocess;
 
 	// create solution vector & right hand side
-	SmartPtr<grid_function_type> uold= u0->clone();
+	SmartPtr<grid_function_type> uold = u0->clone();
 
 	// init solution time series
 	SmartPtr<vector_time_series_type> m_spSolTimeSeries;
 	m_spSolTimeSeries=make_sp(new vector_time_series_type());
 	m_spSolTimeSeries->clear();
-	m_spSolTimeSeries->push(uold, t0);
+	m_spSolTimeSeries->push(u0->clone(), t0);
 
 	// init solver (and matrix operator)
 	SmartPtr<typename base_type::assembled_operator_type> spAssOp=make_sp(new typename base_type::assembled_operator_type(tdisc_dep_type::m_spTimeDisc, gl));
@@ -1423,7 +1424,8 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 			}
 
 			// ACCEPT time step
-			uold = u1;   // save solution
+			if (!hasTerminated(t, t0, t1))
+				*uold = *u1;   // save solution (but not in last step)
 			// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
 
 			if(!base_type::m_bNoLogOut)
