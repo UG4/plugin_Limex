@@ -423,6 +423,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			  .add_method("set_time_derivative", &T::set_time_derivative)
 			  .add_method("enable_matrix_cache", &T::enable_matrix_cache)
 			  .add_method("disable_matrix_cache", &T::disable_matrix_cache)
+			  .add_method("select_cost_strategy", &T::select_cost_strategy)
 			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 			  .set_construct_as_smart_pointer(true);
 
@@ -608,9 +609,28 @@ static void Algebra(Registry& reg, string parentGroup)
  * @param reg				registry
  * @param parentGroup		group for sorting of functionality
  */
-static void Common(Registry& reg, string grp)
+static void Common(Registry& reg, string parentGroup)
 {
 
+	std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
+	typedef ILimexCostStrategy TBase;
+	reg.add_class_<TBase>(std::string("ILimexCostStrategy"), grp);
+
+	{
+		typedef LimexDefaultCost T;
+		string name = string("LimexDefaultCost");
+		reg.add_class_<T, TBase>(name, grp)
+		   .add_constructor()
+		   .set_construct_as_smart_pointer(true);
+	}
+
+	{
+			typedef LimexNonlinearCost T;
+			string name = string("LimexNonlinearCost");
+			reg.add_class_<T, TBase>(name, grp)
+			   .add_constructor()
+			   .set_construct_as_smart_pointer(true);
+	}
 }
 
 }; // end Functionality
