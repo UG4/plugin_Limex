@@ -108,6 +108,65 @@ protected:
 	SmartPtr<IRefiner> m_spRefiner;
 };
 
+
+/**! The LimexTimeIntegrator requires a Model */
+class ILimexCostStrategy
+{
+public:
+	virtual ~ILimexCostStrategy(){}
+	virtual void update_cost(std::vector<number> &costA, const std::vector<size_t> &vSteps, const size_t nstages) = 0;
+};
+
+
+// cost is identical to (summation over) number of steps
+class LimexDefaultCost : public ILimexCostStrategy
+{
+public:
+	LimexDefaultCost(){};
+	void update_cost(std::vector<number> &m_costA, const std::vector<size_t> &m_vSteps, const size_t nstages)
+	{
+		UG_ASSERT(m_costA.size() >= nstages, "Huhh: Vectors match in size:" << m_costA.size() << "vs." << nstages);
+
+		//UG_LOG("A_0="<< m_vSteps[0] << std::endl);
+		m_costA[0] = (1.0)*m_vSteps[0];
+		for (size_t i=1; i<=nstages; ++i)
+		{
+			m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
+			//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
+		}
+	}
+};
+
+// For
+class LimexNonlinearCost : public ILimexCostStrategy
+{
+public:
+	LimexNonlinearCost() :
+	m_cAssemble (1.0), m_cMatAdd(0.0), m_cSolution(1.0), m_useGamma(1)
+	{}
+
+	void update_cost(std::vector<number> &m_costA, const std::vector<size_t> &nSteps, const size_t nstages)
+	{
+		UG_ASSERT(m_costA.size() >= nstages, "Huhh: Vectors match in size:" << m_costA.size() << "vs." << nstages);
+
+		// 3 assemblies (M0, J0, Gamma0)
+		m_costA[0] = (2.0+m_useGamma)*m_cAssemble + nSteps[0]*((1.0+m_useGamma)*m_cMatAdd + m_cSolution);
+		for (size_t i=1; i<nstages; ++i)
+		{
+			// n-1 assemblies for Mk, 2n MatAdds, n solutions
+			m_costA[i] = m_costA[i-1] + (nSteps[i]-1) * m_cAssemble + nSteps[i]*((1.0+m_useGamma)*m_cMatAdd + m_cSolution);
+		}
+	}
+
+protected:
+	double m_cAssemble;  ///! Cost for matrix assembly
+	double m_cMatAdd;	 ///! Cost for J=A+B
+	double m_cSolution;  ///! Cost for solving Jx=b
+
+	int m_useGamma;
+
+};
+
 //! Base class for LIMEX time integrator
 template<class TDomain, class TAlgebra>
 class LimexTimeIntegrator
@@ -214,7 +273,8 @@ public:
 		  m_lambda(m_nstages+1), 
 		  m_consistency_error(m_nstages),
 		  m_greedyOrderIncrease(0.0),
-		  m_useCachedMatrices(false)
+		  m_useCachedMatrices(false),
+		  m_spCostStrategy(make_sp<LimexDefaultCost>(new LimexDefaultCost()))
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -337,13 +397,14 @@ protected:
 		//  (depends on m_vSteps, which must have been initialized!)
 		void update_cost()
 		{
+			m_spCostStrategy->update_cost(m_costA, m_vSteps, m_nstages);
 			//UG_LOG("A_0="<< m_vSteps[0] << std::endl);
-			m_costA[0] = (1.0)*m_vSteps[0];
+			/*m_costA[0] = (1.0)*m_vSteps[0];
 			for (size_t i=1; i<=m_nstages; ++i)
 			{
 				m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
 				//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
-			}
+			}*/
 		}
 
 		/// convergence monitor
@@ -389,6 +450,8 @@ public:
 		void enable_matrix_cache() { m_useCachedMatrices = true; }  	///< Select classic LIMEX
 		void disable_matrix_cache() { m_useCachedMatrices = false; }    ///< Select approximate Newton (default)
 
+		void select_cost_strategy(SmartPtr<ILimexCostStrategy> cost) {m_spCostStrategy = cost;}
+
 protected:
 
 		double m_tol;
@@ -412,8 +475,9 @@ protected:
   		double m_greedyOrderIncrease;
 
 		SmartPtr<grid_function_type> m_spDtSol;   ///< Time derivative
-
 		bool m_useCachedMatrices;
+
+		SmartPtr<ILimexCostStrategy> m_spCostStrategy;
 };
 
 
@@ -604,11 +668,12 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 
 	// write_debug
-	char name[40];
 	for (unsigned int i=0; i<m_vThreadData.size(); ++i)
 	{
-		sprintf(name, "Limex_Init_iter%03d_stage%03d", 0, i);
-		write_debug(*m_vThreadData[i].get_solution(), name);
+		std::ostringstream ossName;
+		ossName << std::setfill('0') << std::setw(4);
+		ossName << "Limex_Init_iter" << 0 << "_stage" << i;
+		write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 	}
 
 	number t = t0;
@@ -658,8 +723,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		// write_debug
 		for (size_t i=0; i<ntest; ++i)
 		{
-			sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-			write_debug(*m_vThreadData[i].get_solution(), name);
+			std::ostringstream ossName;
+			ossName << std::setfill('0') << std::setw(4);
+			ossName << "Limex_BeforeSerial_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 
 		// integrate: t -> t+dt
@@ -668,9 +735,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		// write_debug
 		for (size_t i=0; i<ntest; ++i)
 		{
-			UG_ASSERT(m_vThreadData[i].get_solution().valid(), "Huhh: no valid solution?");
-			sprintf(name, "Limex_AfterSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-			write_debug(*m_vThreadData[i].get_solution(), name);
+			std::ostringstream ossName;
+			ossName << std::setfill('0') << std::setw(4);
+			ossName << "Limex_AfterSerial_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 
 		join_integrator_threads();
@@ -707,8 +775,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			// write_debug
 			for (size_t i=0; i<ntest; ++i)
 			{
-				sprintf(name, "Limex_Extrapolates_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-				write_debug(*m_vThreadData[i].get_solution(), name);
+				std::ostringstream ossName;
+				ossName << std::setfill('0') << std::setw(4);
+				ossName << "Limex_Extrapolates_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+				write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 			}
 			limex_total++;
 
@@ -800,8 +870,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 				udot = *timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
 
-				sprintf(name, "Limex_Derivative_iter%03d_total%04lu", limex_step, limex_total);
-				write_debug(udot, name);
+				std::ostringstream ossName;
+				ossName << std::setfill('0');
+				ossName << "Limex_Derivative_iter" << limex_step << "_total" << limex_total;
+				write_debug(udot, ossName.str().c_str());
 			}
 
 

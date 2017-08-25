@@ -229,7 +229,7 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 		}
 		else
 		{
-			// Assemble (Mk + \tau J_a)
+			// Assemble (Mk + \tau J)
 			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, 0.0, gl);
 			UG_DLOG(LIB_LIMEX, 3, "Computed Mk (" << J_limex <<
 						" at " << m_pPrevSol->oldest_time() << ", " << GetNNZs(J_limex) << " nonzeros)" << std::endl);
@@ -242,11 +242,10 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 			{
 				// First part of J: -df/du
 				this->m_spMatrixJDisc->assemble_jacobian(J_stiff, m_pPrevSol, mydt, gl);
-				//this->m_spMatrixJDisc->assemble_jacobian(J_stiff, m_pPrevSol, mydt, gl);
 				UG_DLOG(LIB_LIMEX, 3, "Cached  J_0 = -df/du (" << J_stiff<< ")"<< std::endl);
 				write_debug(J_stiff, "myStiff0.mat");
 
-				// need to subtract mass matrix
+				// subtracting mass matrix yields J
 				MatAddNonDirichlet<matrix_type>(J_stiff, 1.0, J_stiff, -1.0, J_limex);
 				write_debug(J_stiff, "myStiff1.mat");
 
