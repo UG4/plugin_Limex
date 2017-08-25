@@ -445,12 +445,12 @@ class SupErrorEvaluator
 			}
 
 			#ifdef UG_PARALLEL
-				// sum over processes
+				// max over processes
 				if (pcl::NumProcs() > 1)
 				{
 					pcl::ProcessCommunicator com;
 					number local = maxVal;
-					com.allreduce(&local, &maxVal, 1, PCL_DT_DOUBLE, PCL_RO_SUM);
+					com.allreduce(&local, &maxVal, 1, PCL_DT_DOUBLE, PCL_RO_MAX);
 				}
 			#endif
 
