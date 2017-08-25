@@ -604,11 +604,12 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 
 	// write_debug
-	char name[40];
 	for (unsigned int i=0; i<m_vThreadData.size(); ++i)
 	{
-		sprintf(name, "Limex_Init_iter%03d_stage%03d", 0, i);
-		write_debug(*m_vThreadData[i].get_solution(), name);
+		std::ostringstream ossName;
+		ossName << std::setfill('0') << std::setw(4);
+		ossName << "Limex_Init_iter" << 0 << "_stage" << i;
+		write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 	}
 
 	number t = t0;
@@ -658,8 +659,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		// write_debug
 		for (size_t i=0; i<ntest; ++i)
 		{
-			sprintf(name, "Limex_BeforeSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-			write_debug(*m_vThreadData[i].get_solution(), name);
+			std::ostringstream ossName;
+			ossName << std::setfill('0') << std::setw(4);
+			ossName << "Limex_BeforeSerial_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 
 		// integrate: t -> t+dt
@@ -668,9 +671,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		// write_debug
 		for (size_t i=0; i<ntest; ++i)
 		{
-			UG_ASSERT(m_vThreadData[i].get_solution().valid(), "Huhh: no valid solution?");
-			sprintf(name, "Limex_AfterSerial_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-			write_debug(*m_vThreadData[i].get_solution(), name);
+			std::ostringstream ossName;
+			ossName << std::setfill('0') << std::setw(4);
+			ossName << "Limex_AfterSerial_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 
 		join_integrator_threads();
@@ -707,8 +711,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			// write_debug
 			for (size_t i=0; i<ntest; ++i)
 			{
-				sprintf(name, "Limex_Extrapolates_iter%03d_stage%03lu_total%04lu", limex_step, i, limex_total);
-				write_debug(*m_vThreadData[i].get_solution(), name);
+				std::ostringstream ossName;
+				ossName << std::setfill('0') << std::setw(4);
+				ossName << "Limex_Extrapolates_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+				write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 			}
 			limex_total++;
 
@@ -800,8 +806,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 				udot = *timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
 
-				sprintf(name, "Limex_Derivative_iter%03d_total%04lu", limex_step, limex_total);
-				write_debug(udot, name);
+				std::ostringstream ossName;
+				ossName << std::setfill('0');
+				ossName << "Limex_Derivative_iter" << limex_step << "_total" << limex_total;
+				write_debug(udot, ossName.str().c_str());
 			}
 
 
