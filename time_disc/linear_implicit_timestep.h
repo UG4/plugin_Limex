@@ -94,7 +94,7 @@ public:
 		  m_pPrevSol(NULL),
 		  m_dt(0.0),
 		  m_futureTime(0.0),
-		  m_spMatrixJDisc(spDD), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+		  m_spMatrixJDisc(spDD), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false),
 		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
 		  m_useCachedMatrices(true)
 	{}
@@ -105,7 +105,7 @@ public:
 		  m_pPrevSol(NULL),
 		  m_dt(0.0),
 		  m_futureTime(0.0),
-		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false), 
 		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
 		  m_useCachedMatrices(true)
 	{}
@@ -117,7 +117,7 @@ public:
 		  m_pPrevSol(NULL),
 		  m_dt(0.0),
 		  m_futureTime(0.0),
-		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true),
+		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false), 
 		  m_spGammaDisc(spGammaDisc), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
 		  m_useCachedMatrices(true)
 	{}
@@ -163,20 +163,18 @@ public:
 	 virtual size_t num_stages() const {return 1;};
 	 virtual void set_stage(size_t stage) {};
 
+
+	/// Some simplifications for linear systems. In this case, the mass matrix is not re-assembled.
+	void enable_linear_mode() { m_useLinearMode = true; }
+	void disable_linear_mode() { m_useLinearMode = false; }
+	bool use_linear_mode() const { return m_useLinearMode; }
+
 	void enable_matrix_cache() { m_useCachedMatrices = true; }
 	void disable_matrix_cache() { m_useCachedMatrices = false; }
 	void set_matrix_cache(bool useCache) { m_useCachedMatrices = useCache; }
 
 protected:
 
-
-
-	 /*SmartPtr<IDomainDiscretization<algebra_type> > defect_disc()
-	 {return m_spDomDisc;}
-
-	SmartPtr<IDomainDiscretization<algebra_type> > matrix_disc()
-	{return m_spMatrixJDisc;}
-*/
 	virtual number update_scaling(std::vector<number>& vSM,
 			                              std::vector<number>& vSA,
 			                              number dt, number currentTime,
@@ -208,10 +206,12 @@ protected:
 	// discretization for defect
 	using base_type::m_spDomDisc;
 
+
 	// constant matrix $$ \tau J$$
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spMatrixJDisc;
 	SmartPtr<AssembledLinearOperator<algebra_type> > m_spMatrixJOp;		///< Operator
 	bool m_bMatrixJNeedsUpdate;
+	bool m_useLinearMode;
 
 	// Matrix: $\Gamma[u0, u0']$
 	SmartPtr<IDomainDiscretization<algebra_type> > m_spGammaDisc;		///< Gamma disc

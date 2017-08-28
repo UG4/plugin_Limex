@@ -327,8 +327,14 @@ public:
 	std::string config_string() const
 	{
 		std::stringstream ss;
+
+		if (this->m_ssNames)
 		ss << this->m_fctNames << ", " << this->m_ssNames << ", " << this->m_quadorder
 			<< ", type=" <<", scale=" << this->m_scale << std::endl;
+
+		else
+			ss << this->m_fctNames << ",  (no name), " << this->m_quadorder
+						<< ", type=" <<", scale=" << this->m_scale << std::endl;
 		return ss.str();
 	}
 

@@ -585,7 +585,7 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 
 		// switch to "parent" comm
 		//mt_env.end();
-	} /*for-loop*/
+	} /*for all stages loop*/
 
 
 

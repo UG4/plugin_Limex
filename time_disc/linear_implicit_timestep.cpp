@@ -268,28 +268,7 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 				m_bMatrixJNeedsUpdate = false;
 			}
 
-		/*	// Create Mk (if required)
-			if (m_spMatrixCacheMk.invalid())
-			{
-				// Assemble & cache M0
-				m_spMatrixCacheMk = make_sp(new matrix_type());
-				*m_spMatrixCacheMk = J_stiff;
-
-				UG_DLOG(LIB_LIMEX, 0, "Created Mk "<< *m_spMatrixCacheMk << std::endl)
-				// this->m_spDomDisc->assemble_mass_matrix(*m_spMatrixCacheMk, *m_pPrevSol->oldest(), gl);
-				//this->m_spGammaDisc->assemble_mass_matrix(*m_spMatrixCacheMk, *m_pPrevSol->oldest(), gl);
-			}
-
-			UG_ASSERT (m_spMatrixCacheMk.valid(), "Huhh: Invalid Matrix cache?");
-			UG_ASSERT (J_stiff.num_rows() == m_spMatrixCacheMk->num_rows(), "Huhh: Row dimension does not match");
-			UG_ASSERT (J_stiff.num_cols() == m_spMatrixCacheMk->num_cols(), "Huhh: Col dimension does not match");
-
-			// Assemble Mk
-			matrix_type &myMk = *m_spMatrixCacheMk;
-			*/
-
-
-			write_debug(J_stiff, "myStiff.mat");
+			write_debug(J_stiff, "myStiffX.mat");
 
 			// Updating Jtotal = Mk+ \tau Ja (for non-dirichlet)
 			UG_ASSERT (J_limex.num_rows() == J_stiff.num_rows(), "Huhh: Row dimension does not match");

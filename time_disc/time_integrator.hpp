@@ -1281,11 +1281,11 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		 // consistency check
 		 if (step == 1 && m_spDerivative.valid())
 		 {
-		 UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*u0),
-		 					 				  "Huhh: Different vectors required!");
-		 		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0, *u1, -1.0, *u0);
-		 		m_initial_consistency_error = m_spDerivative->norm();
-
+			 UG_LOG("Computing consistency error"<< std::endl);
+			 UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*u0),
+		 			   "Huhh: Different vectors required!");
+			 VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0, *u1, -1.0, *u0);
+			 m_initial_consistency_error = m_spDerivative->norm();
 		}
 
 		 step++;
@@ -1301,12 +1301,6 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	if (m_spDerivative.valid())
 	{
-		/*
-		UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*u0),
-					 				  "Huhh: Different vectors required!");
-		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0, *u1, -1.0, *u0);
-		m_initial_consistency_error = m_spDerivative->norm();
-*/
 
 		//
 		// approximate derivative (by forward difference)
