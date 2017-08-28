@@ -81,21 +81,39 @@ util.limex.defaultDesc = util.limex.defaultDesc or
 }
 
 
-function util.limex.CreateLimexErrorEstimator (id_string) 
+function util.limex.CreateLimexErrorEstimator (errorInfo) 
   local errorEst 
-  if (id_string == "Conc_GridFunction") then
+  
+  if (type(errorInfo)=="string") then
+  if (errorInfo == "Conc_GridFunction") then
       -- relative grid function error
       errorEst = GridFunctionEstimator("c", 4)
       errorEst:add("c", 2, 1, 1.0)   -- add H1 Semi-norm for c
-  elseif (id_string == "Conc_L2_Absolute") then
+  elseif (errorInfo == "Conc_L2_Absolute") then
       -- absolute algebraic l2 error
       errorEst = Norm2Estimator()
       errorEst:set_offset(0)
       errorEst:set_stride(2)
-  elseif (id_string == "Scaled_GridFunction") then
+  elseif (errorInfo == "Scaled_GridFunction") then
       errorEst = ScaledGridFunctionEstimator()
       errorEst:add(H1ErrorEvaluator("c", 4))         -- L2 norm for c
       errorEst:add(H1SemiErrorEvaluator("p", 2))     -- H1 semi-norm for p
+  end
+  elseif (type(errorInfo)=="table" and errorInfo.type=="ScaledGridFunctionEstimator") then
+     print("--- "..errorInfo.type)
+      errorEst = ScaledGridFunctionEstimator()
+      -- {type="H1ErrorEvaluator", func="c", order=4},
+      -- {type="H1SemiErrorEvaluator", func="p", order=2}
+    
+      for key, value in ipairs(errorInfo) do
+       
+        if (value.type== "H1ErrorEvaluator") then
+           print ("+++ "..value.type..", "..value.func..", "..value.order) 
+            errorEst:add(H1ErrorEvaluator(value.func, value.order)) 
+        elseif (value.type == "H1SemiErrorEvaluator") then 
+            errorEst:add(H1SemiErrorEvaluator(value.func, value.order)) 
+        end   
+      end
   end
   
   return errorEst
@@ -200,7 +218,7 @@ end
 
 -- debug writer (optional)
 if (limexDesc.debugOPT) then
-  limex:set_debug(limexDesc.debugOPT)
+ -- limex:set_debug(limexDesc.debugOPT)
 end
 
 return limex
