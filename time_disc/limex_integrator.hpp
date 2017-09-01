@@ -853,6 +853,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		{
 			// ACCEPT time step
 			UG_LOG("+++ LimexTimestep +++" << limex_step << " ACCEPTED"<< std::endl);
+			UG_LOG("               :\t time \t dt (success) \t dt (pred) \tq=\t order (curr)" << qcurr+1 << std::endl);
 			UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
 
 
