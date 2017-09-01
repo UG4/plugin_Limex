@@ -131,7 +131,10 @@ namespace tools {
 
 }
 
-/// Interface for error estimator
+//! Interface for sub-diagonal error estimator (w.r.t time in Aitken-Neville scheme)
+/*! Given u_fine and u_coarse,
+ *
+ * */
 template <class TVector>
 class ISubDiagErrorEst
 {
@@ -139,24 +142,26 @@ public:
 	// constructor
 	ISubDiagErrorEst() : m_est(0.0) {};
 
-	// vUpdateructor
+	// destructor
 	virtual ~ISubDiagErrorEst() {};
 
-	// evaluate
+	//! compute update vUpdate = vFine + alpha * (vFine- vCoarse) AND estimate error \| alpha * (vFine- vCoarse)\|
 	virtual bool update(SmartPtr<TVector> vUpdate, number alpha2, SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse) = 0;
 
-	// get estimate
+	//! get estimate
 	number get_current_estimate() {return m_est; };
 	void reset_estimate() {  m_est=0.0; };
 
-	virtual std::string config_string() const {return "";}
+	virtual std::string config_string() const {return "ISubDiagErrorEst";}
 
 protected:
 	number m_est;
 };
 
 
-/// Evaluate using (algebraic) infinity norm
+//! Evaluate using (algebraic) infinity norm
+/*! Optional: provide component offset o and stride s, such that vector is evaluated at vec[o+k*s]
+ * */
 template <class TVector>
 class NormInfEstimator : public ISubDiagErrorEst<TVector>
 {
@@ -170,8 +175,6 @@ public:
 	NormInfEstimator() :
 	ISubDiagErrorEst<TVector>(), m_stride(1), m_offset(0) {};
 
-	// destructor
-	//~NormInfEstimator() {}
 
 	// apply
 	bool update(SmartPtr<TVector> vUpdate, number alpha2, SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
@@ -184,15 +187,15 @@ public:
 	}
 
 	// offset (e.g., component to work on for systems w/ CPU1)
-		void set_offset(int offset) {m_offset=offset;}
+	void set_offset(int offset) {m_offset=offset;}
 
-		// delta (e.g., total number components for systems w/ CPU1)
-		void set_stride(int delta) {m_stride=delta;}
+	// delta (e.g., total number components for systems w/ CPU1)
+	void set_stride(int delta) {m_stride=delta;}
 
 };
 
 
-/// Evaluate using (algebraic) L2 norm
+//! Evaluate using (algebraic) L2 norm
 template <class TVector>
 class Norm2Estimator : public ISubDiagErrorEst<TVector>
 {
@@ -283,7 +286,7 @@ protected:
 
 
 
-/** Estimate the error (based on the difference between two grid functions)*/
+//! Estimate the error (based on the difference between two grid functions)
 template <typename TGridFunction>
 class IErrorEvaluator
 {
@@ -291,7 +294,6 @@ protected:
 	std::string m_fctNames;
 	const char* m_ssNames;
 	int m_quadorder;
-	// int m_type; // type obsolete -> moved to different classes
 	number m_scale;
 
 public:
@@ -612,88 +614,32 @@ protected:
 	typedef IErrorEvaluator<grid_function_type> evaluator_type;
 
 	number m_refNormValue;
-/*
-	struct GridFunctionEvaluator
-	{
-		std::string m_fctNames;
-		int m_quadorder;
-		int m_type;
-		double m_scale;
 
-		GridFunctionEvaluator(const GridFunctionEvaluator &val)
-		{
-			this->m_fctNames = val.m_fctNames;
-			this->m_quadorder = val.m_quadorder;
-			this->m_type = val.m_type;
-			this->m_scale = val.m_scale;
-		}
-
-		GridFunctionEvaluator(const char *fctNames) :
-		m_fctNames(fctNames), m_quadorder(3), m_type(0), m_scale(1.0) {}
-
-		GridFunctionEvaluator(const char *fctNames, int order) :
-		m_fctNames(fctNames), m_quadorder(order), m_type(0), m_scale(1.0) {}
-
-		GridFunctionEvaluator(const char *fctNames, int order, int type) :
-		m_fctNames(fctNames), m_quadorder(order), m_type(type), m_scale(1.0) {}
-
-		GridFunctionEvaluator(const char *fctNames, int order, int type, double scale) :
-		m_fctNames(fctNames), m_quadorder(order), m_type(type), m_scale(scale) {}
-
-		double compute_norm(SmartPtr<grid_function_type> uFine) const
-		{
-			if (m_type ==0)
-			{
-				return L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
-			}
-			else if (m_type ==1)
-			{
-				return H1SemiNorm<grid_function_type>(uFine, m_fctNames.c_str(), m_quadorder);
-			}
-			else return 0.0;
-		};
-
-		double compute_error(SmartPtr<grid_function_type> uFine, SmartPtr<grid_function_type> uCoarse) const
-		{
-			double val = 0.0;
-
-			if (m_type ==0) {
-				val = L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
-			} else if (m_type ==1) {
-				val = H1SemiError<grid_function_type>(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
-			}
-			return val;
-		};
-
-		/// print config string
-		std::string config_string() const
-		{
-			std::stringstream ss;
-			ss << this->m_fctNames << ", " << this->m_quadorder << ", type=" << this->m_type << ", scale=" << this->m_scale << std::endl;
-			return ss.str();
-		}
-
-	};
-*/
 	std::vector<evaluator_type> m_evaluators;
 
 
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
 
-	// constructor
 	GridFunctionEstimator(const char *fctNames) :
 		ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
-	{ this->add(fctNames); }
+	{
+		this->add(fctNames);
+	}
 
 	GridFunctionEstimator(const char *fctNames, int order) :
 		ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
-	{ this->add(fctNames, order); }
+	{
+		this->add(fctNames, order);
+	}
 
 	GridFunctionEstimator(const char *fctNames, int order, double ref) :
 		ISubDiagErrorEst<TVector>(), m_refNormValue(ref)
-	{ this->add(fctNames, order); }
+	{
+		this->add(fctNames, order);
+	}
 
+	//! Add an L2 error for fctNames
 	void add(const char *fctNames)
 	{
 		m_evaluators.push_back(L2ErrorEvaluator<grid_function_type>(fctNames));
@@ -729,8 +675,6 @@ public:
 		if (m_refNormValue<=0.0)
 		{
 			// relative error estimator
-			//number unorm = L2Norm(uFine, m_fctNames.c_str(), m_quadorder);
-			//number enorm = alpha*L2Error(uFine, m_fctNames.c_str(), uCoarse, m_fctNames.c_str() ,m_quadorder);
 			number unorm = 0.0;
 			number enorm = 0.0;
 			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
@@ -814,6 +758,7 @@ public:
 		number est = 0.0;
 		for (typename std::vector<SmartPtr<evaluator_type> >::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 		{
+			// use sub-diagonal error estimator (i.e. multiply with alpha)
 			double enorm =  alpha * (*it)->compute_error(uFine, uCoarse);
 			double unorm =  std::max((*it)->compute_norm(uFine), 1e-10*enorm);
 			est += (enorm*enorm)/(unorm*unorm);
