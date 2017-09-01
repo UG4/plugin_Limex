@@ -14,6 +14,7 @@ ug_load_script("plugins/Limex/limex_util.lua")
 ug_load_script("util/profiler_util.lua")
 ug_load_script("util/load_balancing_util.lua")
 
+local params = {}
 local dim = util.GetParamNumber("-dim", 2, "dimension")
 local numPreRefs = util.GetParamNumber("--numPreRefs", 0, "number of refinements before parallel distribution")
 local numRefs    = util.GetParamNumber("--numRefs",    7, "number of refinements")
@@ -22,8 +23,8 @@ local endTime    = util.GetParamNumber("--end", nil, "end time")
 local dt 		   = util.GetParamNumber("--dt", 1e-2, "time step size")
 
 
-local tol     = util.GetParamNumber("--limex-tol", 1e-2, "time step size")
-local nstages = util.GetParamNumber("--limex-stages", 3, "limex stages (2 default)")
+params.tol     = util.GetParamNumber("--limex-tol", 1e-2, "time step size")
+local nstages = util.GetParamNumber("--limex-stages", 2, "limex stages (2 default)")
 local limex_partial_mask = util.GetParamNumber("--limex-partial", 0, "limex partial (0 or 3)")
 
 
@@ -58,7 +59,7 @@ print("    endTime      = " .. endTime)
 
 print("    limex_nstages      = " .. nstages)
 print("    limex_partial_mask = " .. limex_partial_mask)
-print("    limex_tol          = " .. tol)
+print("    limex_tol          = " .. params.tol)
 
 -- choose algebra
 InitUG(dim, AlgebraType("CPU", 1));
@@ -123,8 +124,8 @@ function Velocity(x, y, t)
 end
 	
 -- The dirichlet condition
-function DirichletValue(x, y, t)
-	return exactSolution(x, y, t)
+function DirichletValue(x, y, t, si)
+	return true, exactSolution(x, y, t)
 end
 
 
@@ -134,7 +135,7 @@ local vtk = VTKOutput();
 -- post-processing (after each step)
 function postProcess(u, step, time, currdt)
   vtk:print("ConvDiffSol", u, step, time)
-  print("L2Error(\t"..time.."\t)=\t"..L2Error("exactSolution", u, "c", time, 4))
+  print("L2Error\t"..time.."\t=\t"..L2Error("exactSolution", u, "c", time, 4).."\tL2Norm=\t"..L2Norm(u,"c", time))
   local ref = u:clone()
   Interpolate("exactSolution", ref, "c", time)
   vtk:print("ConvDiffRef", ref, step, time)
@@ -226,7 +227,7 @@ local dtMax = endTime / 10.0;
 local adaptiveTimeStepConfig ={
   -- ["ESTIMATOR"] =  GridFunctionEstimator("c", 2),
   ["ESTIMATOR"] =  Norm2Estimator(),
-  ["TOLERANCE"] = tol,
+  ["TOLERANCE"] = params.tol,
   ["REDUCTION"] = 0.5,
   ["INCREASE"] = 4.0,
       
@@ -318,7 +319,8 @@ local dtlimex = math.min(tSteps, tCFL)
 -- GridFunction (relative norm)
 local limexEstimator = GridFunctionEstimator("c", 2)  
 --print (estimator)
-
+local limexEstimator = ScaledGridFunctionEstimator()
+limexEstimator:add(L2ErrorEvaluator("c", 2))  
 
 -- descriptor for integrator
 local limexDesc = {
@@ -327,11 +329,12 @@ local limexDesc = {
   steps = {1,2,3,4,5,6},
   domainDisc=domainDisc,
   nonlinSolver = limexNLSolver,
-  lSolver = limexLSolver,
   
-  tol = tol,
+  tol = params.tol,
   dt = dtlimex,
   dtmin = 1e-9,
+  
+  rhoSafetyOPT = 0.25,
   
 }
 
@@ -341,7 +344,7 @@ local limex = util.limex.CreateIntegrator(limexDesc)
 
 limex:set_dt_min(1e-9)
 limex:add_error_estimator(limexEstimator)
-limex:set_increase_factor(2.0)
+-- limex:set_increase_factor(2.0)
 
 limex:attach_observer(vtkObserver)
 limex:attach_observer(luaObserver)
@@ -350,7 +353,7 @@ limex:attach_observer(luaObserver)
 
 print ("dtLimex   = "..dtlimex)
 print ("hGrid     = "..gridSize)
-print ("tolLimex  = "..tol)
+print ("tolLimex  = "..params.tol)
 
 -- set initial value
 print(">> Interpolating start values")
@@ -359,6 +362,9 @@ u:set(0.0)
 Interpolate("exactSolution", u, "c", startTime)
 
 -- solve problem
+
+print(">> Peclet number:"..50.0*1.0/eps)
+print(">> Grid Peclet number:"..50.0*gridSize/eps)
 print(">> Solve problem")
 local cstart=os.clock()
 limex:apply(u, endTime, u, startTime)
