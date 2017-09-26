@@ -192,6 +192,20 @@ static void DomainAlgebra(Registry& reg, string grp)
 	}
 
 	{
+			// UserDataEvaluator
+			typedef UserDataEvaluator<TGridFunction> T;
+			typedef IErrorEvaluator<TGridFunction> TBase;
+
+			string name = string("UserDataEvaluator").append(suffix);
+			reg.add_class_<T, TBase>(name, grp)
+			   .template add_constructor<void (*)(const char *) >("fctNames")
+			 //  .template add_constructor<void (*)(const char *, number) >("fctNames, scale")
+			  // .template add_constructor<void (*)(const char *, const char *, number) >("fctNames, subsetNames, scale")
+			   .set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "UserDataEvaluator", tag);
+		}
+
+	{
 		// ScaledGridFunctionEstimator (sub-diagonal)
 		typedef ISubDiagErrorEst<TVector> TBase;
 		typedef ScaledGridFunctionEstimator<TDomain, TAlgebra> T;
@@ -491,7 +505,7 @@ static void Algebra(Registry& reg, string parentGroup)
 	string tag = GetAlgebraTag<TAlgebra>();
 
 
-	//	LinearImplicitEuler
+	//	LinearlyImplicitEuler
 		{
 				std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
 				typedef ITimeDiscretization<TAlgebra> TBase;

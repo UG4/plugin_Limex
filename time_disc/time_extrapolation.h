@@ -506,6 +506,47 @@ class SupErrorEvaluator
 		}
 };
 
+/** Evaluate the difference for a (dependent) UserData type */
+template <typename TGridFunction>
+class UserDataEvaluator :
+		public IErrorEvaluator<TGridFunction>
+{
+public:
+	typedef IErrorEvaluator<TGridFunction> base_type;
+	typedef UserData<MathVector<TGridFunction::dim> , TGridFunction::dim> input_user_data_type;
+	typedef MathVector<TGridFunction::dim> math_vector_type;
+	typedef ScaleAddLinker<math_vector_type, TGridFunction::dim, math_vector_type, number> norm2_linker_type;
+
+	UserDataEvaluator(const char *fctNames) : base_type(fctNames) {};
+	UserDataEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
+	UserDataEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
+	~UserDataEvaluator() {};
+
+	void set_user_data(SmartPtr<input_user_data_type> spData)
+	{
+		m_userData = spData;
+	}
+
+
+	double compute_norm(SmartPtr<TGridFunction> uFine) const
+	{
+		SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
+		= make_sp(new UserDataDeltaIntegrand<math_vector_type, TGridFunction> (m_userData, uFine, SPNULL, 0.0));
+
+		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
+	}
+
+	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	{
+		SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
+		= make_sp(new UserDataDeltaIntegrand<math_vector_type, TGridFunction> (m_userData, uFine, uCoarse, 0.0));
+
+		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
+	}
+
+protected:
+	SmartPtr<input_user_data_type> m_userData;
+};
 
 
 /*
