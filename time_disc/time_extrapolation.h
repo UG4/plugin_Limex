@@ -366,25 +366,34 @@ public:
 };
 
 
-/** Evaluates difference between two grid functions in H1 semi-norm */
+/** Evaluates distance between two grid functions in H1 semi-norm */
 template <typename TGridFunction>
 class H1SemiErrorEvaluator :
 		public IErrorEvaluator<TGridFunction>
 {
 public:
 	typedef IErrorEvaluator<TGridFunction> base_type;
+	typedef typename H1SemiDistIntegrand<TGridFunction>::weight_type weight_type;
 
 	H1SemiErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
 	H1SemiErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
 	H1SemiErrorEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
+	H1SemiErrorEvaluator(const char *fctNames, int order, number scale, SmartPtr<weight_type> spWeight)
+	: base_type(fctNames, order, scale),  m_spWeight(spWeight) {};
+
 	~H1SemiErrorEvaluator() {};
 
 	double compute_norm(SmartPtr<TGridFunction> uFine) const
-	{ return H1SemiNorm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+	{ return H1SemiNorm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder, m_spWeight); }
 
 	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
-	{ return H1SemiError<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
+	{ return H1SemiDistance<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder, m_spWeight); }
 
+	void set_weight(SmartPtr<weight_type> spWeight)
+	{ m_spWeight = spWeight; }
+
+protected:
+	SmartPtr<weight_type> m_spWeight;
 };
 
 /** Evaluates difference between two grid functions in H1 semi-norm */
@@ -506,6 +515,196 @@ class SupErrorEvaluator
 		}
 };
 
+
+
+/*!
+ * For arbitrary $\rho$, this class defines the integrand $|\rho(u_1)- \rho(u_2)|^2$.
+ * If the grid function $u_2$ is not provided, the class returns $|\rho(u_1)|^2$
+ * */
+template <typename TDataIn, typename TGridFunction>
+class DeltaSquareIntegrand
+	: public StdIntegrand<number, TGridFunction::dim, DeltaSquareIntegrand<TDataIn, TGridFunction> >
+{
+	public:
+	//	world dimension of grid function
+		static const int worldDim = TGridFunction::dim;
+
+	//	data type
+		typedef TDataIn data_type;
+
+	private:
+
+		static number product(const number &x, const number &y)
+		{return x*y;}
+
+		static number product(const MathVector<worldDim> &x, const MathVector<worldDim> &y)
+		{return VecDot(x,y);}
+
+
+	//  data to integrate
+		SmartPtr<UserData<TDataIn, worldDim> > m_spData;
+
+	// 	grid function
+		SmartPtr<TGridFunction> m_spGridFct;
+		SmartPtr<TGridFunction> m_spGridFct2;
+
+	//	time
+		number m_time;
+
+	public:
+	/// constructor
+		DeltaSquareIntegrand(SmartPtr<UserData<TDataIn, worldDim> > spData,
+		                SmartPtr<TGridFunction> spGridFct,
+						SmartPtr<TGridFunction> spGridFct2,
+		                number time)
+		: m_spData(spData), m_spGridFct(spGridFct), m_spGridFct2(spGridFct2), m_time(time)
+		{
+			m_spData->set_function_pattern(spGridFct->function_pattern());
+		};
+
+	/// constructor
+		DeltaSquareIntegrand(SmartPtr<UserData<TDataIn, worldDim> > spData,
+							  number time)
+		: m_spData(spData), m_spGridFct(NULL), m_spGridFct2(NULL), m_time(time)
+		{
+			if(m_spData->requires_grid_fct())
+				UG_THROW("UserDataDeltaIntegrand: Missing GridFunction, but "
+						" data requires grid function.")
+		};
+
+
+
+
+		template <int elemDim>
+		void get_values(TDataIn vValue[],
+					  ConstSmartPtr<UserData<TDataIn, worldDim> > spData,
+					  ConstSmartPtr<TGridFunction> spGridFct,
+		              const MathVector<worldDim> vGlobIP[],
+		              GridObject* pElem,
+		              const MathVector<worldDim> vCornerCoords[],
+		              const MathVector<elemDim> vLocIP[],
+		              const MathMatrix<elemDim, worldDim> vJT[],
+		              const size_t numIP)
+		{
+		//	get local solution if needed
+			if(spData->requires_grid_fct())
+			{
+			//	create storage
+				LocalIndices ind;
+				LocalVector u;
+
+			// 	get global indices
+				spGridFct->indices(pElem, ind);
+
+			// 	adapt local algebra
+				u.resize(ind);
+
+			// 	read local values of u
+				GetLocalVector(u, *spGridFct);
+				std::cout << u << std::endl;
+
+			//	compute data
+				try{
+					(*spData)(vValue, vGlobIP, m_time, this->m_si, pElem,
+								vCornerCoords, vLocIP, numIP, &u, &vJT[0]);
+				}
+				UG_CATCH_THROW("UserDataDeltaIntegrand: Cannot evaluate data.");
+			}
+			else
+			{
+			//	compute data
+				try{
+					(*spData)(vValue, vGlobIP, m_time, this->m_si, numIP);
+				}
+				UG_CATCH_THROW("UserDataDeltaIntegrand: Cannot evaluate data.");
+			}
+
+		};
+
+
+		/// \copydoc IIntegrand::values
+			template <int elemDim>
+			void evaluate(number vValue[],
+			              const MathVector<worldDim> vGlobIP[],
+			              GridObject* pElem,
+			              const MathVector<worldDim> vCornerCoords[],
+			              const MathVector<elemDim> vLocIP[],
+			              const MathMatrix<elemDim, worldDim> vJT[],
+			              const size_t numIP)
+			{
+				std::vector<TDataIn> v1(numIP);
+
+				get_values<elemDim>(&v1[0], m_spData, m_spGridFct, vGlobIP, pElem, vCornerCoords, vLocIP, vJT, numIP);
+				std::cout << "--- got v1!" << std::endl;
+
+				if (m_spGridFct2.valid())
+				{
+					std::vector<TDataIn> v2(numIP);
+				/*	m_spGridFct->set(0.5);
+					m_spGridFct2->set(0.5);*/
+					get_values<elemDim>(&v2[0], m_spData, m_spGridFct2, vGlobIP, pElem, vCornerCoords, vLocIP, vJT, numIP);
+					std::cout << "--- got v2!" << std::endl;
+
+					for (size_t ip=0; ip<numIP; ++ip)
+					{
+
+						std::cout << std::setprecision(12) << v1[ip] <<" "<<  std::setprecision(12) << v2[ip] << std::endl;
+						v1[ip] -= v2[ip];
+						vValue[ip] = this->product(v1[ip], v1[ip]);
+
+					}
+				} else {
+
+					for (size_t ip=0; ip<numIP; ++ip)
+					{ vValue[ip] = this->product(v1[ip], v1[ip]); }
+
+				}
+			};
+};
+
+//! Evaluate the difference for a (dependent) UserData type induced by different grid functions
+/*! UserData maybe of type TDataInput, i.e., number/vector/matrix/... */
+template <typename TGridFunction, typename TDataInput>
+class UserDataEvaluator :
+		public IErrorEvaluator<TGridFunction>
+{
+public:
+	typedef IErrorEvaluator<TGridFunction> base_type;
+	//typedef MathVector<TGridFunction::dim> TDataInput;
+	typedef UserData<TDataInput, TGridFunction::dim> input_user_data_type;
+
+	UserDataEvaluator(const char *fctNames) : base_type(fctNames) {};
+	UserDataEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
+	UserDataEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
+	~UserDataEvaluator() {};
+
+	void set_user_data(SmartPtr<input_user_data_type> spData)
+	{
+		m_userData = spData;
+	}
+
+
+	double compute_norm(SmartPtr<TGridFunction> uFine) const
+	{
+		SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
+		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, SPNULL, 0.0));
+
+		return sqrt(IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
+	}
+
+	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	{
+		SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
+		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, uCoarse, 0.0));
+
+		std::cout << "uFine="<<(void*) &(*uFine) << ", uCoarse="<< (void*)&(*uCoarse) << std::endl;
+
+		return sqrt(IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
+	}
+
+protected:
+	SmartPtr<input_user_data_type> m_userData;
+};
 
 
 /*

@@ -81,7 +81,7 @@ util.limex.defaultDesc = util.limex.defaultDesc or
 }
 
 
-function util.limex.CreateLimexErrorEstimator (errorInfo) 
+function util.limex.CreateLimexErrorEstimator (errorInfo, inst) 
   local errorEst 
   
   if (type(errorInfo)=="string") then
@@ -106,13 +106,28 @@ function util.limex.CreateLimexErrorEstimator (errorInfo)
       -- {type="H1SemiErrorEvaluator", func="p", order=2}
     
       for key, value in ipairs(errorInfo) do
-       
+        print ("+++ "..value.type..", "..value.func..", "..value.order) 
         if (value.type== "H1ErrorEvaluator") then
-           print ("+++ "..value.type..", "..value.func..", "..value.order) 
             errorEst:add(H1ErrorEvaluator(value.func, value.order)) 
         elseif (value.type == "H1SemiErrorEvaluator") then 
-            errorEst:add(H1SemiErrorEvaluator(value.func, value.order)) 
+        
+            if (not value.weight) then
+                errorEst:add(H1SemiErrorEvaluator(value.func, value.order)) 
+            else        
+                local weight = inst.coef.PrintPermeability
+                errorEst:add(H1SemiErrorEvaluator(value.func, value.order, 1.0, weight)) 
+            end
+        elseif (value.type == "L2ErrorEvaluator") then 
+            errorEst:add(L2ErrorEvaluator(value.func, value.order)) 
+        elseif (value.type == "UserDataEvaluator") then 
+            local eval = UserDataEvaluatorNumber(value.func, value.order)
+             --eval:set_user_data(inst.coef.DarcyVelocity)
+             eval:set_user_data(inst.coef.SubsetDensity)
+            errorEst:add(eval) 
+            
         end   
+        
+        
       end
   end
   
