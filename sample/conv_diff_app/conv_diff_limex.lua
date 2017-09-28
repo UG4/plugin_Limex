@@ -20,12 +20,13 @@ local numPreRefs = util.GetParamNumber("--numPreRefs", 0, "number of refinements
 local numRefs    = util.GetParamNumber("--numRefs",    7, "number of refinements")
 local startTime  = util.GetParamNumber("--start", 0.0, "start time")
 local endTime    = util.GetParamNumber("--end", nil, "end time")
-local dt 		   = util.GetParamNumber("--dt", 1e-2, "time step size")
-
+local dt         = util.GetParamNumber("--dt", 1e-2, "time step size")
+local doVTK      = util.HasParamOption("--with-vtk")
 
 params.tol     = util.GetParamNumber("--limex-tol", 1e-2, "time step size")
-local nstages = util.GetParamNumber("--limex-stages", 2, "limex stages (2 default)")
-local limex_partial_mask = util.GetParamNumber("--limex-partial", 0, "limex partial (0 or 3)")
+params.nstages = util.GetParamNumber("--limex-nstages", 2, "limex stages (2 default)")
+params.limex_partial_mask = util.GetParamNumber("--limex-partial", 0, "limex partial (0 or 3)")
+params.limex_debug_level = util.GetParamNumber("--limex-debug-level", 5, "limex debug level (integer)")
 
 
 -- This scales the amount of diffusion of the problem
@@ -36,6 +37,9 @@ local doVelocity = false
 -- parameters declared in util/load_balancing_util.lua.
 -- Note that numPreRefs is ignored in this case.
 local withRedist = util.HasParamOption("--withRedist", false, "Enables a more sophisticated distribution approach.")
+
+GetLogAssistant():set_debug_level("LIB_LIMEX", params.limex_debug_level)
+
 
 util.CheckAndPrintHelp("Time-dependent problem setup example\n(by Andreas Vogel)");
 
@@ -57,8 +61,9 @@ print("    eps          = " .. eps)
 print("    grid         = " .. gridName)
 print("    endTime      = " .. endTime)
 
-print("    limex_nstages      = " .. nstages)
-print("    limex_partial_mask = " .. limex_partial_mask)
+
+print("    limex_nstages      = " .. params.nstages)
+print("    limex_partial_mask = " .. params.limex_partial_mask)
 print("    limex_tol          = " .. params.tol)
 
 -- choose algebra
@@ -129,16 +134,26 @@ function DirichletValue(x, y, t, si)
 end
 
 
-local vtk = VTKOutput();
-
+local vtk = nil 
+local vtkObserver = nil
+ 
+if (doVTK) then
+   print("doVTK = true")
+   vtk = VTKOutput();
+   vtkObserver=VTKOutputObserver("MyFile.vtk", vtk)
+end
 
 -- post-processing (after each step)
 function postProcess(u, step, time, currdt)
-  vtk:print("ConvDiffSol", u, step, time)
+  
   print("L2Error\t"..time.."\t=\t"..L2Error("exactSolution", u, "c", time, 4).."\tL2Norm=\t"..L2Norm(u,"c", time))
-  local ref = u:clone()
-  Interpolate("exactSolution", ref, "c", time)
-  vtk:print("ConvDiffRef", ref, step, time)
+
+  if (doVTK) then
+     vtk:print("ConvDiffSol", u, step, time)
+     local ref = u:clone()
+     Interpolate("exactSolution", ref, "c", time)
+     vtk:print("ConvDiffRef", ref, step, time)
+  end
 end
 
 
@@ -148,12 +163,16 @@ local dbgWriter = GridFunctionDebugWriter(approxSpace)
 
 -- descriptor for linear solver
 local solverDesc = {
-    name = "linear",
+    name = "bicgstab", -- "linear"
     precond = {
       type = "gmg",
       approxSpace = approxSpace,
       smoother = "ilu",
       rap=true,
+
+      --preSmooth = 2,      -- number presmoothing steps
+      --postSmooth = 2,    -- number postsmoothing steps
+      baseLevel = 3,  -- 2 for 2d -- 1 for 3d
       
     },
     convCheck = {
@@ -177,7 +196,7 @@ elemDisc:set_diffusion(eps)
 if (doVelocity) then
 elemDisc:set_velocity("Velocity")
 end
-elemDisc:set_partial_velocity(limex_partial_mask) -- 3 
+elemDisc:set_partial_velocity(params.limex_partial_mask) -- 3 
 elemDisc:set_partial_flux(0) 
 elemDisc:set_partial_mass(0)  
 
@@ -255,15 +274,15 @@ local elemDisc ={}
 local dirichletBND = {}
 local domainDisc = {}
 
-
+local upwind = FullUpwind()
 -- setup for discretizations
-for i=1,nstages do 
+for i=1,params.nstages do 
   elemDisc[i] = ConvectionDiffusion("c", "Inner", "fv1")
-  elemDisc[i]:set_upwind(FullUpwind())
+  elemDisc[i]:set_upwind(upwind)
   elemDisc[i]:set_diffusion(eps)
   elemDisc[i]:set_velocity("Velocity")
   
-  elemDisc[i]:set_partial_velocity(limex_partial_mask) -- 3 
+  elemDisc[i]:set_partial_velocity(params.limex_partial_mask) -- 3 
   elemDisc[i]:set_partial_flux(0) 
   elemDisc[i]:set_partial_mass(0)  
   
@@ -284,7 +303,7 @@ local limexNLSolver = {}
 local limexConvCheck=ConvCheck(1, 5e-8, 1e-10, true)
 limexConvCheck:set_supress_unsuccessful(true) 
  
-for i=1,nstages do 
+for i=1,params.nstages do 
   limexLSolver[i] = util.solver.CreateSolver(solverDesc)
     
   limexNLSolver[i] = NewtonSolver()
@@ -295,7 +314,6 @@ for i=1,nstages do
 end
 
 
-local vtkObserver = VTKOutputObserver("MyFile.vtk", vtk)
 -- local refObserver = PlotRefOutputObserver("DirichletValue", vtk) -- now obsolete
 local luaObserver = LuaCallbackObserver()
 
@@ -325,7 +343,7 @@ limexEstimator:add(L2ErrorEvaluator("c", 2))
 -- descriptor for integrator
 local limexDesc = {
 
-  nstages = nstages,
+  nstages = params.nstages,
   steps = {1,2,3,4,5,6},
   domainDisc=domainDisc,
   nonlinSolver = limexNLSolver,
@@ -346,10 +364,19 @@ limex:set_dt_min(1e-9)
 limex:add_error_estimator(limexEstimator)
 -- limex:set_increase_factor(2.0)
 
-limex:attach_observer(vtkObserver)
+if (vtk) then 
+   limex:attach_observer(vtkObserver)
+end
+
 limex:attach_observer(luaObserver)
 --limex:attach_observer(refObserver)
 --limex:set_debug(dbgWriter)
+
+
+limex:set_stepsize_greedy_order_factor(1.0)
+limex:select_cost_strategy(LimexNonlinearCost())
+-- limex:disable_matrix_cache()  -- recompute ()
+limex:enable_matrix_cache() -- keep matrix 
 
 print ("dtLimex   = "..dtlimex)
 print ("hGrid     = "..gridSize)

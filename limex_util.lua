@@ -110,7 +110,6 @@ function util.limex.CreateLimexErrorEstimator (errorInfo, inst)
         if (value.type== "H1ErrorEvaluator") then
             errorEst:add(H1ErrorEvaluator(value.func, value.order)) 
         elseif (value.type == "H1SemiErrorEvaluator") then 
-        
             if (not value.weight) then
                 errorEst:add(H1SemiErrorEvaluator(value.func, value.order)) 
             else        
@@ -126,8 +125,6 @@ function util.limex.CreateLimexErrorEstimator (errorInfo, inst)
             errorEst:add(eval) 
             
         end   
-        
-        
       end
   end
   
@@ -234,6 +231,21 @@ end
 -- debug writer (optional)
 if (limexDesc.debugOPT) then
  -- limex:set_debug(limexDesc.debugOPT)
+end
+
+
+-- cache matrices (classic algorithm)
+if (limexDesc.matrixCache) then
+   print ("LIMEX: matrix cache enabled")
+   limex:enable_matrix_cache()
+else
+   print ("LIMEX: matrix cache disabled")
+   limex:disable_matrix_cache()
+end
+
+-- selesct cost strategy
+if (limexDesc.costStrategyOPT) then
+   limex:select_cost_strategy(limexDesc.costStrategyOPT)
 end
 
 return limex

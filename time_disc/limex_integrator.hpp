@@ -127,12 +127,12 @@ public:
 	{
 		UG_ASSERT(m_costA.size() >= nstages, "Huhh: Vectors match in size:" << m_costA.size() << "vs." << nstages);
 
-		//UG_LOG("A_0="<< m_vSteps[0] << std::endl);
+		UG_LOG("A_0="<< m_vSteps[0] << std::endl);
 		m_costA[0] = (1.0)*m_vSteps[0];
 		for (size_t i=1; i<=nstages; ++i)
 		{
 			m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
-			//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
+			UG_LOG("A_i="<< m_vSteps[i] << std::endl);
 		}
 	}
 };
@@ -151,7 +151,7 @@ public:
 
 		// 3 assemblies (M0, J0, Gamma0)
 		m_costA[0] = (2.0+m_useGamma)*m_cAssemble + nSteps[0]*((1.0+m_useGamma)*m_cMatAdd + m_cSolution);
-		for (size_t i=1; i<nstages; ++i)
+		for (size_t i=1; i<=nstages; ++i)
 		{
 			// n-1 assemblies for Mk, 2n MatAdds, n solutions
 			m_costA[i] = m_costA[i-1] + (nSteps[i]-1) * m_cAssemble + nSteps[i]*((1.0+m_useGamma)*m_cMatAdd + m_cSolution);
@@ -268,9 +268,9 @@ public:
 		  m_nstages(nstages),
 		  m_gamma(m_nstages+1),
 		  m_costA(m_nstages+1),
-		  m_monitor(((m_nstages+1)*(m_nstages+1))), // TODO: wasting memory here!
-		  m_workload(m_nstages+1),
-		  m_lambda(m_nstages+1), 
+		  m_monitor(((m_nstages)*(m_nstages))), // TODO: wasting memory here!
+		  m_workload(m_nstages),
+		  m_lambda(m_nstages), 
 		  m_consistency_error(m_nstages),
 		  m_greedyOrderIncrease(0.0),
 		  m_useCachedMatrices(false),
@@ -382,14 +382,18 @@ public:
 
 
 protected:
-		number& monitor(size_t k, size_t q) { return m_monitor[k+(m_nstages+1)*q]; }
+		number& monitor(size_t k, size_t q) {
+		  UG_ASSERT(k<m_nstages, "Huhh: k mismatch");
+		  UG_ASSERT(q<m_nstages, "Huhh: q mismatch");
+		  return m_monitor[k+(m_nstages)*q]; 
+		}
 
 		/// aux: compute exponents gamma_k (for roots)
 		void init_gamma()
 		{
 			for (size_t k=0; k<=m_nstages; ++k)
 			{
-				m_gamma[k] = k+1;
+				m_gamma[k] = 2.0+k;
 			}
 		}
 
@@ -398,37 +402,31 @@ protected:
 		void update_cost()
 		{
 			m_spCostStrategy->update_cost(m_costA, m_vSteps, m_nstages);
-			//UG_LOG("A_0="<< m_vSteps[0] << std::endl);
-			/*m_costA[0] = (1.0)*m_vSteps[0];
-			for (size_t i=1; i<=m_nstages; ++i)
-			{
-				m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
-				//UG_LOG("A_i="<< m_vSteps[i] << std::endl);
-			}*/
 		}
 
 		/// convergence monitor
 		// (depends on cost, which must have been initialized!)
 		void update_monitor()
 		{
-			for (size_t k=0; k<=m_nstages; ++k)
-			{
-				UG_LOG("A[k]=" << m_costA[k] << ", gamma[k]=" << m_gamma[k] << "\t");
-				for (size_t q=0; q<=m_nstages; ++q)
-				{
-					// Deuflhard: Order and stepsize, ... eq. (3.7)
-					double gamma = (m_costA[k] - m_costA[0] + 1.0)/(m_costA[q] - m_costA[0] + 1.0);
-					double alpha = pow(m_tol, gamma);
-
-					// for fixed order q, the monitor indicates the performance penalty compared to a strategy using k stages only
-					// cf. eq. (4.6)
-					monitor(k,q) = pow(alpha/(m_tol*m_rhoSafety), 1.0/m_gamma[k]);
-					UG_LOG(monitor(k,q) << "[" << pow(alpha/(m_tol), 1.0/m_gamma[k]) << "]" << "\t");
-					// UG_LOG(  << "\t");
-
-				}
-				UG_LOG(std::endl);
-			}
+		  UG_ASSERT(m_costA.size()>= m_nstages, "Cost vector too small!")
+		  for (size_t k=0; k<m_nstages-1; ++k)
+		  {
+		    UG_LOG("k= "<< k<< ", A[k]=" << m_costA[k] << ", gamma[k]=" << m_gamma[k] << "\t");
+		    for (size_t q=0; q<m_nstages-1; ++q)
+		      {
+			// Deuflhard: Order and stepsize, ... eq. (3.7)
+			double gamma = (m_costA[k+1] - m_costA[0] + 1.0)/(m_costA[q+1] - m_costA[0] + 1.0);
+			double alpha = pow(m_tol, gamma);
+			
+			// for fixed order q, the monitor indicates the performance penalty compared to a strategy using k stages only
+			// cf. eq. (4.6)
+			monitor(k,q) = pow(alpha/(m_tol * m_rhoSafety), 1.0/m_gamma[k]);
+			UG_LOG(monitor(k,q) << "[" << pow(alpha/(m_tol), 1.0/m_gamma[k]) <<"," << gamma<< ","<< m_costA[k+1] << "," << m_costA[q+1]<< ","<< alpha << "]" << "\t");
+			// UG_LOG(  << "\t");
+			
+		      }
+		    UG_LOG(std::endl);
+		  }
 
 		}
 
@@ -624,27 +622,31 @@ find_optimal_solution(const std::vector<number>& eps, size_t ntest, /*size_t &kf
 
 	const size_t qold=qpred;
 
-	size_t kbest = 1;
+	size_t jbest = 1;
 	qpred = 1;
 
-	size_t k=1;
-	m_lambda[k] = pow(m_rhoSafety*m_tol/eps[k], 1.0/m_gamma[k]);   // 1/epsilon(k)
-	m_workload[k] = m_costA[k]/m_lambda[k];
-	UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]  << ", epsilon(k)=" <<1.0/m_lambda[k] << "<= alpha(k, qcurr)=" << monitor(k-1,qold) << "< alpha(k, qcurr+1)=" << monitor(k-1,qold+1) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
+	size_t j=1;
+	size_t k=j-1;
 
-	for (k=2; k<ntest; ++k)
+	m_lambda[k] = pow(m_rhoSafety*m_tol/eps[j], 1.0/m_gamma[k]);   // 1/epsilon(k)
+	m_workload[k] = m_costA[j]/m_lambda[k];
+	UG_LOG("j=" << j << ": eps=" << eps[j]  << ", lambda(j)=" <<m_lambda[k]  << ", epsilon(j)=" <<1.0/m_lambda[k] << "<= alpha(k, qcurr)=" << monitor(k,qold-1) << "< alpha(k, qcurr+1)=" << monitor(k,qold) <<", A="<< m_costA[j] << ", W="<< m_workload[k] <<std::endl);
+
+	for (j=2; j<ntest; ++j)
 	{
-		m_lambda[k] = pow(m_rhoSafety*m_tol/eps[k], 1.0/m_gamma[k]);
-		m_workload[k] = m_costA[k]/m_lambda[k];
-		UG_LOG("k=" << k << ": eps=" << eps[k]  << ", lambda(k)=" <<m_lambda[k]   << ", epsilon(k)=" <<1.0/m_lambda[k] << "<= alpha(k, qcurr)=" << monitor(k-1,qold) << "< alpha(k, qcurr+1)=" << monitor(k-1,qold+1) <<", A="<< m_costA[k] << ", W="<< m_workload[k] <<std::endl);
+	  k = j-1;
+	  m_lambda[k] = pow(m_rhoSafety*m_tol/eps[j], 1.0/m_gamma[k]);
+	  m_workload[k] = m_costA[j]/m_lambda[k];
+	  UG_LOG("j=" << j << ": eps=" << eps[j]  << ", lambda(j)=" <<m_lambda[k]  << ", epsilon(j)=" <<1.0/m_lambda[k] << "<= alpha(k, qcurr)=" << monitor(k,qold-1) << "< alpha(k, qcurr+1)=" << monitor(k,qold) <<", A="<< m_costA[j] << ", W="<< m_workload[k] <<std::endl);
 
-		// TODO: Convergence monitor
 
-		qpred = (m_workload[qpred] > m_workload[k]) ? k : qpred;
-		kbest = (eps[kbest] > eps [k]) ? k : kbest;
+	  // TODO: Convergence monitor
+
+	  qpred = (m_workload[qpred-1] > m_workload[k]) ? j : qpred;
+	  jbest = (eps[jbest] > eps [j]) ? j : jbest;
 	}
 
-	return kbest;
+	return jbest;
 }
 
 template<class TDomain, class TAlgebra>
@@ -690,7 +692,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 	int limex_step = 1;
 	size_t limex_total = 1;
 	size_t ntest;    ///< active number of stages <= kmax
-	size_t kbest;
+	size_t jbest;
 
 	timex_type timex(m_vSteps);
 	while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
@@ -788,35 +790,36 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 			// select optimal solution (w.r.t error) AND
 			// predict optimal order (w.r.t. workload) for next step
-			kbest = find_optimal_solution(eps, ntest, qpred);
-			UG_ASSERT(kbest < ntest, "Huhh: Not enough solutions?");
+			jbest = find_optimal_solution(eps, ntest, qpred);
+			UG_ASSERT(jbest < ntest, "Huhh: Not enough solutions?");
 
 			// best solution
-			ubest  = timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
-			epsmin = eps[kbest]; /*were: kbest*/
+			ubest  = timex.get_solution(jbest).template cast_dynamic<grid_function_type>();
+			epsmin = eps[jbest]; /*were: kbest*/
 
 			// check for convergence
 			limexConverged = (epsmin <= m_tol);
 
 			// select predicted order for next step
-			double dtpred = m_lambda[qpred]*dtcurr;
-			UG_LOG("koptim=\t" << kbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred] << ", alpha(q,q)=" << monitor(qpred, qpred) << "dt(q)=" << dtpred<< std::endl);
+			double dtpred = m_lambda[qpred-1]*dtcurr;
+			UG_LOG("koptim=\t" << jbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred-1] << ", alpha(q-1,q)=" << monitor(qpred-1, qpred) << "dt(q)=" << dtpred<< std::endl);
 
 			// EXTENSIONS: convergence model
 			if (limexConverged)
 			{
 				// a) aim for order increase in next step
-				if ((qpred+1==ntest)  /* increase by one possible? */
-						&& (kmax>ntest)) /* still below max? */
+			  if ((qpred+1==ntest)  /* increase by one possible? */
+			      //    && (m_lambda[qpred-1]>1.0)
+			      && (kmax>ntest)) /* still below max? */
 				{
-					const double alpha = monitor(qpred, qpred+1);
+					const double alpha = monitor(qpred-1, qpred);
 					UG_LOG("CHECKING for order increase: "<< m_costA[qpred] << "*" << alpha << ">" << m_costA[qpred+1]);
 					// check, whether further increase could still be efficient
 					if (m_costA[qpred] * alpha > m_costA[qpred+1])
 					{
 						qpred++;    			// go for higher order
 						if (m_greedyOrderIncrease >0.0) {
-							dtpred *= m_greedyOrderIncrease*alpha;		// & adapt time step  // TODO: check required!
+						  dtpred *= (1.0-m_greedyOrderIncrease) + m_greedyOrderIncrease*alpha;		// & adapt time step  // TODO: check required!
 						}
 						UG_LOG("... yes.\n")
 
@@ -863,13 +866,13 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 				UG_LOG("Computing derivative" << std::endl);
 				grid_function_type &udot = *get_time_derivative();
 
-				for (size_t i=0; i<=kbest; ++i)
+				for (size_t i=0; i<=jbest; ++i)
 				{
 					timex.set_solution(m_vThreadData[i].get_derivative(), i);
 				}
-				timex.apply(kbest+1, false); // do not compute error
+				timex.apply(jbest+1, false); // do not compute error
 
-				udot = *timex.get_solution(kbest).template cast_dynamic<grid_function_type>();
+				udot = *timex.get_solution(jbest).template cast_dynamic<grid_function_type>();
 
 				std::ostringstream ossName;
 				ossName << std::setfill('0');
