@@ -46,6 +46,7 @@
 #include "lib_disc/time_disc/theta_time_step.h"
 #include "common/ug_config.h"
 #include "common/error.h"
+#include "common/math/math_vector_matrix/math_vector.h"
 
 
 // plugin
@@ -153,12 +154,15 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// H1SemiErrorEvaluator
 		typedef H1SemiErrorEvaluator<TGridFunction> T;
 		typedef IErrorEvaluator<TGridFunction> TBase;
+		typedef UserData<number, TGridFunction::dim> TWeight;
 
 		string name = string("H1SemiErrorEvaluator").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)(const char *) >("fctNames")
 		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
 		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
+		   .template add_constructor<void (*)(const char *, int, number, SmartPtr<TWeight>) >("fctNames, order, scale, weights")
+		   .add_method("set_weight", &T::set_weight)
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "H1SemiErrorEvaluator", tag);
 	}
@@ -192,18 +196,35 @@ static void DomainAlgebra(Registry& reg, string grp)
 	}
 
 	{
-			// UserDataEvaluator
-			typedef UserDataEvaluator<TGridFunction> T;
+			// UserDataEvaluatorNumber
+			typedef UserDataEvaluator<TGridFunction, number > T;
 			typedef IErrorEvaluator<TGridFunction> TBase;
 
-			string name = string("UserDataEvaluator").append(suffix);
+			string name = string("UserDataEvaluatorNumber").append(suffix);
 			reg.add_class_<T, TBase>(name, grp)
 			   .template add_constructor<void (*)(const char *) >("fctNames")
-			 //  .template add_constructor<void (*)(const char *, number) >("fctNames, scale")
-			  // .template add_constructor<void (*)(const char *, const char *, number) >("fctNames, subsetNames, scale")
+			   .template add_constructor<void (*)(const char *, int) >("fctNames, scale")
+			   .template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
+			   .add_method("set_user_data", &T::set_user_data)
 			   .set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "UserDataEvaluator", tag);
-		}
+			reg.add_class_to_group(name, "UserDataEvaluatorNumber", tag);
+	}
+
+	{
+			// UserDataEvaluatorVector
+			typedef UserDataEvaluator<TGridFunction, MathVector<TGridFunction::dim> > T;
+			typedef IErrorEvaluator<TGridFunction> TBase;
+
+			string name = string("UserDataEvaluatorVector").append(suffix);
+			reg.add_class_<T, TBase>(name, grp)
+				.template add_constructor<void (*)(const char *) >("fctNames")
+				.template add_constructor<void (*)(const char *, int) >("fctNames, scale")
+				.template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
+				.add_method("set_user_data", &T::set_user_data)
+				.set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "UserDataEvaluatorVector", tag);
+	}
+
 
 	{
 		// ScaledGridFunctionEstimator (sub-diagonal)
