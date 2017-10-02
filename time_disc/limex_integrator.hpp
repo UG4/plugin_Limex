@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2014-2016:  G-CSC, Goethe University Frankfurt
  * Author: Arne Naegel
@@ -64,6 +65,7 @@
 // own headers
 #include "time_extrapolation.h"
 #include "time_integrator.hpp"
+#include "metric_spaces.h"
 #include "../limex_tools.h"
 //#include "../multi_thread_tools.h"
 
@@ -108,17 +110,20 @@ protected:
 	SmartPtr<IRefiner> m_spRefiner;
 };
 
-
-/**! The LimexTimeIntegrator requires a Model */
+//! Abstract class for the cost of a limex stage.
+/*! The LimexTimeIntegrator requires a model for computing the cost per stage.  */
 class ILimexCostStrategy
 {
 public:
+	/// destructor
 	virtual ~ILimexCostStrategy(){}
+
+	/// provides the cost for all 0...nstages stages.
 	virtual void update_cost(std::vector<number> &costA, const std::vector<size_t> &vSteps, const size_t nstages) = 0;
 };
 
 
-// cost is identical to (summation over) number of steps
+/// Cost is identical to (summation over) number of steps
 class LimexDefaultCost : public ILimexCostStrategy
 {
 public:
@@ -137,7 +142,7 @@ public:
 	}
 };
 
-// For
+/// For
 class LimexNonlinearCost : public ILimexCostStrategy
 {
 public:
@@ -166,6 +171,8 @@ protected:
 	int m_useGamma;
 
 };
+
+
 
 //! Base class for LIMEX time integrator
 template<class TDomain, class TAlgebra>
@@ -237,7 +244,6 @@ public:
 			SmartPtr<grid_function_type> m_sol;
 			SmartPtr<grid_function_type> m_dot;
 			int m_error;
-
 		};
 
 		typedef std::vector<SmartPtr<ThreadData> > thread_vector_type;
@@ -274,7 +280,8 @@ public:
 		  m_consistency_error(m_nstages),
 		  m_greedyOrderIncrease(0.0),
 		  m_useCachedMatrices(false),
-		  m_spCostStrategy(make_sp<LimexDefaultCost>(new LimexDefaultCost()))
+		  m_spCostStrategy(make_sp<LimexDefaultCost>(new LimexDefaultCost())),
+		  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>())              // default algebraic space
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -448,7 +455,13 @@ public:
 		void enable_matrix_cache() { m_useCachedMatrices = true; }  	///< Select classic LIMEX
 		void disable_matrix_cache() { m_useCachedMatrices = false; }    ///< Select approximate Newton (default)
 
-		void select_cost_strategy(SmartPtr<ILimexCostStrategy> cost) {m_spCostStrategy = cost;}
+		void select_cost_strategy(SmartPtr<ILimexCostStrategy> cost)
+		{ m_spCostStrategy = cost;}
+
+
+		/// set banach space (e.g. for computing consistency error)
+		void set_space(SmartPtr<IGridFunctionSpace<grid_function_type> > spSpace)
+		{ m_spBanachSpace = spSpace; }
 
 protected:
 
@@ -476,6 +489,9 @@ protected:
 		bool m_useCachedMatrices;
 
 		SmartPtr<ILimexCostStrategy> m_spCostStrategy;
+
+		/// metric space
+		SmartPtr<IGridFunctionSpace<grid_function_type> > m_spBanachSpace;
 };
 
 
@@ -559,6 +575,9 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 		integrator.set_reduction_factor(0.0);                 // quit immediately, if step fails
 		integrator.set_solver(m_vThreadData[i].get_solver());
 		integrator.set_derivative(m_vThreadData[i].get_derivative());
+
+		UG_ASSERT(m_spBanachSpace.valid(), "Huhh: Need valid (default) banach space");
+		integrator.set_banach_space(m_spBanachSpace);
 
 		bool exec = true;
 		try

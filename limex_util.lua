@@ -108,16 +108,16 @@ function util.limex.CreateLimexErrorEstimator (errorInfo, inst)
       for key, value in ipairs(errorInfo) do
         print ("+++ "..value.type..", "..value.func..", "..value.order) 
         if (value.type== "H1ErrorEvaluator") then
-            errorEst:add(H1ErrorEvaluator(value.func, value.order)) 
+            errorEst:add(H1ComponentSpace(value.func, value.order)) 
         elseif (value.type == "H1SemiErrorEvaluator") then 
             if (not value.weight) then
-                errorEst:add(H1SemiErrorEvaluator(value.func, value.order)) 
+                errorEst:add(H1SemiComponentSpace(value.func, value.order)) 
             else        
                 local weight = inst.coef.PrintPermeability
-                errorEst:add(H1SemiErrorEvaluator(value.func, value.order, 1.0, weight)) 
+                errorEst:add(H1SemiComponentSpace(value.func, value.order, 1.0, weight)) 
             end
         elseif (value.type == "L2ErrorEvaluator") then 
-            errorEst:add(L2ErrorEvaluator(value.func, value.order)) 
+            errorEst:add(L2ComponentSpace(value.func, value.order)) 
         elseif (value.type == "UserDataEvaluator") then 
             local eval = UserDataEvaluatorNumber(value.func, value.order)
              --eval:set_user_data(inst.coef.DarcyVelocity)
@@ -243,10 +243,17 @@ else
    limex:disable_matrix_cache()
 end
 
--- selesct cost strategy
+-- selest cost strategy
 if (limexDesc.costStrategyOPT) then
    limex:select_cost_strategy(limexDesc.costStrategyOPT)
 end
+
+-- grid function spaces (e.g. for norms)
+if (limexDesc.spacesOPT) then
+  limex:set_space(limexDesc.spacesOPT)
+end
+
+
 
 return limex
 end

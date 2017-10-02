@@ -41,7 +41,6 @@
 #include "common/util/smart_pointer.h"
 
 #include "lib_algebra/lib_algebra.h"
-//#include "lib_algebra/parallelization/parallel_vector.h"
 #include "lib_algebra/operator/debug_writer.h"
 
 #include "lib_disc/function_spaces/grid_function.h"
@@ -50,6 +49,8 @@
 
 #include "lib_disc/time_disc/time_disc_interface.h"
 #include "lib_disc/spatial_disc/user_data/linker/scale_add_linker.h"
+
+#include "metric_spaces.h"
 
 namespace ug{
 
@@ -286,9 +287,10 @@ protected:
 
 
 
+
 //! Estimate the error (based on the difference between two grid functions)
 template <typename TGridFunction>
-class IErrorEvaluator
+class IComponentSpace : public IGridFunctionSpace<TGridFunction>
 {
 protected:
 	std::string m_fctNames;
@@ -297,7 +299,9 @@ protected:
 	number m_scale;
 
 public:
-	IErrorEvaluator(const IErrorEvaluator<TGridFunction> &val)
+	typedef IGridFunctionSpace<TGridFunction> base_type;
+
+	IComponentSpace(const IComponentSpace<TGridFunction> &val)
 	{
 		this->m_fctNames = val.m_fctNames;
 		this->m_ssNames = val.m_ssNames;
@@ -305,25 +309,32 @@ public:
 		this->m_scale = val.m_scale;
 	}
 
-	IErrorEvaluator(const char *fctNames) :
+	IComponentSpace(const char *fctNames) :
 		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(3), m_scale(1.0) {}
 
-	IErrorEvaluator(const char *fctNames, int order) :
+	IComponentSpace(const char *fctNames, int order) :
 		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(order), m_scale(1.0) {}
 
-	IErrorEvaluator(const char *fctNames, int order, number scale) :
+	IComponentSpace(const char *fctNames, int order, number scale) :
 		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(order), m_scale(scale) {}
 
-	IErrorEvaluator(const char *fctNames, const char* ssNames, int order, number scale) :
+	IComponentSpace(const char *fctNames, const char* ssNames, int order, number scale) :
 		m_fctNames(fctNames), m_ssNames(ssNames), m_quadorder(order), m_scale(scale) {}
 
-	virtual ~IErrorEvaluator() {};
+	virtual ~IComponentSpace() {};
 
-	virtual double compute_norm(SmartPtr<TGridFunction> u) const
-	{ return 0.0; }
 
-	virtual double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
-	{ return 0.0; }
+	// suppress warnings
+	using IGridFunctionSpace<TGridFunction>::norm;
+	using IGridFunctionSpace<TGridFunction>::distance;
+
+	/// norm (for SmartPtr)
+	virtual double norm(SmartPtr<TGridFunction> u) const
+	{ return norm(*u); }
+
+	/// distance (for SmartPtr)
+	double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	{ return distance(*uFine, *uCoarse); }
 
 	/// print config string
 	std::string config_string() const
@@ -344,23 +355,27 @@ public:
 
 /** Evaluates difference between two grid functions in L2 norm */
 template <typename TGridFunction>
-class L2ErrorEvaluator :
-		public IErrorEvaluator<TGridFunction>
+class L2ComponentSpace : public IComponentSpace<TGridFunction>
 {
 public:
-	typedef IErrorEvaluator<TGridFunction> base_type;
+	typedef IComponentSpace<TGridFunction> base_type;
 
-	L2ErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
-	L2ErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
-	L2ErrorEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
-	L2ErrorEvaluator(const char *fctNames, const char* ssNames, int order, number scale)
+	L2ComponentSpace(const char *fctNames) : base_type(fctNames) {};
+	L2ComponentSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
+	L2ComponentSpace(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
+	L2ComponentSpace(const char *fctNames, const char* ssNames, int order, number scale)
 		: base_type(fctNames, ssNames, order, scale) {};
-	~L2ErrorEvaluator() {};
+	~L2ComponentSpace() {};
 
-	double compute_norm(SmartPtr<TGridFunction> uFine) const
+	using IComponentSpace<TGridFunction>::norm;
+	using IComponentSpace<TGridFunction>::distance;
+
+	/// \copydoc IComponentSpace<TGridFunction>::norm
+	double norm(TGridFunction& uFine) const
 	{ return L2Norm(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder, base_type::m_ssNames); }
 
-	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	/// \copydoc IComponentSpace<TGridFunction>::distance
+	double distance(TGridFunction& uFine, TGridFunction& uCoarse) const
 	{ return L2Error(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(),
 		base_type::m_quadorder, base_type::m_ssNames);}
 };
@@ -368,29 +383,37 @@ public:
 
 /** Evaluates distance between two grid functions in H1 semi-norm */
 template <typename TGridFunction>
-class H1SemiErrorEvaluator :
-		public IErrorEvaluator<TGridFunction>
+class H1SemiComponentSpace : public IComponentSpace<TGridFunction>
 {
 public:
-	typedef IErrorEvaluator<TGridFunction> base_type;
+	typedef IComponentSpace<TGridFunction> base_type;
 	typedef typename H1SemiDistIntegrand<TGridFunction>::weight_type weight_type;
 
-	H1SemiErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
-	H1SemiErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
-	H1SemiErrorEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
-	H1SemiErrorEvaluator(const char *fctNames, int order, number scale, SmartPtr<weight_type> spWeight)
+	H1SemiComponentSpace(const char *fctNames) : base_type(fctNames) {};
+	H1SemiComponentSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
+	H1SemiComponentSpace(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
+	H1SemiComponentSpace(const char *fctNames, int order, number scale, SmartPtr<weight_type> spWeight)
 	: base_type(fctNames, order, scale),  m_spWeight(spWeight) {};
 
-	~H1SemiErrorEvaluator() {};
+	~H1SemiComponentSpace() {};
 
-	double compute_norm(SmartPtr<TGridFunction> uFine) const
-	{ return H1SemiNorm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder, m_spWeight); }
+	using IComponentSpace<TGridFunction>::norm;
+	using IComponentSpace<TGridFunction>::distance;
 
-	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	/// \copydoc IComponentSpace<TGridFunction>::norm
+	double norm(TGridFunction& uFine) const
+	{ return H1SemiNorm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder, NULL, m_spWeight); }
+
+	/// \copydoc IComponentSpace<TGridFunction>::norm
+	double distance(TGridFunction& uFine, TGridFunction& uCoarse) const
 	{ return H1SemiDistance<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder, m_spWeight); }
+
 
 	void set_weight(SmartPtr<weight_type> spWeight)
 	{ m_spWeight = spWeight; }
+
+	SmartPtr<weight_type> get_weight()
+	{ return m_spWeight; }
 
 protected:
 	SmartPtr<weight_type> m_spWeight;
@@ -398,21 +421,26 @@ protected:
 
 /** Evaluates difference between two grid functions in H1 semi-norm */
 template <typename TGridFunction>
-class H1ErrorEvaluator :
-		public IErrorEvaluator<TGridFunction>
+class H1ComponentSpace :
+		public IComponentSpace<TGridFunction>
 {
 public:
-	typedef IErrorEvaluator<TGridFunction> base_type;
+	typedef IComponentSpace<TGridFunction> base_type;
 
-	H1ErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
-	H1ErrorEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
-	H1ErrorEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
-	~H1ErrorEvaluator() {};
+	H1ComponentSpace(const char *fctNames) : base_type(fctNames) {};
+	H1ComponentSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
+	H1ComponentSpace(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
+	~H1ComponentSpace() {};
 
-	double compute_norm(SmartPtr<TGridFunction> uFine) const
+	using IComponentSpace<TGridFunction>::norm;
+	using IComponentSpace<TGridFunction>::distance;
+
+	/// \copydoc IComponentSpace<TGridFunction>::norm
+	double norm(SmartPtr<TGridFunction> uFine) const
 	{ return H1Norm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
 
-	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	/// \copydoc IComponentSpace<TGridFunction>::norm
+	double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
 	{ return H1Error<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
 
 };
@@ -420,10 +448,10 @@ public:
 /** Evaluates difference between two grid functions in L_inf norm */
 template <typename TGridFunction>
 class SupErrorEvaluator
-: public IErrorEvaluator<TGridFunction>
+: public IComponentSpace<TGridFunction>
 {
 	public:
-		typedef IErrorEvaluator<TGridFunction> base_type;
+		typedef IComponentSpace<TGridFunction> base_type;
 
 		SupErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
 		SupErrorEvaluator(const char *fctNames, number scale) : base_type(fctNames, 1, scale) {};
@@ -432,7 +460,10 @@ class SupErrorEvaluator
 		~SupErrorEvaluator() {};
 
 
-		double compute_norm(SmartPtr<TGridFunction> uFine) const
+		using IComponentSpace<TGridFunction>::norm;
+		using IComponentSpace<TGridFunction>::distance;
+
+		double norm(SmartPtr<TGridFunction> uFine) const
 		{
 			// gather subsets in group
 			SubsetGroup ssGrp(uFine->domain()->subset_handler());
@@ -457,7 +488,7 @@ class SupErrorEvaluator
 					case 1: maxVal = std::max(maxVal, findFctMaxOnSubset<Edge>(uFine, si)); break;
 					case 2: maxVal = std::max(maxVal, findFctMaxOnSubset<Face>(uFine, si)); break;
 					case 3: maxVal = std::max(maxVal, findFctMaxOnSubset<Volume>(uFine, si)); break;
-					default: UG_THROW("IntegrateSubsets: Dimension " << ssGrp.dim(i) << " not supported.");
+					default: UG_THROW("SupErrorEvaluator::norm: Dimension " << ssGrp.dim(i) << " not supported.");
 				}
 			}
 
@@ -475,14 +506,14 @@ class SupErrorEvaluator
 			return maxVal;
 		}
 
-		double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+		double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
 		{
 			UG_COND_THROW(uFine->dof_distribution().get() != uCoarse->dof_distribution().get(),
 				"Coarse and fine solutions do not have the same underlying dof distro.");
 
 			SmartPtr<TGridFunction> uErr = uCoarse->clone();
 			uErr->operator-=(*uFine);
-			return compute_norm(uErr);
+			return norm(uErr);
 		}
 
 	protected:
@@ -666,10 +697,10 @@ class DeltaSquareIntegrand
 /*! UserData maybe of type TDataInput, i.e., number/vector/matrix/... */
 template <typename TGridFunction, typename TDataInput>
 class UserDataEvaluator :
-		public IErrorEvaluator<TGridFunction>
+		public IComponentSpace<TGridFunction>
 {
 public:
-	typedef IErrorEvaluator<TGridFunction> base_type;
+	typedef IComponentSpace<TGridFunction> base_type;
 	//typedef MathVector<TGridFunction::dim> TDataInput;
 	typedef UserData<TDataInput, TGridFunction::dim> input_user_data_type;
 
@@ -684,22 +715,27 @@ public:
 	}
 
 
-	double compute_norm(SmartPtr<TGridFunction> uFine) const
-	{
-		SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
-		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, SPNULL, 0.0));
+	using IComponentSpace<TGridFunction>::norm;
+	using IComponentSpace<TGridFunction>::distance;
 
-		return sqrt(IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
+	double norm(SmartPtr<TGridFunction> uFine) const
+	{
+		/*SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
+		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, SPNULL, 0.0));*/
+
+		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, uFine, SPNULL, 0.0);
+		return sqrt(IntegrateSubsets(spIntegrand,*uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
 	}
 
-	double compute_error(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
 	{
-		SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
-		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, uCoarse, 0.0));
+		/*SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
+		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, uCoarse, 0.0));*/
 
+		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, uFine, uCoarse, 0.0);
 		std::cout << "uFine="<<(void*) &(*uFine) << ", uCoarse="<< (void*)&(*uCoarse) << std::endl;
 
-		return sqrt(IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
+		return sqrt(IntegrateSubsets(spIntegrand, *uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
 	}
 
 protected:
@@ -755,8 +791,8 @@ public:
 			double est = 0.0;
 			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 			{
-				enorm =  alpha * it->compute_error(uFine, uCoarse);
-				unorm =  std::max(it->compute_norm(uFine), 1e-10);
+				enorm =  alpha * it->distance(uFine, uCoarse);
+				unorm =  std::max(it->norm(uFine), 1e-10);
 				est += (enorm*enorm)/(unorm*unorm);
 				std::cerr << "unorm=" << unorm << "enorm=" << enorm << "est="<<est << std::endl;
 			}
@@ -771,7 +807,7 @@ public:
 			number enorm = 0.0;
 			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 			{
-				enorm +=  alpha * it->compute_error(uFine, uCoarse);
+				enorm +=  alpha * it->distance(uFine, uCoarse);
 			}
 			base_type::m_est = enorm/m_refNormValue;
 
@@ -810,7 +846,7 @@ class GridFunctionEstimator :
 protected:
 	typedef typename TAlgebra::vector_type TVector;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IErrorEvaluator<grid_function_type> evaluator_type;
+	typedef IComponentSpace<grid_function_type> evaluator_type;
 
 	number m_refNormValue;
 
@@ -841,20 +877,20 @@ public:
 	//! Add an L2 error for fctNames
 	void add(const char *fctNames)
 	{
-		m_evaluators.push_back(L2ErrorEvaluator<grid_function_type>(fctNames));
+		m_evaluators.push_back(L2ComponentSpace<grid_function_type>(fctNames));
 	}
 
 	void add(const char *fctNames, int order)
 	{
-		m_evaluators.push_back(L2ErrorEvaluator<grid_function_type>(fctNames, order));
+		m_evaluators.push_back(L2ComponentSpace<grid_function_type>(fctNames, order));
 	}
 
 	void add4(const char *fctNames, int order, int type, double scale)
 	{
 		if (type == 0) {
-			m_evaluators.push_back(L2ErrorEvaluator<grid_function_type>(fctNames, order, scale));
+			m_evaluators.push_back(L2ComponentSpace<grid_function_type>(fctNames, order, scale));
 		} else if (type == 1) {
-			m_evaluators.push_back(H1SemiErrorEvaluator<grid_function_type>(fctNames, order, scale));
+			m_evaluators.push_back(H1SemiComponentSpace<grid_function_type>(fctNames, order, scale));
 		} else { UG_LOG(""); }
 	}
 
@@ -878,8 +914,8 @@ public:
 			number enorm = 0.0;
 			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 			{
-				unorm +=  it->compute_norm(uFine);
-				enorm +=  alpha * it->compute_error(uFine, uCoarse);
+				unorm +=  it->norm(uFine);
+				enorm +=  alpha * it->distance(uFine, uCoarse);
 			}
 
 			base_type::m_est = enorm/unorm;
@@ -892,7 +928,7 @@ public:
 			number enorm = 0.0;
 			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 			{
-				enorm +=  alpha * it->compute_error(uFine, uCoarse);
+				enorm +=  alpha * it->distance(uFine, uCoarse);
 			}
 			base_type::m_est = enorm/m_refNormValue;
 
@@ -930,7 +966,7 @@ class ScaledGridFunctionEstimator :
 protected:
 	typedef typename TAlgebra::vector_type TVector;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IErrorEvaluator<grid_function_type> evaluator_type;
+	typedef IComponentSpace<grid_function_type> evaluator_type;
 
 	std::vector<SmartPtr<evaluator_type> > m_evaluators;
 
@@ -958,8 +994,8 @@ public:
 		for (typename std::vector<SmartPtr<evaluator_type> >::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 		{
 			// use sub-diagonal error estimator (i.e. multiply with alpha)
-			double enorm =  alpha * (*it)->compute_error(uFine, uCoarse);
-			double unorm =  std::max((*it)->compute_norm(uFine), 1e-10*enorm);
+			double enorm =  alpha * (*it)->distance(uFine, uCoarse);
+			double unorm =  std::max((*it)->norm(uFine), 1e-10*enorm);
 			est += (enorm*enorm)/(unorm*unorm);
 			UG_LOGN("unorm=" << unorm << "\tenorm=" << enorm << "\tratio2="<< (enorm*enorm)/(unorm*unorm));
 		}

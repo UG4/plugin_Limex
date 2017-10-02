@@ -526,9 +526,6 @@ class ITimeIntegrator
 		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 
 	protected:
-		//SmartPtr<domain_disc_type> m_spDomainDisc;
-
-
 		double m_dt;
 		double m_lower_tim;
 		double m_upper_tim;
@@ -1140,17 +1137,28 @@ class SimpleTimeIntegrator :
 protected:
 	typedef ITimeDiscDependentObject<TAlgebra> tdisc_dep_type;
 
-
 public:
 	typedef INonlinearTimeIntegrator<TDomain, TAlgebra> base_type;
 	typedef ITimeDiscretization<TAlgebra> time_disc_type;
+	typedef typename TAlgebra::vector_type vector_type;
 	typedef typename base_type::grid_function_type grid_function_type;
+	typedef IGridFunctionSpace<grid_function_type> grid_function_space_type;
 	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
 
 	// constructor
 	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc)
-	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc), m_spDerivative(SPNULL), m_initial_consistency_error(0.0)
+	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc),
+	  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>() ),
+	  m_spDerivative(SPNULL), m_initial_consistency_error(0.0)
+
 	{}
+
+	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc, SmartPtr<grid_function_space_type> spSpace)
+		: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc),
+		  m_spBanachSpace(spSpace),
+		  m_spDerivative(SPNULL), m_initial_consistency_error(0.0)
+	{}
+
 
 	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 	{
@@ -1170,6 +1178,9 @@ public:
 	number get_consistency_error() const
 	{ return m_initial_consistency_error; }
 
+	void set_banach_space(SmartPtr<IGridFunctionSpace<grid_function_type> > spSpace)
+	{ m_spBanachSpace = spSpace; }
+
 protected:
 	bool apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 	bool apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
@@ -1181,6 +1192,9 @@ protected:
 				(tFinal-tCurrent < (tFinal-tStart)*base_type::m_precisionBound + base_type::m_precisionBound));
 	
 	}
+
+	/// metric
+	SmartPtr<IGridFunctionSpace<grid_function_type> > m_spBanachSpace;
 
 	SmartPtr<grid_function_type> m_spDerivative;
 
@@ -1285,7 +1299,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 			 UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*u0),
 		 			   "Huhh: Different vectors required!");
 			 VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0, *u1, -1.0, *u0);
-			 m_initial_consistency_error = m_spDerivative->norm();
+			 m_initial_consistency_error = m_spBanachSpace->norm(*m_spDerivative);
 		}
 
 		 step++;

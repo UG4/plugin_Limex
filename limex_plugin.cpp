@@ -104,87 +104,93 @@ static void DomainAlgebra(Registry& reg, string grp)
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
 
 	{
-			/// GridFunctionEstimator (DEPRECATED, sub-diagonal)
-			typedef ISubDiagErrorEst<TVector> TBase;
-			typedef GridFunctionEstimator<TDomain, TAlgebra> T;
-			string name = string("GridFunctionEstimator").append(suffix);
+		/// GridFunctionEstimator (DEPRECATED, sub-diagonal)
+		typedef ISubDiagErrorEst<TVector> TBase;
+		typedef GridFunctionEstimator<TDomain, TAlgebra> T;
+		string name = string("GridFunctionEstimator").append(suffix);
 
-			reg.add_class_<T, TBase>(name, grp)
-			   .template add_constructor<void (*)(const char*) >("")
-			   .template add_constructor<void (*)(const char*, int) >("")
-			   .template add_constructor<void (*)(const char*, int, number) >("")
-			   .add_method("set_reference_norm", &T::set_reference_norm)
-			   .add_method("add", &T::add4)
-			   .add_method("config_string", &T::config_string)
-			   .set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "GridFunctionEstimator", tag);
+		reg.add_class_<T, TBase>(name, grp)
+					   .template add_constructor<void (*)(const char*) >("")
+					   .template add_constructor<void (*)(const char*, int) >("")
+					   .template add_constructor<void (*)(const char*, int, number) >("")
+					   .add_method("set_reference_norm", &T::set_reference_norm)
+					   .add_method("add", &T::add4)
+					   .add_method("config_string", &T::config_string)
+					   .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
 	}
 
 
 	{
-			// IErrorEvaluator (abstract base class)
-			typedef IErrorEvaluator<TGridFunction> T;
+			// IComponentSpace (abstract base class fro scalar component)
+			typedef IGridFunctionSpace<TGridFunction> T;
+		// 	typedef IBanachSpace<TVector> TBase;
+			string name = string("IGridFunctionSpace").append(suffix);
+			reg.add_class_<T>(name, grp);
+			reg.add_class_to_group(name, "IGridFunctionSpace", tag);
+		}
 
-			string name = string("IErrorEvaluator").append(suffix);
-			reg.add_class_<T>(name, grp)
-				.add_method("compute_norm", &T::compute_norm)
-				.add_method("compute_error", &T::compute_error);
-		/*	   .template add_constructor<void (*)() >("Default constructor")
-			   .set_construct_as_smart_pointer(true);*/
-			reg.add_class_to_group(name, "IErrorEvaluator", tag);
+	{
+		// IComponentSpace (abstract base class fro scalar component)
+		typedef IComponentSpace<TGridFunction> T;
+		typedef IGridFunctionSpace<TGridFunction> TBase;
+		string name = string("IComponentSpace").append(suffix);
+		reg.add_class_<T, TBase>(name, grp);
+		reg.add_class_to_group(name, "IComponentSpace", tag);
 	}
 
 
 	{
 		// L2ErrorEvaluator
-		typedef L2ErrorEvaluator<TGridFunction> T;
-		typedef IErrorEvaluator<TGridFunction> TBase;
+		typedef L2ComponentSpace<TGridFunction> T;
+		typedef IComponentSpace<TGridFunction> TBase;
 
-		string name = string("L2ErrorEvaluator").append(suffix);
+		string name = string("L2ComponentSpace").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)(const char *) >("fctNames")
 		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
 		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
 		   .template add_constructor<void (*)(const char *, const char *, int, number) >("fctNames, subsetNames, order, scale")
 		   .set_construct_as_smart_pointer(true);
-		reg.add_class_to_group(name, "L2ErrorEvaluator", tag);
+		reg.add_class_to_group(name, "L2ComponentSpace", tag);
 	}
 
 	{
 		// H1SemiErrorEvaluator
-		typedef H1SemiErrorEvaluator<TGridFunction> T;
-		typedef IErrorEvaluator<TGridFunction> TBase;
+		typedef H1SemiComponentSpace<TGridFunction> T;
+		typedef IComponentSpace<TGridFunction> TBase;
 		typedef UserData<number, TGridFunction::dim> TWeight;
 
-		string name = string("H1SemiErrorEvaluator").append(suffix);
+		string name = string("H1SemiComponentSpace").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)(const char *) >("fctNames")
 		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
 		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
 		   .template add_constructor<void (*)(const char *, int, number, SmartPtr<TWeight>) >("fctNames, order, scale, weights")
 		   .add_method("set_weight", &T::set_weight)
+		   .add_method("get_weight", &T::get_weight)
 		   .set_construct_as_smart_pointer(true);
-		reg.add_class_to_group(name, "H1SemiErrorEvaluator", tag);
+		reg.add_class_to_group(name, "H1SemiComponentSpace", tag);
 	}
 
 	{
 		// H1ErrorEvaluator
-		typedef H1ErrorEvaluator<TGridFunction> T;
-		typedef IErrorEvaluator<TGridFunction> TBase;
+		typedef H1ComponentSpace<TGridFunction> T;
+		typedef IComponentSpace<TGridFunction> TBase;
 
-		string name = string("H1ErrorEvaluator").append(suffix);
+		string name = string("H1ComponentSpace").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)(const char *) >("fctNames")
 		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
 		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
 		   .set_construct_as_smart_pointer(true);
-		reg.add_class_to_group(name, "H1ErrorEvaluator", tag);
+		reg.add_class_to_group(name, "H1ComponentSpace", tag);
 }
 
 	{
 		// SupErrorEvaluator
 		typedef SupErrorEvaluator<TGridFunction> T;
-		typedef IErrorEvaluator<TGridFunction> TBase;
+		typedef IComponentSpace<TGridFunction> TBase;
 
 		string name = string("SupErrorEvaluator").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
@@ -198,7 +204,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 	{
 			// UserDataEvaluatorNumber
 			typedef UserDataEvaluator<TGridFunction, number > T;
-			typedef IErrorEvaluator<TGridFunction> TBase;
+			typedef IComponentSpace<TGridFunction> TBase;
 
 			string name = string("UserDataEvaluatorNumber").append(suffix);
 			reg.add_class_<T, TBase>(name, grp)
@@ -213,7 +219,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 	{
 			// UserDataEvaluatorVector
 			typedef UserDataEvaluator<TGridFunction, MathVector<TGridFunction::dim> > T;
-			typedef IErrorEvaluator<TGridFunction> TBase;
+			typedef IComponentSpace<TGridFunction> TBase;
 
 			string name = string("UserDataEvaluatorVector").append(suffix);
 			reg.add_class_<T, TBase>(name, grp)
@@ -461,6 +467,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			 // .add_method("enable_linear_mode", &T::enable_linear_mode)
 			 // .add_method("disable_linear_mode", &T::disable_linear_mode)
 			  .add_method("select_cost_strategy", &T::select_cost_strategy)
+			  .add_method("set_space", &T::set_space)
 			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 			  .set_construct_as_smart_pointer(true);
 
@@ -519,27 +526,39 @@ static void Algebra(Registry& reg, string parentGroup)
 {
 
 	//	typedefs for Vector and Matrix
-		typedef typename TAlgebra::vector_type vector_type;
-		typedef typename TAlgebra::matrix_type matrix_type;
-//	useful defines
+	typedef typename TAlgebra::vector_type vector_type;
+	typedef typename TAlgebra::matrix_type matrix_type;
+
+	//	useful defines
 	string suffix = GetAlgebraSuffix<TAlgebra>();
 	string tag = GetAlgebraTag<TAlgebra>();
 
+/*
+	{
+		// IErrorEvaluator (abstract base class)
+		typedef IBanachSpace<vector_type> T;
 
+		string name = string("IBanachSpace").append(suffix);
+		reg.add_class_<T>(name, parentGroup)
+							.add_method("norm", &T::norm)
+							.add_method("distance", &T::distance);
+		reg.add_class_to_group(name, "IBanachSpace", tag);
+	}
+*/
 	//	LinearlyImplicitEuler
-		{
-				std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
-				typedef ITimeDiscretization<TAlgebra> TBase;
-				typedef LinearImplicitEuler<TAlgebra> T;
-				string name = string("LinearImplicitEuler").append(suffix);
-				reg.add_class_<T, TBase>(name, grp)
-						.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >)>("LinearImplicitEuler")
-						.add_method("set_gamma_disc", &T::set_gamma_disc)
-						.add_method("enable_matrix_cache", &T::enable_matrix_cache)
-						.add_method("disable_matrix_cache", &T::disable_matrix_cache)
-						.set_construct_as_smart_pointer(true);
-				reg.add_class_to_group(name, "LinearImplicitEuler", tag);
-		}
+	{
+		std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
+		typedef ITimeDiscretization<TAlgebra> TBase;
+		typedef LinearImplicitEuler<TAlgebra> T;
+		string name = string("LinearImplicitEuler").append(suffix);
+		reg.add_class_<T, TBase>(name, grp)
+								.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >)>("LinearImplicitEuler")
+								.add_method("set_gamma_disc", &T::set_gamma_disc)
+								.add_method("enable_matrix_cache", &T::enable_matrix_cache)
+								.add_method("disable_matrix_cache", &T::disable_matrix_cache)
+								.set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "LinearImplicitEuler", tag);
+	}
 
 	//	Time extrapolation
 		{
