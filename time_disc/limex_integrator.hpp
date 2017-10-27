@@ -57,6 +57,7 @@
 #include "lib_disc/time_disc/theta_time_step.h"
 #include "lib_disc/time_disc/solution_time_series.h"
 #include "lib_disc/function_spaces/grid_function_util.h" // SaveVectorForConnectionViewer
+#include "lib_disc/function_spaces/metric_spaces.h"
 #include "lib_disc/io/vtkoutput.h"
 
 #include "lib_grid/refinement/refiner_interface.h"
@@ -65,7 +66,6 @@
 // own headers
 #include "time_extrapolation.h"
 #include "time_integrator.hpp"
-#include "metric_spaces.h"
 #include "../limex_tools.h"
 //#include "../multi_thread_tools.h"
 

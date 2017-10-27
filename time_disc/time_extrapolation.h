@@ -46,11 +46,12 @@
 #include "lib_disc/function_spaces/grid_function.h"
 #include "lib_disc/function_spaces/grid_function_user_data.h"
 #include "lib_disc/function_spaces/integrate.h"
+#include "lib_disc/function_spaces/metric_spaces.h"
 
 #include "lib_disc/time_disc/time_disc_interface.h"
 #include "lib_disc/spatial_disc/user_data/linker/scale_add_linker.h"
 
-#include "metric_spaces.h"
+
 
 namespace ug{
 
@@ -287,163 +288,6 @@ protected:
 
 
 
-
-//! Estimate the error (based on the difference between two grid functions)
-template <typename TGridFunction>
-class IComponentSpace : public IGridFunctionSpace<TGridFunction>
-{
-protected:
-	std::string m_fctNames;
-	const char* m_ssNames;
-	int m_quadorder;
-	number m_scale;
-
-public:
-	typedef IGridFunctionSpace<TGridFunction> base_type;
-
-	IComponentSpace(const IComponentSpace<TGridFunction> &val)
-	{
-		this->m_fctNames = val.m_fctNames;
-		this->m_ssNames = val.m_ssNames;
-		this->m_quadorder = val.m_quadorder;
-		this->m_scale = val.m_scale;
-	}
-
-	IComponentSpace(const char *fctNames) :
-		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(3), m_scale(1.0) {}
-
-	IComponentSpace(const char *fctNames, int order) :
-		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(order), m_scale(1.0) {}
-
-	IComponentSpace(const char *fctNames, int order, number scale) :
-		m_fctNames(fctNames), m_ssNames(NULL), m_quadorder(order), m_scale(scale) {}
-
-	IComponentSpace(const char *fctNames, const char* ssNames, int order, number scale) :
-		m_fctNames(fctNames), m_ssNames(ssNames), m_quadorder(order), m_scale(scale) {}
-
-	virtual ~IComponentSpace() {};
-
-
-	// suppress warnings
-	using IGridFunctionSpace<TGridFunction>::norm;
-	using IGridFunctionSpace<TGridFunction>::distance;
-
-	/// norm (for SmartPtr)
-	virtual double norm(SmartPtr<TGridFunction> u) const
-	{ return norm(*u); }
-
-	/// distance (for SmartPtr)
-	double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
-	{ return distance(*uFine, *uCoarse); }
-
-	/// print config string
-	std::string config_string() const
-	{
-		std::stringstream ss;
-
-		if (this->m_ssNames)
-		ss << this->m_fctNames << ", " << this->m_ssNames << ", " << this->m_quadorder
-			<< ", type=" <<", scale=" << this->m_scale << std::endl;
-
-		else
-			ss << this->m_fctNames << ",  (no name), " << this->m_quadorder
-						<< ", type=" <<", scale=" << this->m_scale << std::endl;
-		return ss.str();
-	}
-
-};
-
-/** Evaluates difference between two grid functions in L2 norm */
-template <typename TGridFunction>
-class L2ComponentSpace : public IComponentSpace<TGridFunction>
-{
-public:
-	typedef IComponentSpace<TGridFunction> base_type;
-
-	L2ComponentSpace(const char *fctNames) : base_type(fctNames) {};
-	L2ComponentSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
-	L2ComponentSpace(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
-	L2ComponentSpace(const char *fctNames, const char* ssNames, int order, number scale)
-		: base_type(fctNames, ssNames, order, scale) {};
-	~L2ComponentSpace() {};
-
-	using IComponentSpace<TGridFunction>::norm;
-	using IComponentSpace<TGridFunction>::distance;
-
-	/// \copydoc IComponentSpace<TGridFunction>::norm
-	double norm(TGridFunction& uFine) const
-	{ return L2Norm(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder, base_type::m_ssNames); }
-
-	/// \copydoc IComponentSpace<TGridFunction>::distance
-	double distance(TGridFunction& uFine, TGridFunction& uCoarse) const
-	{ return L2Error(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(),
-		base_type::m_quadorder, base_type::m_ssNames);}
-};
-
-
-/** Evaluates distance between two grid functions in H1 semi-norm */
-template <typename TGridFunction>
-class H1SemiComponentSpace : public IComponentSpace<TGridFunction>
-{
-public:
-	typedef IComponentSpace<TGridFunction> base_type;
-	typedef typename H1SemiDistIntegrand<TGridFunction>::weight_type weight_type;
-
-	H1SemiComponentSpace(const char *fctNames) : base_type(fctNames) {};
-	H1SemiComponentSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
-	H1SemiComponentSpace(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
-	H1SemiComponentSpace(const char *fctNames, int order, number scale, SmartPtr<weight_type> spWeight)
-	: base_type(fctNames, order, scale),  m_spWeight(spWeight) {};
-
-	~H1SemiComponentSpace() {};
-
-	using IComponentSpace<TGridFunction>::norm;
-	using IComponentSpace<TGridFunction>::distance;
-
-	/// \copydoc IComponentSpace<TGridFunction>::norm
-	double norm(TGridFunction& uFine) const
-	{ return H1SemiNorm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder, NULL, m_spWeight); }
-
-	/// \copydoc IComponentSpace<TGridFunction>::norm
-	double distance(TGridFunction& uFine, TGridFunction& uCoarse) const
-	{ return H1SemiDistance<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder, m_spWeight); }
-
-
-	void set_weight(SmartPtr<weight_type> spWeight)
-	{ m_spWeight = spWeight; }
-
-	SmartPtr<weight_type> get_weight()
-	{ return m_spWeight; }
-
-protected:
-	SmartPtr<weight_type> m_spWeight;
-};
-
-/** Evaluates difference between two grid functions in H1 semi-norm */
-template <typename TGridFunction>
-class H1ComponentSpace :
-		public IComponentSpace<TGridFunction>
-{
-public:
-	typedef IComponentSpace<TGridFunction> base_type;
-
-	H1ComponentSpace(const char *fctNames) : base_type(fctNames) {};
-	H1ComponentSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
-	H1ComponentSpace(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
-	~H1ComponentSpace() {};
-
-	using IComponentSpace<TGridFunction>::norm;
-	using IComponentSpace<TGridFunction>::distance;
-
-	/// \copydoc IComponentSpace<TGridFunction>::norm
-	double norm(SmartPtr<TGridFunction> uFine) const
-	{ return H1Norm<TGridFunction>(uFine, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
-
-	/// \copydoc IComponentSpace<TGridFunction>::norm
-	double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
-	{ return H1Error<TGridFunction>(uFine, base_type::m_fctNames.c_str(), uCoarse, base_type::m_fctNames.c_str(), base_type::m_quadorder); }
-
-};
 
 /** Evaluates difference between two grid functions in L_inf norm */
 template <typename TGridFunction>
