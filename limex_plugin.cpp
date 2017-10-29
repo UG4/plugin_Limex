@@ -469,6 +469,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			  .add_method("select_cost_strategy", &T::select_cost_strategy)
 			  .add_method("set_space", &T::set_space)
 			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
+			  .add_method("interrupt", &T::interrupt, "", "", "interrupt execution of apply()")
 			  .set_construct_as_smart_pointer(true);
 
 			reg.add_class_to_group(name, "LimexTimeIntegrator", tag);

@@ -281,7 +281,8 @@ public:
 		  m_greedyOrderIncrease(0.0),
 		  m_useCachedMatrices(false),
 		  m_spCostStrategy(make_sp<LimexDefaultCost>(new LimexDefaultCost())),
-		  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>())              // default algebraic space
+		  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>()),              // default algebraic space
+		  m_bInterrupt(false)
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -463,6 +464,9 @@ public:
 		void set_space(SmartPtr<IGridFunctionSpace<grid_function_type> > spSpace)
 		{ m_spBanachSpace = spSpace; }
 
+		/// interrupt execution of apply() by external call via observer
+		void interrupt() {m_bInterrupt = true;}
+
 protected:
 
 		double m_tol;
@@ -492,6 +496,8 @@ protected:
 
 		/// metric space
 		SmartPtr<IGridFunctionSpace<grid_function_type> > m_spBanachSpace;
+
+		bool m_bInterrupt;
 };
 
 
@@ -713,6 +719,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 	size_t ntest;    ///< active number of stages <= kmax
 	size_t jbest;
 
+	m_bInterrupt = false;
 	timex_type timex(m_vSteps);
 	while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
 	{
@@ -924,6 +931,12 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 		}
 
+		// interrupt if interruption flag set
+		if (m_bInterrupt)
+		{
+			UG_LOGN("Limex interrupted by external command.");
+			break;
+		}
 
 		// SERIAL EXECUTION: END
 		///////////////////////////////////////
