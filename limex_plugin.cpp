@@ -120,25 +120,26 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
 	}
 
-
-	{
-			// IComponentSpace (abstract base class fro scalar component)
-			typedef IGridFunctionSpace<TGridFunction> T;
-		// 	typedef IBanachSpace<TVector> TBase;
-			string name = string("IGridFunctionSpace").append(suffix);
-			reg.add_class_<T>(name, grp);
-			reg.add_class_to_group(name, "IGridFunctionSpace", tag);
-		}
-
+// the following components are already registered in bridge/disc_bridges/grid_function_bridge.cpp
+// registering them here would lead to an error during startup of ugshell
+#if 0
 	{
 		// IComponentSpace (abstract base class fro scalar component)
+		typedef IGridFunctionSpace<TGridFunction> T;
+	// 	typedef IBanachSpace<TVector> TBase;
+		string name = string("IGridFunctionSpace").append(suffix);
+		reg.add_class_<T>(name, grp);
+		reg.add_class_to_group(name, "IGridFunctionSpace", tag);
+	}
+
+	{
+		// IComponentSpace (abstract base class for scalar component)
 		typedef IComponentSpace<TGridFunction> T;
 		typedef IGridFunctionSpace<TGridFunction> TBase;
 		string name = string("IComponentSpace").append(suffix);
 		reg.add_class_<T, TBase>(name, grp);
 		reg.add_class_to_group(name, "IComponentSpace", tag);
 	}
-
 
 	{
 		// L2ErrorEvaluator
@@ -186,6 +187,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "H1ComponentSpace", tag);
 }
+#endif
 
 	{
 		// SupErrorEvaluator
