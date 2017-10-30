@@ -682,7 +682,12 @@ public:
 };
 */
 
-/// Evaluate using continuous norm (DEPRECATED!)
+//! Evaluate using continuous norms
+/*! Can provide subspaces (incl. scaling).
+ *
+ * 	\frac{\|e\|}{\|u\|}
+ *  For ref value <= 0 TOL is scaled relatively w.r.t. function norm.
+ */
 template <class TDomain, class TAlgebra>
 class GridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
@@ -690,55 +695,29 @@ class GridFunctionEstimator :
 protected:
 	typedef typename TAlgebra::vector_type TVector;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IComponentSpace<grid_function_type> evaluator_type;
+	typedef IComponentSpace<grid_function_type> subspace_type ;
 
 	number m_refNormValue;
 
-	std::vector<evaluator_type> m_evaluators;
+	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
 
 
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
 
-	GridFunctionEstimator(const char *fctNames) :
-		ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
-	{
-		this->add(fctNames);
-	}
+	GridFunctionEstimator() : ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
+	{}
 
-	GridFunctionEstimator(const char *fctNames, int order) :
-		ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
-	{
-		this->add(fctNames, order);
-	}
 
-	GridFunctionEstimator(const char *fctNames, int order, double ref) :
-		ISubDiagErrorEst<TVector>(), m_refNormValue(ref)
-	{
-		this->add(fctNames, order);
-	}
+	GridFunctionEstimator(double ref) : ISubDiagErrorEst<TVector>(), m_refNormValue(ref)
+	{}
 
-	//! Add an L2 error for fctNames
-	void add(const char *fctNames)
-	{
-		m_evaluators.push_back(L2ComponentSpace<grid_function_type>(fctNames));
-	}
+	/// add sub-space component
+	void add(SmartPtr<subspace_type> spSubspace)
+	{ m_spSubspaces.push_back(spSubspace); }
 
-	void add(const char *fctNames, int order)
-	{
-		m_evaluators.push_back(L2ComponentSpace<grid_function_type>(fctNames, order));
-	}
 
-	void add4(const char *fctNames, int order, int type, double scale)
-	{
-		if (type == 0) {
-			m_evaluators.push_back(L2ComponentSpace<grid_function_type>(fctNames, order, scale));
-		} else if (type == 1) {
-			m_evaluators.push_back(H1SemiComponentSpace<grid_function_type>(fctNames, order, scale));
-		} else { UG_LOG(""); }
-	}
-
-	// apply w/ rel norm
+	/// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
 		// typedefs
@@ -754,29 +733,32 @@ public:
 		if (m_refNormValue<=0.0)
 		{
 			// relative error estimator
-			number unorm = 0.0;
-			number enorm = 0.0;
-			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			number unorm2 = 0.0;
+			number enorm2 = 0.0;
+			for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
 			{
-				unorm +=  it->norm(uFine);
-				enorm +=  alpha * it->distance(uFine, uCoarse);
+				double scaling = (*it)->scaling();
+				double norm2 = (*it)->norm(uFine); norm2*=norm2;
+				double dist2 = alpha * (*it)->distance(uFine, uCoarse); dist2*=dist2;
+				unorm2 +=  scaling * norm2;
+				enorm2 +=  scaling * dist2;
 			}
 
-			base_type::m_est = enorm/unorm;
-
-			std::cerr << "unorm=" << unorm << "\tenorm=" << enorm << "\teps="<< base_type::m_est << std::endl;
+			base_type::m_est = sqrt(enorm2/unorm2);
+			std::cerr << "unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\teps="<< base_type::m_est << std::endl;
 		}
 		else
 		{
 			// weighted error estimator
-			number enorm = 0.0;
-			for (typename std::vector<evaluator_type>::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+			number enorm2 = 0.0;
+			for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
 			{
-				enorm +=  alpha * it->distance(uFine, uCoarse);
+				double dist2 = alpha * (*it)->distance(uFine, uCoarse); dist2*=dist2;
+				enorm2 +=  (*it)->scaling() * dist2;
 			}
-			base_type::m_est = enorm/m_refNormValue;
 
-			std::cerr << "unorm (FIXED)=" << m_refNormValue << "enorm=" << enorm << "eps="<< base_type::m_est << std::endl;
+			base_type::m_est = sqrt(enorm2)/m_refNormValue;
+			std::cerr << "unorm (FIXED)=" << m_refNormValue << "enorm2=" << enorm2 << "eps="<< base_type::m_est << std::endl;
 
 		}
 
@@ -794,9 +776,9 @@ public:
 	{
 		std::stringstream ss;
 		ss << "GridFunctionEstimator:\n";
-		for (typename std::vector<evaluator_type>::const_iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		for (typename std::vector<SmartPtr<subspace_type> >::const_iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
 		{
-			ss << it->config_string();
+			ss << (*it)->config_string();
 		}
 		return ss.str();
 	}
@@ -826,7 +808,6 @@ public:
 	// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
-		// typedef GridFunctionNumberData<TGridFunction> TNumberData;
 
 		// upcast
 		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();

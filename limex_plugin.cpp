@@ -104,88 +104,22 @@ static void DomainAlgebra(Registry& reg, string grp)
 	typedef GridFunction<TDomain,TAlgebra> TGridFunction;
 
 	{
-		/// GridFunctionEstimator (DEPRECATED, sub-diagonal)
+		/// GridFunctionEstimator (REPLACED, sub-diagonal)
 		typedef ISubDiagErrorEst<TVector> TBase;
 		typedef GridFunctionEstimator<TDomain, TAlgebra> T;
 		string name = string("GridFunctionEstimator").append(suffix);
 
 		reg.add_class_<T, TBase>(name, grp)
-					   .template add_constructor<void (*)(const char*) >("")
-					   .template add_constructor<void (*)(const char*, int) >("")
-					   .template add_constructor<void (*)(const char*, int, number) >("")
+					   .template add_constructor<void (*)() >("")
+					   .template add_constructor<void (*)(number) >("")
 					   .add_method("set_reference_norm", &T::set_reference_norm)
-					   .add_method("add", &T::add4)
+					   .add_method("add", &T::add)
 					   .add_method("config_string", &T::config_string)
 					   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
 	}
 
 
-	{
-			// IComponentSpace (abstract base class fro scalar component)
-			typedef IGridFunctionSpace<TGridFunction> T;
-		// 	typedef IBanachSpace<TVector> TBase;
-			string name = string("IGridFunctionSpace").append(suffix);
-			reg.add_class_<T>(name, grp);
-			reg.add_class_to_group(name, "IGridFunctionSpace", tag);
-		}
-
-	{
-		// IComponentSpace (abstract base class fro scalar component)
-		typedef IComponentSpace<TGridFunction> T;
-		typedef IGridFunctionSpace<TGridFunction> TBase;
-		string name = string("IComponentSpace").append(suffix);
-		reg.add_class_<T, TBase>(name, grp);
-		reg.add_class_to_group(name, "IComponentSpace", tag);
-	}
-
-
-	{
-		// L2ErrorEvaluator
-		typedef L2ComponentSpace<TGridFunction> T;
-		typedef IComponentSpace<TGridFunction> TBase;
-
-		string name = string("L2ComponentSpace").append(suffix);
-		reg.add_class_<T, TBase>(name, grp)
-		   .template add_constructor<void (*)(const char *) >("fctNames")
-		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
-		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
-		   .template add_constructor<void (*)(const char *, const char *, int, number) >("fctNames, subsetNames, order, scale")
-		   .set_construct_as_smart_pointer(true);
-		reg.add_class_to_group(name, "L2ComponentSpace", tag);
-	}
-
-	{
-		// H1SemiErrorEvaluator
-		typedef H1SemiComponentSpace<TGridFunction> T;
-		typedef IComponentSpace<TGridFunction> TBase;
-		typedef UserData<number, TGridFunction::dim> TWeight;
-
-		string name = string("H1SemiComponentSpace").append(suffix);
-		reg.add_class_<T, TBase>(name, grp)
-		   .template add_constructor<void (*)(const char *) >("fctNames")
-		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
-		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
-		   .template add_constructor<void (*)(const char *, int, number, SmartPtr<TWeight>) >("fctNames, order, scale, weights")
-		   .add_method("set_weight", &T::set_weight)
-		   .add_method("get_weight", &T::get_weight)
-		   .set_construct_as_smart_pointer(true);
-		reg.add_class_to_group(name, "H1SemiComponentSpace", tag);
-	}
-
-	{
-		// H1ErrorEvaluator
-		typedef H1ComponentSpace<TGridFunction> T;
-		typedef IComponentSpace<TGridFunction> TBase;
-
-		string name = string("H1ComponentSpace").append(suffix);
-		reg.add_class_<T, TBase>(name, grp)
-		   .template add_constructor<void (*)(const char *) >("fctNames")
-		   .template add_constructor<void (*)(const char *, int) >("fctNames, order")
-		   .template add_constructor<void (*)(const char *, int, number) >("fctNames, order, scale")
-		   .set_construct_as_smart_pointer(true);
-		reg.add_class_to_group(name, "H1ComponentSpace", tag);
-}
 
 	{
 		// SupErrorEvaluator
