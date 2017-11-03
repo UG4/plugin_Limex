@@ -737,15 +737,18 @@ public:
 			number enorm2 = 0.0;
 			for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
 			{
-				double scaling = (*it)->scaling();
-				double norm2 = (*it)->norm(uFine); norm2*=norm2;
-				double dist2 = alpha * (*it)->distance(uFine, uCoarse); dist2*=dist2;
-				unorm2 +=  scaling * norm2;
-				enorm2 +=  scaling * dist2;
+			  double sigma = (*it)->scaling();
+			  double norm = sigma*(*it)->norm(*uFine); 
+			  double dist = alpha * sigma * (*it)->distance(*uFine, *uCoarse); 
+			  unorm2 += norm*norm;
+			  enorm2 += dist*dist;
+
+			  std::cerr << "unorm=" << norm << "\tenorm=" << dist << std::endl;
+
 			}
 
 			base_type::m_est = sqrt(enorm2/unorm2);
-			std::cerr << "unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\teps="<< base_type::m_est << std::endl;
+			std::cerr << ">>> unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\teps="<< base_type::m_est << std::endl;
 		}
 		else
 		{
@@ -753,8 +756,9 @@ public:
 			number enorm2 = 0.0;
 			for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
 			{
-				double dist2 = alpha * (*it)->distance(uFine, uCoarse); dist2*=dist2;
-				enorm2 +=  (*it)->scaling() * dist2;
+			  double sigma = (*it)->scaling();
+			  double dist = alpha * sigma * (*it)->distance(*uFine, *uCoarse);
+			  enorm2 += dist*dist;
 			}
 
 			base_type::m_est = sqrt(enorm2)/m_refNormValue;
@@ -819,8 +823,8 @@ public:
 		for (typename std::vector<SmartPtr<evaluator_type> >::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
 		{
 			// use sub-diagonal error estimator (i.e. multiply with alpha)
-			double enorm =  alpha * (*it)->distance(uFine, uCoarse);
-			double unorm =  std::max((*it)->norm(uFine), 1e-10*enorm);
+			double enorm =  alpha * (*it)->distance(*uFine, *uCoarse);
+			double unorm =  std::max((*it)->norm(*uFine), 1e-10*enorm);
 			est += (enorm*enorm)/(unorm*unorm);
 			UG_LOGN("unorm=" << unorm << "\tenorm=" << enorm << "\tratio2="<< (enorm*enorm)/(unorm*unorm));
 		}

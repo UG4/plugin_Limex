@@ -43,6 +43,7 @@
 
 // ug
 #include "lib_disc/function_spaces/grid_function.h"
+#include "lib_disc/function_spaces/metric_spaces.h"
 #include "lib_disc/time_disc/theta_time_step.h"
 #include "common/ug_config.h"
 #include "common/error.h"
@@ -118,8 +119,6 @@ static void DomainAlgebra(Registry& reg, string grp)
 					   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
 	}
-
-
 
 	{
 		// SupErrorEvaluator
