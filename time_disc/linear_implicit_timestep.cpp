@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2014-2016:  G-CSC, Goethe University Frankfurt
  * Author: Arne Naegel
@@ -365,7 +366,8 @@ assemble_rhs(vector_type& b, const vector_type& u, const GridLevel& gl)
  *
  *  Linear system
  *
- *  */
+ *
+ */
 
 template <typename TAlgebra>
 void LinearImplicitEuler<TAlgebra>::

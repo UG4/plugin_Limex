@@ -88,7 +88,7 @@ public:
 	typedef IDomainDiscretization<algebra_type>	domain_discretization_type;
 
 public:
-/// constructor
+	/// CTOR
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDD)
 		: ITimeDiscretization<TAlgebra>(spDD),
 		  m_pPrevSol(NULL),
@@ -99,6 +99,7 @@ public:
 		  m_useCachedMatrices(true)
 	{}
 
+	/// CTOR
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc)
 		: ITimeDiscretization<TAlgebra>(spDefectDisc),
@@ -110,6 +111,7 @@ public:
 		  m_useCachedMatrices(true)
 	{}
 
+	/// CTOR
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
@@ -122,22 +124,25 @@ public:
 		  m_useCachedMatrices(true)
 	{}
 
+	/// DTOR
 	virtual ~LinearImplicitEuler(){};
 
-/// \copydoc ITimeDiscretization::num_prev_steps()
+public:
+	/// \copydoc ITimeDiscretization::num_prev_steps()
 	virtual size_t num_prev_steps() const {return m_prevSteps;}
 
-///	\copydoc ITimeDiscretization::prepare_step()
+	///	\copydoc ITimeDiscretization::prepare_step()
 	virtual void prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 	                          number dt);
 
-///	\copydoc ITimeDiscretization::prepare_step_elem()
+	///	\copydoc ITimeDiscretization::prepare_step_elem()
 	virtual void prepare_step_elem(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 	                               number dt, const GridLevel& gl);
 
+	///	\copydoc ITimeDiscretization::finish_step()
 	virtual void finish_step(SmartPtr<VectorTimeSeries<vector_type> > currSol) {};
 
-///	\copydoc ITimeDiscretization::finish_step_elem()
+	///	\copydoc ITimeDiscretization::finish_step_elem()
 	virtual void finish_step_elem(SmartPtr<VectorTimeSeries<vector_type> > currSol,
 	                              const GridLevel& gl);
 
@@ -164,7 +169,7 @@ public:
 	 virtual void set_stage(size_t stage) {};
 
 
-	/// Some simplifications for linear systems. In this case, the mass matrix is not re-assembled.
+	/// Some simplifications for linear systems. (In this case, the mass matrix is not re-assembled.)
 	void enable_linear_mode() { m_useLinearMode = true; }
 	void disable_linear_mode() { m_useLinearMode = false; }
 	bool use_linear_mode() const { return m_useLinearMode; }
@@ -181,8 +186,6 @@ protected:
 			                              ConstSmartPtr<VectorTimeSeries<vector_type> > prevSol)
 
 	{
-		// const number theta = 1.0;
-
 		//	resize scaling factors
 		vSM.resize(1);
 		vSM[0] = 1.0;
