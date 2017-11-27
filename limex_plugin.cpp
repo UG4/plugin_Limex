@@ -128,40 +128,40 @@ static void DomainAlgebra(Registry& reg, string grp)
 		string name = string("SupErrorEvaluator").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)(const char *) >("fctNames")
-		   .template add_constructor<void (*)(const char *, number) >("fctNames, scale")
-		   .template add_constructor<void (*)(const char *, const char *, number) >("fctNames, subsetNames, scale")
+		 //  .template add_constructor<void (*)(const char *, number) >("fctNames, scale")
+		   .template add_constructor<void (*)(const char *, const char */*, number*/) >("fctNames, subsetNames, scale")
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "SupErrorEvaluator", tag);
 	}
 
 	{
-			// UserDataEvaluatorNumber
-			typedef UserDataEvaluator<TGridFunction, number > T;
+			// UserDataSpaceNumber
+			typedef UserDataSpace<TGridFunction, number > T;
 			typedef IComponentSpace<TGridFunction> TBase;
 
-			string name = string("UserDataEvaluatorNumber").append(suffix);
+			string name = string("UserDataSpaceNumber").append(suffix);
 			reg.add_class_<T, TBase>(name, grp)
 			   .template add_constructor<void (*)(const char *) >("fctNames")
 			   .template add_constructor<void (*)(const char *, int) >("fctNames, scale")
-			   .template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
+			  // .template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
 			   .add_method("set_user_data", &T::set_user_data)
 			   .set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "UserDataEvaluatorNumber", tag);
+			reg.add_class_to_group(name, "UserDataSpaceNumber", tag);
 	}
 
 	{
-			// UserDataEvaluatorVector
-			typedef UserDataEvaluator<TGridFunction, MathVector<TGridFunction::dim> > T;
+			// UserDataSpaceVector
+			typedef UserDataSpace<TGridFunction, MathVector<TGridFunction::dim> > T;
 			typedef IComponentSpace<TGridFunction> TBase;
 
-			string name = string("UserDataEvaluatorVector").append(suffix);
+			string name = string("UserDataSpaceVector").append(suffix);
 			reg.add_class_<T, TBase>(name, grp)
 				.template add_constructor<void (*)(const char *) >("fctNames")
 				.template add_constructor<void (*)(const char *, int) >("fctNames, scale")
-				.template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
+				//.template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
 				.add_method("set_user_data", &T::set_user_data)
 				.set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "UserDataEvaluatorVector", tag);
+			reg.add_class_to_group(name, "UserDataSpaceVector", tag);
 	}
 
 
@@ -220,6 +220,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 			reg.add_class_<T, typename T::base_type>(name, grp)
 				.template add_constructor<void (*)() >("")
 		 	 	.add_method("set_callback", &T::set_callback)
+				.add_method("set_callback_post", &T::set_callback_post)
+				.add_method("set_callback_pre", &T::set_callback_pre)
 				.add_method("get_current_solution", &T::get_current_solution)
 				.set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "LuaCallbackObserver", tag);

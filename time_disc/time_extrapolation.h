@@ -298,9 +298,9 @@ class SupErrorEvaluator
 		typedef IComponentSpace<TGridFunction> base_type;
 
 		SupErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
-		SupErrorEvaluator(const char *fctNames, number scale) : base_type(fctNames, 1, scale) {};
-		SupErrorEvaluator(const char *fctNames, const char* ssNames, number scale)
-			: base_type(fctNames, ssNames, 1, scale) {};
+		//SupErrorEvaluator(const char *fctNames, number scale) : base_type(fctNames, 1, scale) {};
+		SupErrorEvaluator(const char *fctNames, const char* ssNames /*, number scale*/)
+			: base_type(fctNames, ssNames, 1/*, scale*/) {};
 		~SupErrorEvaluator() {};
 
 
@@ -308,9 +308,12 @@ class SupErrorEvaluator
 		using IComponentSpace<TGridFunction>::distance;
 
 		double norm(SmartPtr<TGridFunction> uFine) const
+		{ return norm(*uFine); }
+
+		double norm(TGridFunction& uFine) const
 		{
 			// gather subsets in group
-			SubsetGroup ssGrp(uFine->domain()->subset_handler());
+			SubsetGroup ssGrp(uFine.domain()->subset_handler());
 			if (base_type::m_ssNames != NULL)
 				ssGrp.add(TokenizeString(base_type::m_ssNames));
 			else
@@ -350,21 +353,27 @@ class SupErrorEvaluator
 			return maxVal;
 		}
 
-		double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+		double norm2(TGridFunction& uFine) const
+		{ double norm1 = norm(uFine); return norm1*norm1;}
+
+		double distance(TGridFunction& uFine, TGridFunction& uCoarse) const
 		{
-			UG_COND_THROW(uFine->dof_distribution().get() != uCoarse->dof_distribution().get(),
+			UG_COND_THROW(uFine.dof_distribution().get() != uCoarse.dof_distribution().get(),
 				"Coarse and fine solutions do not have the same underlying dof distro.");
 
-			SmartPtr<TGridFunction> uErr = uCoarse->clone();
-			uErr->operator-=(*uFine);
-			return norm(uErr);
+			SmartPtr<TGridFunction> uErr = uCoarse.clone();
+			uErr->operator-=(uFine);
+			return norm(*uErr);
 		}
+
+		double distance2(TGridFunction& uFine, TGridFunction& uCoarse) const
+		{ double dist = distance(uFine, uCoarse); return dist*dist;}
 
 	protected:
 		template <typename TBaseElem>
-		number findFctMaxOnSubset(ConstSmartPtr<TGridFunction> u, int si) const
+		number findFctMaxOnSubset(const TGridFunction& u, int si) const
 		{
-			ConstSmartPtr<DoFDistribution> dd = u->dof_distribution();
+			ConstSmartPtr<DoFDistribution> dd = u.dof_distribution();
 
 			size_t fct;
 			try {fct = dd->fct_id_by_name(base_type::m_fctNames.c_str());}
@@ -383,7 +392,7 @@ class SupErrorEvaluator
 				// but as this is a sup norm, this is not a problem (only in terms of performance)
 				size_t nInd = dd->dof_indices(*it, fct, vInd, false, false);
 				for (size_t i = 0; i < nInd; ++i)
-					maxVal = std::max(maxVal, fabs(DoFRef(*u, vInd[i])));
+					maxVal = std::max(maxVal, fabs(DoFRef(u, vInd[i])));
 			}
 
 			return maxVal;
@@ -420,8 +429,8 @@ class DeltaSquareIntegrand
 		SmartPtr<UserData<TDataIn, worldDim> > m_spData;
 
 	// 	grid function
-		SmartPtr<TGridFunction> m_spGridFct;
-		SmartPtr<TGridFunction> m_spGridFct2;
+		const TGridFunction* m_pGridFct1;
+		const TGridFunction* m_pGridFct2;
 
 	//	time
 		number m_time;
@@ -429,18 +438,16 @@ class DeltaSquareIntegrand
 	public:
 	/// constructor
 		DeltaSquareIntegrand(SmartPtr<UserData<TDataIn, worldDim> > spData,
-		                SmartPtr<TGridFunction> spGridFct,
-						SmartPtr<TGridFunction> spGridFct2,
+		                const TGridFunction* pGridFct1, const TGridFunction* pGridFct2,
 		                number time)
-		: m_spData(spData), m_spGridFct(spGridFct), m_spGridFct2(spGridFct2), m_time(time)
+		: m_spData(spData), m_pGridFct1(pGridFct1), m_pGridFct2(pGridFct2), m_time(time)
 		{
-			m_spData->set_function_pattern(spGridFct->function_pattern());
+			m_spData->set_function_pattern(pGridFct1->function_pattern());
 		};
 
 	/// constructor
-		DeltaSquareIntegrand(SmartPtr<UserData<TDataIn, worldDim> > spData,
-							  number time)
-		: m_spData(spData), m_spGridFct(NULL), m_spGridFct2(NULL), m_time(time)
+		DeltaSquareIntegrand(SmartPtr<UserData<TDataIn, worldDim> > spData, number time)
+		: m_spData(spData), m_pGridFct1(NULL), m_pGridFct2(NULL), m_time(time)
 		{
 			if(m_spData->requires_grid_fct())
 				UG_THROW("UserDataDeltaIntegrand: Missing GridFunction, but "
@@ -453,7 +460,7 @@ class DeltaSquareIntegrand
 		template <int elemDim>
 		void get_values(TDataIn vValue[],
 					  ConstSmartPtr<UserData<TDataIn, worldDim> > spData,
-					  ConstSmartPtr<TGridFunction> spGridFct,
+					  const TGridFunction& gridFct,
 		              const MathVector<worldDim> vGlobIP[],
 		              GridObject* pElem,
 		              const MathVector<worldDim> vCornerCoords[],
@@ -461,7 +468,7 @@ class DeltaSquareIntegrand
 		              const MathMatrix<elemDim, worldDim> vJT[],
 		              const size_t numIP)
 		{
-		//	get local solution if needed
+			//	collect local solution, if required
 			if(spData->requires_grid_fct())
 			{
 			//	create storage
@@ -469,13 +476,13 @@ class DeltaSquareIntegrand
 				LocalVector u;
 
 			// 	get global indices
-				spGridFct->indices(pElem, ind);
+				gridFct.indices(pElem, ind);
 
 			// 	adapt local algebra
 				u.resize(ind);
 
 			// 	read local values of u
-				GetLocalVector(u, *spGridFct);
+				GetLocalVector(u, gridFct);
 				std::cout << u << std::endl;
 
 			//	compute data
@@ -509,15 +516,15 @@ class DeltaSquareIntegrand
 			{
 				std::vector<TDataIn> v1(numIP);
 
-				get_values<elemDim>(&v1[0], m_spData, m_spGridFct, vGlobIP, pElem, vCornerCoords, vLocIP, vJT, numIP);
+				get_values<elemDim>(&v1[0], m_spData, *m_pGridFct1, vGlobIP, pElem, vCornerCoords, vLocIP, vJT, numIP);
 				std::cout << "--- got v1!" << std::endl;
 
-				if (m_spGridFct2.valid())
+				if (m_pGridFct2 != NULL)
 				{
 					std::vector<TDataIn> v2(numIP);
 				/*	m_spGridFct->set(0.5);
 					m_spGridFct2->set(0.5);*/
-					get_values<elemDim>(&v2[0], m_spData, m_spGridFct2, vGlobIP, pElem, vCornerCoords, vLocIP, vJT, numIP);
+					get_values<elemDim>(&v2[0], m_spData, *m_pGridFct2, vGlobIP, pElem, vCornerCoords, vLocIP, vJT, numIP);
 					std::cout << "--- got v2!" << std::endl;
 
 					for (size_t ip=0; ip<numIP; ++ip)
@@ -540,46 +547,35 @@ class DeltaSquareIntegrand
 //! Evaluate the difference for a (dependent) UserData type induced by different grid functions
 /*! UserData maybe of type TDataInput, i.e., number/vector/matrix/... */
 template <typename TGridFunction, typename TDataInput>
-class UserDataEvaluator :
-		public IComponentSpace<TGridFunction>
+class UserDataSpace : public IComponentSpace<TGridFunction>
 {
 public:
 	typedef IComponentSpace<TGridFunction> base_type;
-	//typedef MathVector<TGridFunction::dim> TDataInput;
 	typedef UserData<TDataInput, TGridFunction::dim> input_user_data_type;
 
-	UserDataEvaluator(const char *fctNames) : base_type(fctNames) {};
-	UserDataEvaluator(const char *fctNames, int order) : base_type(fctNames, order) {};
-	UserDataEvaluator(const char *fctNames, int order, number scale) : base_type(fctNames, order, scale) {};
-	~UserDataEvaluator() {};
+	UserDataSpace(const char *fctNames) : base_type(fctNames) {};
+	UserDataSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
+	~UserDataSpace() {};
 
 	void set_user_data(SmartPtr<input_user_data_type> spData)
-	{
-		m_userData = spData;
-	}
+	{ m_userData = spData; }
 
 
+	//! per default
 	using IComponentSpace<TGridFunction>::norm;
 	using IComponentSpace<TGridFunction>::distance;
 
-	double norm(SmartPtr<TGridFunction> uFine) const
+	double norm2(TGridFunction& uFine) const
 	{
-		/*SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
-		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, SPNULL, 0.0));*/
-
-		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, uFine, SPNULL, 0.0);
-		return sqrt(IntegrateSubsets(spIntegrand,*uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
+		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, NULL, 0.0);
+		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
 	}
 
-	double distance(SmartPtr<TGridFunction> uFine, SmartPtr<TGridFunction> uCoarse) const
+	double distance2(TGridFunction& uFine, TGridFunction& uCoarse) const
 	{
-		/*SmartPtr<IIntegrand<number, TGridFunction::dim> > spIntegrand
-		= make_sp(new DeltaSquareIntegrand<TDataInput, TGridFunction> (m_userData, uFine, uCoarse, 0.0));*/
-
-		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, uFine, uCoarse, 0.0);
-		std::cout << "uFine="<<(void*) &(*uFine) << ", uCoarse="<< (void*)&(*uCoarse) << std::endl;
-
-		return sqrt(IntegrateSubsets(spIntegrand, *uFine, base_type::m_ssNames, base_type::m_quadorder, "best"));
+		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, &uCoarse, 0.0);
+		std::cerr << "uFine="<<(void*) (&uFine) << ", uCoarse="<< (void*) (&uCoarse) << std::endl;
+		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
 	}
 
 protected:
