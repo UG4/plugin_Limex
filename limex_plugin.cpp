@@ -108,13 +108,16 @@ static void DomainAlgebra(Registry& reg, string grp)
 		/// GridFunctionEstimator (REPLACED, sub-diagonal)
 		typedef ISubDiagErrorEst<TVector> TBase;
 		typedef GridFunctionEstimator<TDomain, TAlgebra> T;
+		typedef IComponentSpace<TGridFunction> TCompSpace;
+
 		string name = string("GridFunctionEstimator").append(suffix);
 
 		reg.add_class_<T, TBase>(name, grp)
 					   .template add_constructor<void (*)() >("")
 					   .template add_constructor<void (*)(number) >("")
 					   .add_method("set_reference_norm", &T::set_reference_norm)
-					   .add_method("add", &T::add)
+					   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>) > (&T::add))
+					   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>, number) > (&T::add))
 					   .add_method("config_string", &T::config_string)
 					   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
@@ -169,11 +172,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// ScaledGridFunctionEstimator (sub-diagonal)
 		typedef ISubDiagErrorEst<TVector> TBase;
 		typedef ScaledGridFunctionEstimator<TDomain, TAlgebra> T;
+		typedef IComponentSpace<TGridFunction> TCompSpace;
 		string name = string("ScaledGridFunctionEstimator").append(suffix);
 
 		reg.add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)() >("Default constructor")
-		   .add_method("add", &T::add)
+		   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>) > (&T::add))
 		   .add_method("config_string", &T::config_string)
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "ScaledGridFunctionEstimator", tag);

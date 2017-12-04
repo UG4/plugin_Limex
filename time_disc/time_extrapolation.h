@@ -692,10 +692,10 @@ protected:
 	typedef typename TAlgebra::vector_type TVector;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 	typedef IComponentSpace<grid_function_type> subspace_type ;
+	typedef std::pair<SmartPtr<subspace_type>, number> weighted_obj_type;
 
 	number m_refNormValue;
-
-	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
+	std::vector<weighted_obj_type> m_spWeightedSubspaces;
 
 
 public:
@@ -710,7 +710,10 @@ public:
 
 	/// add sub-space component
 	void add(SmartPtr<subspace_type> spSubspace)
-	{ m_spSubspaces.push_back(spSubspace); }
+	{  m_spWeightedSubspaces.push_back(std::make_pair(spSubspace, 1.0)); }
+
+	void add(SmartPtr<subspace_type> spSubspace, number sigma)
+	{  m_spWeightedSubspaces.push_back(std::make_pair(spSubspace, sigma)); }
 
 
 	/// apply w/ rel norm
@@ -731,15 +734,15 @@ public:
 			// relative error estimator
 			number unorm2 = 0.0;
 			number enorm2 = 0.0;
-			for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
+			for (typename std::vector<weighted_obj_type>::const_iterator it = m_spWeightedSubspaces.begin(); it!= m_spWeightedSubspaces.end(); ++it)
 			{
-			  double sigma = (*it)->scaling();
-			  double norm = sigma*(*it)->norm(*uFine); 
-			  double dist = alpha * sigma * (*it)->distance(*uFine, *uCoarse); 
-			  unorm2 += norm*norm;
-			  enorm2 += dist*dist;
+			  const double sigma = it->second;
+			  const double norm2 = it->first->norm2(*uFine);
+			  const double dist2 = alpha * alpha * (it->first->distance2(*uFine, *uCoarse));
+			  unorm2 += sigma * norm2;
+			  enorm2 += sigma * dist2;
 
-			  std::cerr << "unorm=" << norm << "\tenorm=" << dist << std::endl;
+			  std::cerr << "unorm=" << norm2 << "\tenorm=" << dist2 <<  "\tsigma=" << sigma << std::endl;
 
 			}
 
@@ -750,11 +753,11 @@ public:
 		{
 			// weighted error estimator
 			number enorm2 = 0.0;
-			for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
+			for (typename std::vector<weighted_obj_type>::const_iterator it = m_spWeightedSubspaces.begin(); it!= m_spWeightedSubspaces.end(); ++it)
 			{
-			  double sigma = (*it)->scaling();
-			  double dist = alpha * sigma * (*it)->distance(*uFine, *uCoarse);
-			  enorm2 += dist*dist;
+			  const double sigma = it->second;
+			  const double dist2 = alpha * alpha * (it->first->distance2(*uFine, *uCoarse));
+			  enorm2 += sigma*dist2;
 			}
 
 			base_type::m_est = sqrt(enorm2)/m_refNormValue;
@@ -776,9 +779,9 @@ public:
 	{
 		std::stringstream ss;
 		ss << "GridFunctionEstimator:\n";
-		for (typename std::vector<SmartPtr<subspace_type> >::const_iterator it = m_spSubspaces.begin(); it!= m_spSubspaces.end(); ++it)
+		for (typename std::vector<weighted_obj_type>::const_iterator it = m_spWeightedSubspaces.begin(); it!= m_spWeightedSubspaces.end(); ++it)
 		{
-			ss << (*it)->config_string();
+			ss << it->second << "*" << it->first->config_string();
 		}
 		return ss.str();
 	}
@@ -792,9 +795,9 @@ class ScaledGridFunctionEstimator :
 protected:
 	typedef typename TAlgebra::vector_type TVector;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IComponentSpace<grid_function_type> evaluator_type;
+	typedef IComponentSpace<grid_function_type> subspace_type;
 
-	std::vector<SmartPtr<evaluator_type> > m_evaluators;
+	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
 
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
@@ -802,8 +805,8 @@ public:
 	// constructor
 	ScaledGridFunctionEstimator() : base_type() {}
 
-	void add(SmartPtr<evaluator_type> eval)
-	{ m_evaluators.push_back(eval); }
+	void add(SmartPtr<subspace_type> spSubspace)
+	{  m_spSubspaces.push_back(spSubspace); }
 
 	// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
@@ -816,16 +819,17 @@ public:
 
 		// error estimate
 		number est = 0.0;
-		for (typename std::vector<SmartPtr<evaluator_type> >::iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin();
+				it!= m_spSubspaces.end(); ++it)
 		{
 			// use sub-diagonal error estimator (i.e. multiply with alpha)
-			double enorm =  alpha * (*it)->distance(*uFine, *uCoarse);
-			double unorm =  std::max((*it)->norm(*uFine), 1e-10*enorm);
-			est += (enorm*enorm)/(unorm*unorm);
-			UG_LOGN("unorm=" << unorm << "\tenorm=" << enorm << "\tratio2="<< (enorm*enorm)/(unorm*unorm));
+			double enorm2 =  (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
+			double unorm2 =  std::max((*it)->norm2(*uFine), 1e-10*enorm2);
+			est += (enorm2)/(unorm2);
+			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\tratio="<< (enorm2)/(unorm2));
 		}
 
-		base_type::m_est = sqrt(est)/m_evaluators.size();
+		base_type::m_est = sqrt(est)/m_spSubspaces.size();
 		UG_LOGN("eps="<< base_type::m_est);
 
 		// update
@@ -839,7 +843,8 @@ public:
 	{
 		std::stringstream ss;
 		ss << "ScaledGridFunctionEstimator:\n";
-		for (typename std::vector<SmartPtr<evaluator_type> >::const_iterator it = m_evaluators.begin(); it!= m_evaluators.end(); ++it)
+		for (typename std::vector<SmartPtr<subspace_type> >::const_iterator it = m_spSubspaces.begin();
+				it!= m_spSubspaces.end(); ++it)
 		{
 			ss << (*it)->config_string();
 		}
