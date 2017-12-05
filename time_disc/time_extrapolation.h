@@ -681,7 +681,7 @@ public:
 //! Evaluate using continuous norms
 /*! Can provide subspaces (incl. scaling).
  *
- * 	\frac{\|e\|}{\|u\|}
+ * 	sum_I \sigma_I \frac{\|e\|_I}{\|u\|_I}
  *  For ref value <= 0 TOL is scaled relatively w.r.t. function norm.
  */
 template <class TDomain, class TAlgebra>
@@ -690,8 +690,13 @@ class GridFunctionEstimator :
 {
 protected:
 	typedef typename TAlgebra::vector_type TVector;
+public:
+	typedef ISubDiagErrorEst<TVector> base_type;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 	typedef IComponentSpace<grid_function_type> subspace_type ;
+	typedef CompositeSpace<grid_function_type> composite_type;
+
+protected:
 	typedef std::pair<SmartPtr<subspace_type>, number> weighted_obj_type;
 
 	number m_refNormValue;
@@ -699,8 +704,6 @@ protected:
 
 
 public:
-	typedef ISubDiagErrorEst<TVector> base_type;
-
 	GridFunctionEstimator() : ISubDiagErrorEst<TVector>(), m_refNormValue(0.0)
 	{}
 
@@ -714,6 +717,17 @@ public:
 
 	void add(SmartPtr<subspace_type> spSubspace, number sigma)
 	{  m_spWeightedSubspaces.push_back(std::make_pair(spSubspace, sigma)); }
+
+	// add subspaces (from container)
+	void add(SmartPtr<composite_type> spCompositeSpace)
+	{
+		typedef typename composite_type::weighted_obj_type weighted_obj_type;
+		const std::vector<weighted_obj_type> &spaces = spCompositeSpace->get_subspaces();
+		for (typename std::vector<weighted_obj_type>::const_iterator it = spaces.begin(); it != spaces.end(); ++it)
+		{
+			add(it->first, it->second);
+		}
+	}
 
 
 	/// apply w/ rel norm
@@ -794,19 +808,31 @@ class ScaledGridFunctionEstimator :
 {
 protected:
 	typedef typename TAlgebra::vector_type TVector;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IComponentSpace<grid_function_type> subspace_type;
-
-	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
 
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef IComponentSpace<grid_function_type> subspace_type;
+	typedef CompositeSpace<grid_function_type> composite_type;
 
 	// constructor
 	ScaledGridFunctionEstimator() : base_type() {}
 
+	// add (single subspace)
 	void add(SmartPtr<subspace_type> spSubspace)
 	{  m_spSubspaces.push_back(spSubspace); }
+
+	// add subspaces (from container)
+	void add(SmartPtr<composite_type> spCompositeSpace)
+	{
+		typedef typename composite_type::weighted_obj_type weighted_obj_type;
+		const std::vector<weighted_obj_type> &spaces = spCompositeSpace->get_subspaces();
+		for (typename std::vector<weighted_obj_type>::const_iterator it = spaces.begin(); it != spaces.end(); ++it)
+		{
+			m_spSubspaces.push_back(it->first);
+		}
+	}
+
 
 	// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
@@ -850,6 +876,11 @@ public:
 		}
 		return ss.str();
 	}
+
+protected:
+
+	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
+
 };
 
 
