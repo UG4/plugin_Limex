@@ -307,10 +307,10 @@ class SupErrorEvaluator
 		using IComponentSpace<TGridFunction>::norm;
 		using IComponentSpace<TGridFunction>::distance;
 
-		double norm(SmartPtr<TGridFunction> uFine) const
+		double norm(SmartPtr<TGridFunction> uFine) 
 		{ return norm(*uFine); }
 
-		double norm(TGridFunction& uFine) const
+		double norm(TGridFunction& uFine)
 		{
 			// gather subsets in group
 			SubsetGroup ssGrp(uFine.domain()->subset_handler());
@@ -353,10 +353,10 @@ class SupErrorEvaluator
 			return maxVal;
 		}
 
-		double norm2(TGridFunction& uFine) const
+		double norm2(TGridFunction& uFine) 
 		{ double norm1 = norm(uFine); return norm1*norm1;}
 
-		double distance(TGridFunction& uFine, TGridFunction& uCoarse) const
+		double distance(TGridFunction& uFine, TGridFunction& uCoarse) 
 		{
 			UG_COND_THROW(uFine.dof_distribution().get() != uCoarse.dof_distribution().get(),
 				"Coarse and fine solutions do not have the same underlying dof distro.");
@@ -366,7 +366,7 @@ class SupErrorEvaluator
 			return norm(*uErr);
 		}
 
-		double distance2(TGridFunction& uFine, TGridFunction& uCoarse) const
+		double distance2(TGridFunction& uFine, TGridFunction& uCoarse)
 		{ double dist = distance(uFine, uCoarse); return dist*dist;}
 
 	protected:
@@ -565,13 +565,13 @@ public:
 	using IComponentSpace<TGridFunction>::norm;
 	using IComponentSpace<TGridFunction>::distance;
 
-	double norm2(TGridFunction& uFine) const
+	double norm2(TGridFunction& uFine) 
 	{
 		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, NULL, 0.0);
 		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
 	}
 
-	double distance2(TGridFunction& uFine, TGridFunction& uCoarse) const
+	double distance2(TGridFunction& uFine, TGridFunction& uCoarse) 
 	{
 		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, &uCoarse, 0.0);
 		std::cerr << "uFine="<<(void*) (&uFine) << ", uCoarse="<< (void*) (&uCoarse) << std::endl;
@@ -748,7 +748,7 @@ public:
 			// relative error estimator
 			number unorm2 = 0.0;
 			number enorm2 = 0.0;
-			for (typename std::vector<weighted_obj_type>::const_iterator it = m_spWeightedSubspaces.begin(); it!= m_spWeightedSubspaces.end(); ++it)
+			for (typename std::vector<weighted_obj_type>::iterator it = m_spWeightedSubspaces.begin(); it!= m_spWeightedSubspaces.end(); ++it)
 			{
 			  const double sigma = it->second;
 			  const double norm2 = it->first->norm2(*uFine);
@@ -767,7 +767,7 @@ public:
 		{
 			// weighted error estimator
 			number enorm2 = 0.0;
-			for (typename std::vector<weighted_obj_type>::const_iterator it = m_spWeightedSubspaces.begin(); it!= m_spWeightedSubspaces.end(); ++it)
+			for (typename std::vector<weighted_obj_type>::iterator it = m_spWeightedSubspaces.begin(); it!= m_spWeightedSubspaces.end(); ++it)
 			{
 			  const double sigma = it->second;
 			  const double dist2 = alpha * alpha * (it->first->distance2(*uFine, *uCoarse));
@@ -852,7 +852,7 @@ public:
 			double enorm2 =  (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
 			double unorm2 =  std::max((*it)->norm2(*uFine), 1e-10*enorm2);
 			est += (enorm2)/(unorm2);
-			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\tratio="<< (enorm2)/(unorm2));
+			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\tratio2="<< (enorm2)/(unorm2) << "est2=" << est);
 		}
 
 		base_type::m_est = sqrt(est)/m_spSubspaces.size();
@@ -883,6 +883,91 @@ protected:
 
 };
 
+
+// Evaluate difference between two functions (w.r.t various norms)
+/* \|\\
+ */
+template <class TDomain, class TAlgebra>
+class CompositeGridFunctionEstimator :
+		public ISubDiagErrorEst<typename TAlgebra::vector_type>
+{
+protected:
+	typedef typename TAlgebra::vector_type TVector;
+
+public:
+	typedef ISubDiagErrorEst<TVector> base_type;
+	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	typedef IComponentSpace<grid_function_type> subspace_type;
+	typedef CompositeSpace<grid_function_type> composite_type;
+
+	// constructor
+	CompositeGridFunctionEstimator() : base_type() {}
+
+	// add (single subspace)
+	void add(SmartPtr<subspace_type> spSubspace)
+	{  m_spSubspaces.push_back(spSubspace); }
+
+	// add subspaces (from container)
+	void add(SmartPtr<composite_type> spCompositeSpace)
+	{
+		typedef typename composite_type::weighted_obj_type weighted_obj_type;
+		const std::vector<weighted_obj_type> &spaces = spCompositeSpace->get_subspaces();
+		for (typename std::vector<weighted_obj_type>::const_iterator it = spaces.begin(); it != spaces.end(); ++it)
+		{
+			m_spSubspaces.push_back(it->first);
+		}
+	}
+
+
+	// apply w/ rel norm
+	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
+	{
+
+		// upcast
+		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
+		SmartPtr<grid_function_type> uCoarse = vCoarse.template cast_dynamic<grid_function_type>();
+		if (uFine.invalid() || uCoarse.invalid()) return false;
+
+		// error estimate
+		double enorm2 = 0.0;
+		double unorm2 = 0.0;
+		for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin();
+				it!= m_spSubspaces.end(); ++it)
+		{
+			// use sub-diagonal error estimator (i.e. multiply with alpha)
+			enorm2 +=  (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
+			unorm2 += (*it)->norm2(*uFine);
+			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\tratio2="<< (enorm2)/(unorm2) << "est2=" << (enorm2)/(unorm2));
+		}
+
+		//prevent division by zero
+		base_type::m_est  = sqrt(enorm2/std::max(unorm2, 1e-10*enorm2));
+		UG_LOGN("eps="<< base_type::m_est);
+
+		// update
+		VecScaleAdd(*vUpdate, 1.0+alpha, *vFine, -alpha, *vCoarse);
+		return true;
+	}
+
+
+	/// print config string
+	std::string config_string() const
+	{
+		std::stringstream ss;
+		ss << "CompositeGridFunctionEstimator:\n";
+		for (typename std::vector<SmartPtr<subspace_type> >::const_iterator it = m_spSubspaces.begin();
+				it!= m_spSubspaces.end(); ++it)
+		{
+			ss << (*it)->config_string();
+		}
+		return ss.str();
+	}
+
+protected:
+
+	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
+
+};
 
 
 
