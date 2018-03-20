@@ -80,24 +80,41 @@ util.limex.defaultDesc = util.limex.defaultDesc or
     makeConsistent = false,
 }
 
+--[[
+function add_h1semi_subspace(container, value, scale)
 
-function add_h1semi_subspace(container, value, scale, inst)
-   if (not value.weight) then
-      container:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(1.0)))
-   elseif (type(value.weight)=="number") then
-      container:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(value.weight)))
-   elseif (value.weight=="k") then
-      container:add(H1SemiComponentSpace(value.func, value.order, scale, inst.coef.PrintPermeability))
-   end
+   if ((not scale) or (scale ==1)) then 
+     -- unscaled case
+     if (not value.weight) then
+        container:add(H1SemiComponentSpace(value.func, value.order, ConstUserMatrix(1.0)))
+     elseif (type(value.weight)=="number") then
+        container:add(H1SemiComponentSpace(value.func, value.order, ConstUserMatrix(value.weight)))
+     else (value.weight=="space-auto")
+        container:add(H1SemiComponentSpace(value.func, value.order, value.weight))
+        --container:add(H1SemiComponentSpace(value.func, value.order, inst.coef.PrintPermeability))
+     end
+   
+   else 
+    -- scaled case
+    if (not value.weight) then
+        container:add(H1SemiComponentSpace(value.func, value.order, ConstUserMatrix(1.0)), scale)
+    elseif (type(value.weight)=="number") then
+        container:add(H1SemiComponentSpace(value.func, value.order, ConstUserMatrix(value.weight)), scale)
+    elseif (value.weight=="space-auto") then
+        container:add(H1SemiComponentSpace(value.func, value.order, ConstUserMatrix(1.0)), scale)
+        --container:add(H1SemiComponentSpace(value.func, value.order, inst.coef.PrintPermeability), scale)
+    end
+   
+   end -- not scale
 end
-
+--]]
 
 function util.limex.CreateLimexErrorSpace (errorDesc, inst) 
 
    local space = nil
    if (type(errorDesc)=="table" and errorDesc.type=="CompositeSpace") then
       print("--> "..errorDesc.type)
-      space = CompositeSpace("c,p")
+      space = CompositeSpace()
    
       for key, value in ipairs(errorDesc) do
          local scale = value.scale or 1.0
@@ -106,7 +123,7 @@ function util.limex.CreateLimexErrorSpace (errorDesc, inst)
 	 if (value.type== "H1ComponentSpace") then
 	    -- 
 	 elseif (value.type == "H1SemiComponentSpace") then
-	    add_h1semi_subspace(space, value, scale, inst)
+	    -- add_h1semi_subspace(space, value, scale)
 	 elseif (value.type == "L2ComponentSpace") then
 	    -- errorEst:add(L2ComponentSpace(value.func, value.order))
 	 end -- if                                                                                                                                                                     
@@ -116,6 +133,8 @@ function util.limex.CreateLimexErrorSpace (errorDesc, inst)
    return space
 end
 
+
+-- This is a factory for error estimators
 function util.limex.CreateLimexErrorEstimator (errorInfo, inst) 
   
    local errorEst 
@@ -140,17 +159,18 @@ function util.limex.CreateLimexErrorEstimator (errorInfo, inst)
   end
 
   elseif (type(errorInfo)=="table" and errorInfo.type=="ScaledGridFunctionEstimator") then
-     print("--> "..errorInfo.type)
+      print("--> "..errorInfo.type)
       errorEst = ScaledGridFunctionEstimator()
 
+      -- Fill with pairs table entries.
       for key, value in ipairs(errorInfo) do
-	 local scale = value.scale or 1.0
+	       local scale = value.scale or 1.0
          print ("+++ "..value.type..", "..value.func..", "..value.order..", scale="..scale)
  
         if (value.type== "H1ErrorEvaluator") then
             errorEst:add(H1ComponentSpace(value.func, value.order)) 
         elseif (value.type == "H1SemiErrorEvaluator" or value.type == "H1SemiComponentSpace") then
-	   add_h1semi_subspace(errorEst, value, scale, inst)	   
+	    --add_h1semi_subspace(errorEst, value)	   
 	   --[[ 
 	   if (not value.weight) then
 	       errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(1.0))) 
@@ -170,25 +190,21 @@ function util.limex.CreateLimexErrorEstimator (errorInfo, inst)
             
         end -- if   
       end -- for
+      
+      
+      
   elseif (type(errorInfo)=="table" and errorInfo.type=="GridFunctionEstimator") then
      print("--> "..errorInfo.type)
      errorEst = GridFunctionEstimator()
+     
+     -- Fill with pairs table entries.
      for key, value in ipairs(errorInfo) do
-         local scale = value.scale or 1.0
+         local scale = value.scale or 1
          print ("+++ "..value.type..", "..value.weight..", "..value.func..", "..value.order..", scale="..scale)
 	 
-	 if (value.type == "H1SemiErrorEvaluator" or value.type == "H1SemiComponentSpace") then
-	    add_h1semi_subspace(errorEst, value, scale, inst)	   
-	    --[[
-	    if (not value.weight) then
-	       errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(1.0)))
-	    elseif (type(value.weight)=="number") then
-	       errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(value.weight)))
-	    elseif (value.weight=="k") then
-	       errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, inst.coef.PrintPermeability))
-	    end --if
-	    --]]
-	 end --if
+	       if (value.type == "H1SemiErrorEvaluator" or value.type == "H1SemiComponentSpace") then
+	        -- add_h1semi_subspace(errorEst, value, scale)	   
+	       end --if
      end -- for
 
   end -- type (errorInfo) == 

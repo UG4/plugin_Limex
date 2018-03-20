@@ -190,6 +190,24 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 
 	{
+			// CompositeGridFunctionEstimator (sub-diagonal)
+			typedef ISubDiagErrorEst<TVector> TBase;
+			typedef CompositeGridFunctionEstimator<TDomain, TAlgebra> T;
+			typedef IComponentSpace<TGridFunction> TCompSpace;
+			typedef typename T::composite_type TCompositeSpace;
+
+			string name = string("CompositeGridFunctionEstimator").append(suffix);
+
+			reg.add_class_<T, TBase>(name, grp)
+			   .template add_constructor<void (*)() >("Default constructor")
+			   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>) > (&T::add))
+			   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompositeSpace>) > (&T::add))
+			   .add_method("config_string", &T::config_string)
+			   .set_construct_as_smart_pointer(true);
+			reg.add_class_to_group(name, "CompositeGridFunctionEstimator", tag);
+		}
+
+	{
 		// ITimeIntegratorObserver (virtual base class)
 		typedef ITimeIntegratorObserver<TDomain, TAlgebra> T;
 		string name = string("ITimeIntegratorObserver").append(suffix);
@@ -411,6 +429,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 			 // .add_method("enable_linear_mode", &T::enable_linear_mode)
 			 // .add_method("disable_linear_mode", &T::disable_linear_mode)
 			  .add_method("select_cost_strategy", &T::select_cost_strategy)
+			  .add_method("set_max_reductions", &T::set_max_reductions)
+			  .add_method("set_asymptotic_order", &T::set_asymptotic_order)
 			  .add_method("set_space", &T::set_space)
 			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 			  .add_method("interrupt", &T::interrupt, "", "", "interrupt execution of apply()")

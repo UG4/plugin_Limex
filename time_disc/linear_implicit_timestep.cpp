@@ -81,7 +81,7 @@ prepare_step(SmartPtr<VectorTimeSeries<vector_type> > prevSol,
 		if (m_spGammaDisc.valid())
 		{ m_spGammaDisc->prepare_timestep(m_pPrevSol, m_futureTime);}
 	}
-	UG_CATCH_THROW("LinearImplicitEuler: Cannot prepare time step.");
+	UG_CATCH_THROW("LinearlyImplicitEuler: Cannot prepare time step.");
 
 	// create matrix J
 	if (m_spMatrixJOp.invalid())
@@ -146,7 +146,7 @@ template <typename TAlgebra>
 void LinearImplicitEuler<TAlgebra>::
 adjust_solution(vector_type& u, const GridLevel& gl)
 {
-	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:adjust_solution" << std::endl);
+	UG_DLOG(LIB_LIMEX, 5, "LinearlyImplicitEuler:adjust_solution" << &u << std::endl);
 	PROFILE_BEGIN_GROUP(LinearImplicitEuler_adjust_solution, "discretization LinearImplicitEuler");
 
 	//	adjust solution
@@ -230,9 +230,12 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 		}
 		else
 		{
-			// Assemble (Mk + \tau J)
-			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, 0.0, gl);
-			UG_DLOG(LIB_LIMEX, 3, "Computed Mk (" << J_limex <<
+			/* Assemble (Mk + \tau J)
+			 *
+			 * Note: Mk has Dirichlet rows (e.g., for inout bnd cond)
+			 */
+			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, 1e-20, gl);
+			UG_DLOG(LIB_LIMEX, 3, "> Computed Mk (" << &J_limex << " : "<<J_limex <<
 						" at " << m_pPrevSol->oldest_time() << ", " << GetNNZs(J_limex) << " nonzeros)" << std::endl);
 			write_debug(J_limex, "myMk.mat");
 
@@ -243,7 +246,7 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 			{
 				// First part of J: -df/du
 				this->m_spMatrixJDisc->assemble_jacobian(J_stiff, m_pPrevSol, mydt, gl);
-				UG_DLOG(LIB_LIMEX, 3, "Cached  J_0 = -df/du (" << J_stiff<< ")"<< std::endl);
+				UG_DLOG(LIB_LIMEX, 3, "> Cached  J_0 = -df/du (" << &J_stiff << ":"<< J_stiff<< ")"<< std::endl);
 				write_debug(J_stiff, "myStiff0.mat");
 
 				// subtracting mass matrix yields J

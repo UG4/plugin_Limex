@@ -1312,8 +1312,8 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		         UG_LOG("Computing consistency error: "<< std::endl);
 			 UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*u0),
 		 			   "Huhh: Different vectors required!");
-			 VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0, *u1, -1.0, *u0);
-			 m_initial_consistency_error = m_spBanachSpace->norm(*m_spDerivative);
+			 *m_spDerivative = *u0;
+			 m_initial_consistency_error = m_spBanachSpace->distance(*m_spDerivative, *u1);
 		}
 
 		 step++;

@@ -277,6 +277,9 @@ public:
 		  m_monitor(((m_nstages)*(m_nstages))), // TODO: wasting memory here!
 		  m_workload(m_nstages),
 		  m_lambda(m_nstages), 
+		  m_num_reductions(m_nstages, 0),
+		  m_max_reductions(2),
+		  m_asymptotic_order(1000),
 		  m_consistency_error(m_nstages),
 		  m_greedyOrderIncrease(0.0),
 		  m_useCachedMatrices(false),
@@ -297,6 +300,9 @@ public:
 		void set_stepsize_safety_factor(double rho) { m_rhoSafety = rho;}
 		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;}
 		void set_stepsize_greedy_order_factor(double sigma) { m_greedyOrderIncrease = sigma;}
+
+		void set_max_reductions(size_t nred) { m_max_reductions = nred;}
+		void set_asymptotic_order(size_t q) { m_asymptotic_order = q;}
 
 		/// add an error estimator
 		void add_error_estimator(SmartPtr<error_estim_type> spErrorEstim)
@@ -462,7 +468,10 @@ public:
 
 		/// set banach space (e.g. for computing consistency error)
 		void set_space(SmartPtr<IGridFunctionSpace<grid_function_type> > spSpace)
-		{ m_spBanachSpace = spSpace; }
+		{ 
+		  m_spBanachSpace = spSpace;
+		  UG_LOG("set_space:" << m_spBanachSpace->config_string()); 
+		}
 
 		/// interrupt execution of apply() by external call via observer
 		void interrupt() {m_bInterrupt = true;}
@@ -485,6 +494,10 @@ protected:
 
 		std::vector<number> m_workload;
 		std::vector<number> m_lambda;
+
+		std::vector<size_t> m_num_reductions;		///< history of reductions
+		size_t m_max_reductions;
+		size_t m_asymptotic_order;  				///< For PDEs, we may apply an symptotic order reduction
 
 		std::vector<number> m_consistency_error;///<Consistency error
   		double m_greedyOrderIncrease;
@@ -584,6 +597,7 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 
 		UG_ASSERT(m_spBanachSpace.valid(), "Huhh: Need valid (default) banach space");
 		integrator.set_banach_space(m_spBanachSpace);
+		UG_LOG("Set space:" << m_spBanachSpace->config_string());
 
 		bool exec = true;
 		try
@@ -706,20 +720,32 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 	number t = t0;
 	double dtcurr = ITimeIntegrator<TDomain, TAlgebra>::get_time_step();
 
-	const size_t kmax = m_vThreadData.size();   		// maximum number of stages
+	size_t kmax = m_vThreadData.size();   		// maximum number of stages
 	size_t qpred = kmax-1;  	 						// predicted optimal order
-	size_t qcurr = qpred;
+	size_t qcurr = qpred;								// current order
 
-	// double lambda=1.0;   						// step length increase/decrease
+	// for Gustafsson/lundh/Soederlind type PID controller
+	/*size_t qlast = 0;
+	double dtlast = 0.0;
+	std::vector<double> epslast(kmax, m_rhoSafety*m_tol);
+*/
 
 	// time integration loop
 	SmartPtr<grid_function_type> ubest = SPNULL;
 	int limex_step = 1;
 	size_t limex_total = 1;
+	size_t limex_success = 0;
 	size_t ntest;    ///< active number of stages <= kmax
 	size_t jbest;
 
 	m_bInterrupt = false;
+	bool bProbation = false;
+	bool bAsymptoticReduction = false;
+
+	const size_t nSwitchHistory=16;
+	const size_t nSwitchLookBack=5;
+	int vSwitchHistory[nSwitchHistory] ={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
 	timex_type timex(m_vSteps);
 	while ((t < t1) && ((t1-t) > base_type::m_precisionBound))
 	{
@@ -736,7 +762,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		number dt = std::min(dtcurr, t1-t);
 		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
 
-		// number of stages to investigate
+		// determine number of stages to investigate
 		qcurr = qpred;
 		ntest = std::min(kmax, qcurr+1);
 		UG_LOG("ntest="<< ntest << std::endl);
@@ -821,21 +847,128 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 			// best solution
 			ubest  = timex.get_solution(jbest).template cast_dynamic<grid_function_type>();
-			epsmin = eps[jbest]; /*were: kbest*/
+			epsmin = eps[jbest];
 
 			// check for convergence
 			limexConverged = (epsmin <= m_tol);
 
-			// select predicted order for next step
-			double dtpred = m_lambda[qpred-1]*dtcurr;
+
+			if (limex_success>3) {
+
+				vSwitchHistory[limex_step%nSwitchHistory] = (qpred - qcurr);
+				UG_DLOG(LIB_LIMEX, 5, "LIMEX-ASYMPTOTIC-ORDER switch:  = " <<  (qpred - qcurr)<< std::endl);
+
+				int nSwitches=0;
+				for (int s=nSwitchLookBack-1; s>=0; s--)
+				{
+					nSwitches += std::abs(vSwitchHistory[(limex_step-s)%nSwitchHistory]);
+					UG_DLOG(LIB_LIMEX, 6, "LIMEX-ASYMPTOTIC-ORDER: s[" << s<< "] = " <<  vSwitchHistory[(limex_step-s)%nSwitchHistory] << std::endl);
+				}
+				UG_DLOG(LIB_LIMEX, 5,"LIMEX-ASYMPTOTIC-ORDER: nSwitches = " <<  nSwitches << std::endl);
+
+
+			/*
+			if (bProbation)
+			{
+
+				if ((qpred < qcurr)	|| (!limexConverged))	// consecutive (follow-up) order decrease
+				{
+					bProbation = true;
+					m_num_reductions[0]++;
+					UG_LOG("LIMEX-ASYMPTOTIC-ORDER: Decrease on parole detected: "<< qcurr << " -> " << qpred << "("<< m_num_reductions[0]<<")"<<std::endl);
+
+				}
+				else
+				{
+					// reset all counters
+					bProbation = false;
+					UG_LOG("LIMEX-ASYMPTOTIC-ORDER: Probation off!"<<std::endl);
+
+				}
+			}
+			else
+			{
+				if ((qpred < qcurr)	|| (!limexConverged))// 1st order decrease
+				{
+					bProbation = true;
+					m_num_reductions[0]++;
+					UG_LOG("LIMEX-ASYMPTOTIC-ORDER:  Decrease detected: "<< qcurr << " -> " << qpred << "("<< m_num_reductions[0]<<")"<<std::endl);
+				}
+				else
+				{
+					m_num_reductions[0] = 0;
+					UG_LOG("LIMEX-ASYMPTOTIC-ORDER: I am totally free!"<<std::endl);
+				}
+
+
+			}
+*/
+
+			// bAsymptoticReduction = (m_num_reductions[0] >= m_max_reductions) || bAsymptoticReduction;
+			bAsymptoticReduction = (nSwitches >= m_max_reductions) || bAsymptoticReduction;
+			// asymptotic order reduction
+			//if (m_num_reductions[0] >= m_max_reductions)
+			if	(bAsymptoticReduction)
+			{
+				kmax = (kmax >= m_asymptotic_order ) ? m_asymptotic_order : kmax;
+				qpred = kmax - 1;
+				UG_DLOG(LIB_LIMEX, 5, "LIMEX-ASYMPTOTIC-ORDER: Reduction: "<< qpred );
+				UG_DLOG(LIB_LIMEX, 5, "(kmax=" << kmax << ", asymptotic"<<  m_asymptotic_order <<") after "<<m_max_reductions<< std::endl);
+			}
+
+			} // (limex_success>3)
+
+			/*
+			// adjust for order bound history
+			if ((m_num_reductions[qpred] > m_max_reductions) && (qpred > 1))
+			{
+					UG_LOG("prohibited  q:"<< qpred << "(" << m_num_reductions[qpred] << ")"<<std::endl);
+					//qpred--;
+					qpred = kmax = 2;
+			} else
+			{
+				UG_LOG("keeping  q:"<< qpred << "(" << m_num_reductions[qpred] << ")"<<std::endl);
+			}
+			*/
+
+			//double pid = 1.0;
+
+			// constant order?
+			/*if (qcurr == qlast)
+			{
+				double dtRatio =dtcurr/dtlast;
+				// Dd, Band 3 (DE), p. 360
+				int k = ntest-1;
+				while (k--) {
+					double epsRatio =eps[k+1]/epslast[k+1];
+
+					double qopt = log(epsRatio) / log(dtRatio);  // take dtcurr here, as dt may be smaller
+
+					UG_LOG("effective p["<< k << "]="<< qopt-1.0 <<","<< eps[k+1] <<","<< epslast[k+1] <<","  <<  epsRatio << "("<<  log(epsRatio)  << ","<<  pow(epsRatio, 1.0/m_gamma[k])  <<")"<< dtcurr <<","<< dtlast   << "," << dtRatio << "," <<log(dtRatio) << std::endl);
+				}
+
+
+				double epsRatio = eps[qcurr]/epslast[qcurr];
+				pid = dtRatio/pow(epsRatio, 1.0/m_gamma[qcurr-1]);
+
+				UG_LOG("pid=" << pid << std::endl);
+
+			}*/
+
+
+			// select (predicted) order for next step
+			double dtpred = dtcurr*m_lambda[qpred-1];
 			UG_LOG("koptim=\t" << jbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred-1] << ", alpha(q-1,q)=" << monitor(qpred-1, qpred) << "dt(q)=" << dtpred<< std::endl);
 
 			// EXTENSIONS: convergence model
 			if (limexConverged)
 			{
+				limex_success++;
+
 				// a) aim for order increase in next step
 			  if ((qpred+1==ntest)  /* increase by one possible? */
 			      //    && (m_lambda[qpred-1]>1.0)
+				  // && (m_num_reductions[qpred+1] <= m_max_reductions)
 			      && (kmax>ntest)) /* still below max? */
 				{
 					const double alpha = monitor(qpred-1, qpred);
@@ -849,6 +982,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 						}
 						UG_LOG("... yes.\n")
 
+						// update history
+						vSwitchHistory[limex_step%nSwitchHistory] = (qpred - qcurr);
+						UG_LOG("LIMEX-ASYMPTOTIC-ORDER switch update:  = " <<  (qpred - qcurr)<< std::endl);
+
 					} else {
 						UG_LOG("... nope.\n")
 					}
@@ -861,9 +998,6 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			}
 
 			// parameters for subsequent step
-			// step length increase/reduction
-			/*double dtpred = std::min(dtcurr*lambda,
-							dtcurr*itime_integrator_type::get_increase_factor());*/
 			dtcurr = std::min(dtpred, itime_integrator_type::get_dt_max());
 
 
@@ -886,6 +1020,11 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
 
 
+			// update PID controller
+			/*qlast = qcurr;
+			epslast =  timex.get_error_estimates();  // double check ???
+			dtlast = dt;
+*/
 			// compute time derivative (by extrapolation)
 			if (this->has_time_derivative())
 			{
