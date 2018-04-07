@@ -739,7 +739,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 	size_t jbest;
 
 	m_bInterrupt = false;
-	bool bProbation = false;
+	//bool bProbation = false;
 	bool bAsymptoticReduction = false;
 
 	const size_t nSwitchHistory=16;
@@ -905,7 +905,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 */
 
 			// bAsymptoticReduction = (m_num_reductions[0] >= m_max_reductions) || bAsymptoticReduction;
-			bAsymptoticReduction = (nSwitches >= m_max_reductions) || bAsymptoticReduction;
+			bAsymptoticReduction = ((size_t) nSwitches >= m_max_reductions) || bAsymptoticReduction;
 			// asymptotic order reduction
 			//if (m_num_reductions[0] >= m_max_reductions)
 			if	(bAsymptoticReduction)
