@@ -432,7 +432,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			  .add_method("set_max_reductions", &T::set_max_reductions)
 			  .add_method("set_asymptotic_order", &T::set_asymptotic_order)
 			  .add_method("set_space", &T::set_space)
-			  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
+			  .add_method("apply", (bool (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 			  .add_method("interrupt", &T::interrupt, "", "", "interrupt execution of apply()")
 			  .set_construct_as_smart_pointer(true);
 
