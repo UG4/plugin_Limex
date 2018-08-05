@@ -754,13 +754,16 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		//UG_DLOG(LIB_LIMEX, 5, "+++ LimexTimestep +++" << limex_step << "\n");
 		UG_LOG("+++ LimexTimestep +++" << limex_step << "\n");
 
-		// save time stamp for limex step start
-		Stopwatch stopwatch;
-		stopwatch.start();
-
 		// determine step size
 		number dt = std::min(dtcurr, t1-t);
 		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
+
+		// preprocessing actions
+		itime_integrator_type::notify_step_preprocess(u, limex_step, t+dt, dt);
+
+		// save time stamp for limex step start
+		Stopwatch stopwatch;
+		stopwatch.start();
 
 		// determine number of stages to investigate
 		qcurr = qpred;
@@ -1048,7 +1051,9 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 			// post process
 			UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
-			itime_integrator_type::notify_step_postprocess(ubest, u, limex_step++, t+dt, dt);
+			itime_integrator_type::notify_step_postprocess(ubest, u, limex_step, t+dt, dt);
+
+			++limex_step;
 
 			// copy best solution
 			*u = *ubest;
