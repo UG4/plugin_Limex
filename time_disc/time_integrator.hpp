@@ -335,7 +335,7 @@ public:
 	typedef LuaFunction<number, number> lua_function_type;
 
 	LuaCallbackObserver()
-	{}
+	: m_spCallbackPre(SPNULL), m_spCallbackPost(SPNULL) {}
 
 	virtual ~LuaCallbackObserver()
 	{}
@@ -344,35 +344,50 @@ public:
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
 	virtual void step_preprocess(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
 	{
+		if (!m_spCallbackPre.valid())
+			return;
+
 		number dummy_return;
 		m_u = uNew;
-		m_callbackPre(dummy_return, numArgs2, (number) step, time, dt);
+		(*m_spCallbackPre)(dummy_return, numArgs2, (number) step, time, dt);
 	}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
 	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
+		if (!m_spCallbackPost.valid())
+			return;
+
 		number dummy_return;
 		m_u = uNew;
-		m_callbackPost(dummy_return, numArgs2, (number) step, time, dt);
+		(*m_spCallbackPost)(dummy_return, numArgs2, (number) step, time, dt);
 	}
 
 	void set_callback(const char* luaCallbackPost)
-	{ m_callbackPost.set_lua_callback(luaCallbackPost, numArgs2); };
+	{
+		m_spCallbackPost = make_sp(new LuaFunction<number, number>());
+		m_spCallbackPost->set_lua_callback(luaCallbackPost, numArgs2);
+	}
 
 	void set_callback_post(const char* luaCallback)
-	{ m_callbackPost.set_lua_callback(luaCallback, numArgs2); };
+	{
+		m_spCallbackPost = make_sp(new LuaFunction<number, number>());
+		m_spCallbackPost->set_lua_callback(luaCallback, numArgs2);
+	}
 
 	void set_callback_pre(const char* luaCallback)
-	{ m_callbackPre.set_lua_callback(luaCallback, numArgs2); };
+	{
+		m_spCallbackPre = make_sp(new LuaFunction<number, number>());
+		m_spCallbackPre->set_lua_callback(luaCallback, numArgs2);
+	}
 
 	SmartPtr<grid_function_type> get_current_solution()
 	{ return m_u; }
 
 protected:
 	// TODO: replace by appropriate call-back
-	LuaFunction<number, number> m_callbackPre;
-	LuaFunction<number, number> m_callbackPost;
+	SmartPtr<LuaFunction<number, number> > m_spCallbackPre;
+	SmartPtr<LuaFunction<number, number> > m_spCallbackPost;
 	const static size_t numArgs1=0;  // num SmartPtr
 	const static size_t numArgs2=3;
 	SmartPtr<grid_function_type> m_u;
