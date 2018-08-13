@@ -195,6 +195,9 @@ bool LimexNewtonSolver<TAlgebra>::apply(vector_type& u)
 	// update solution
 	u -= *spC;
 
+	// apply constraints
+	m_N->prepare(u);
+
 	// reset offset of output for linear solver to previous value
 	m_spLinearSolver->convergence_check()->set_offset(stdLinOffset);
 
