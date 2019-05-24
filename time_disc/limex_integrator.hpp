@@ -960,7 +960,9 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 
 			// select (predicted) order for next step
-			double dtpred = dtcurr*m_lambda[qpred-1];
+			double dtpred = dtcurr*std::min(m_lambda[qpred-1], itime_integrator_type::get_increase_factor());
+			//double dtpred = dtcurr*m_lambda[qpred-1];
+			UG_LOG("+++++\nget_increase_factor() gives "<<itime_integrator_type::get_increase_factor()<<" \n+++++++")
 			UG_LOG("koptim=\t" << jbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred-1] << ", alpha(q-1,q)=" << monitor(qpred-1, qpred) << "dt(q)=" << dtpred<< std::endl);
 
 			// EXTENSIONS: convergence model
