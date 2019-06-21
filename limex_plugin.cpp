@@ -241,18 +241,41 @@ static void DomainAlgebra(Registry& reg, string grp)
 	}
 
 	{
-			// LuaOutputObserver
+			// LuaCallbackObserver
 			typedef LuaCallbackObserver<TDomain, TAlgebra> T;
+			typedef GridFunction<TDomain, TAlgebra> TGF;
 
 			string name = string("LuaCallbackObserver").append(suffix);
 			reg.add_class_<T, typename T::base_type>(name, grp)
-				.template add_constructor<void (*)() >("")
+				.template add_constructor<void (*)(int) >("internal id")
 		 	 	.add_method("set_callback", &T::set_callback)
 				.add_method("set_callback_post", &T::set_callback_post)
 				.add_method("set_callback_pre", &T::set_callback_pre)
-				.add_method("get_current_solution", &T::get_current_solution)
+				.add_method("set_callback_prepare_timestep", &T::set_callback_prepare_timestep)
+				.add_method("set_callback_finalize_timestep", &T::set_callback_finalize_timestep)
+				.add_method("set_callback_rewind_timestep", &T::set_callback_rewind_timestep)
+				.add_method("get_current_solution", static_cast<SmartPtr<TGF> (T::*)() > (&T::get_current_solution))
 				.set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "LuaCallbackObserver", tag);
+	}
+
+	{
+		typedef TimeIntegratorSubject<TDomain, TAlgebra> T;
+		typedef GridFunction<TDomain, TAlgebra> TGF;
+
+		string name = string("TimeIntegratorSubject").append(suffix);
+		reg.add_class_<T>(name, grp)
+				  .template add_constructor<void (*)() >("")
+				  .add_method("attach_observer", &T::attach_observer)
+					.add_method("notify_step_preprocess", static_cast<bool (T::*)(SmartPtr<TGF>, int, number, number) > (&T::notify_step_preprocess))
+				  .add_method("notify_step_postprocess", static_cast<bool (T::*)(SmartPtr<TGF>,SmartPtr<TGF>, int, number, number) > (&T::notify_step_postprocess))
+				  .add_method("notify_on_prepare_timestep", static_cast<bool (T::*)(SmartPtr<TGF>, int, number, number) > (&T::notify_on_prepare_timestep))
+				  .add_method("notify_on_rewind_timestep", static_cast<bool (T::*)(SmartPtr<TGF>, int, number, number) > (&T::notify_on_rewind_timestep))
+				  .add_method("notify_on_finalize_timestep", static_cast<bool (T::*)(SmartPtr<TGF>, int, number, number) > (&T::notify_on_finalize_timestep))
+				  .add_method("notify_on_finished", static_cast<bool (T::*)(SmartPtr<TGF>, int, number) > (&T::notify_on_finished))
+				  .set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "TimeIntegratorSubject", tag);
+
 	}
 
 	{

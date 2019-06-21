@@ -221,7 +221,7 @@ public:
 			void set_error(int e)
 			{ m_error=e; }
 
-			void get_error()
+			int get_error()
 			{ return m_error; }
 
 			void set_solution(SmartPtr<grid_function_type> sol)

@@ -69,9 +69,12 @@ public:
 	//virtual void init(){}
 	//virtual void finish(){}
 
-	virtual void step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt) {}
-
+	virtual bool step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {return true;}
+	virtual bool step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt) {return true;}
+	virtual bool on_prepare_timestep(SmartPtr<grid_function_type> u, int step, number time, number dt) {return true;}
+	virtual bool on_rewind_timestep(SmartPtr<grid_function_type> u, int step, number time, number dt) {return true;}
+	virtual bool on_finalize_timestep(SmartPtr<grid_function_type> u, int step, number time, number dt) {return true;}
+	virtual bool on_finished(SmartPtr<grid_function_type> u, int step, number time) {return true;}
 };
 
 /// Sample class for integration observer: Output to VTK
@@ -96,15 +99,15 @@ public:
 	virtual ~VTKOutputObserver()
 	{ m_sp_vtk = SPNULL; }
 
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	virtual bool step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		if (!m_sp_vtk.valid())
-			return;
+			return true;
 
 		if (m_plotStep == 0.0)
 		{
 			m_sp_vtk->print(m_filename.c_str(), *uNew, step, time);
-			return;
+			return true;
 		}
 
 		// otherwise, only plot data at multiples of given time step (interpolate if necessary)
@@ -113,7 +116,7 @@ public:
 		int curStep = (int) ((curTime + 0.5*m_plotStep) / m_plotStep);
 
 		if (curTime > time)
-			return;
+			return true;
 
 		SmartPtr<grid_function_type> uCur = uNew->clone_without_values();
 		while (curTime <= time)
@@ -127,6 +130,8 @@ public:
 
 			curTime = (++curStep) * m_plotStep;
 		}
+
+		return true;
 	}
 
 	void close(SmartPtr<grid_function_type> u)
@@ -160,12 +165,14 @@ public:
 	virtual ~ConnectionViewerOutputObserver()
 	{}
 
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	virtual bool step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		// quit, if time does not match
-		if (m_outputTime >=0.0 && time != m_outputTime) return;
+		if (m_outputTime >=0.0 && time != m_outputTime) return true;
 
 		SaveVectorForConnectionViewer<grid_function_type>(*uNew, m_filename.c_str());
+
+		return true;
 	}
 
 protected:
@@ -334,33 +341,77 @@ public:
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 	typedef LuaFunction<number, number> lua_function_type;
 
-	LuaCallbackObserver()
-	: m_spCallbackPre(SPNULL), m_spCallbackPost(SPNULL) {}
+	LuaCallbackObserver(int lua_id)
+	: m_spCallbackPre(SPNULL), m_spCallbackPost(SPNULL), m_lua_id(lua_id) {}
 
 	virtual ~LuaCallbackObserver()
 	{}
 
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_preprocess(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
+	virtual bool step_preprocess(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
 	{
 		if (!m_spCallbackPre.valid())
-			return;
+			return true;
 
-		number dummy_return;
+		number lua_return_value;
 		m_u = uNew;
-		(*m_spCallbackPre)(dummy_return, numArgs2, (number) step, time, dt);
+		(*m_spCallbackPre)(lua_return_value, numArgs2, (number) step, time, dt, (number) m_lua_id);
+
+		return lua_return_value == 1;
 	}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	virtual bool step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		if (!m_spCallbackPost.valid())
-			return;
+			return true;
 
-		number dummy_return;
+		number lua_return_value;
 		m_u = uNew;
-		(*m_spCallbackPost)(dummy_return, numArgs2, (number) step, time, dt);
+		(*m_spCallbackPost)(lua_return_value, numArgs2, (number) step, time, dt, (number) m_lua_id);
+
+		return lua_return_value == 1;
+	}
+
+
+	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
+	virtual bool on_prepare_timestep(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
+	{
+		if (!m_sp_prepare_timestep_callback.valid())
+			return true;
+
+		number lua_return_value;
+		m_u = uNew;
+		(*m_sp_prepare_timestep_callback)(lua_return_value, numArgs2, (number) step, time, dt,(number) m_lua_id);
+		
+		return lua_return_value == 1;
+	}
+
+	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
+	virtual bool on_finalize_timestep(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
+	{
+		if (!m_sp_finalize_timestep_callback.valid())
+			return true;
+
+		number lua_return_value;
+		m_u = uNew;
+		(*m_sp_finalize_timestep_callback)(lua_return_value, numArgs2, (number) step, time, dt, (number) m_lua_id);
+		
+		return lua_return_value == 1;
+	}
+
+	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
+	virtual bool on_rewind_timestep(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
+	{
+		if (!m_sp_rewind_timestep_callback.valid())
+			return true;
+
+		number lua_return_value;
+		m_u = uNew;
+		(*m_sp_rewind_timestep_callback)(lua_return_value, numArgs2, (number) step, time, dt, (number) m_lua_id);
+		
+		return lua_return_value == 1;
 	}
 
 	void set_callback(const char* luaCallbackPost)
@@ -381,6 +432,24 @@ public:
 		m_spCallbackPre->set_lua_callback(luaCallback, numArgs2);
 	}
 
+	void set_callback_prepare_timestep(const char* luaCallback)
+	{
+		m_sp_prepare_timestep_callback = make_sp(new lua_function_type());
+		m_sp_prepare_timestep_callback->set_lua_callback(luaCallback, numArgs2);
+	}
+
+	void set_callback_finalize_timestep(const char* luaCallback)
+	{
+		m_sp_finalize_timestep_callback = make_sp(new lua_function_type());
+		m_sp_finalize_timestep_callback->set_lua_callback(luaCallback, numArgs2);
+	}
+
+	void set_callback_rewind_timestep(const char* luaCallback)
+	{
+		m_sp_rewind_timestep_callback = make_sp(new lua_function_type());
+		m_sp_rewind_timestep_callback->set_lua_callback(luaCallback, numArgs2);
+	}
+
 	SmartPtr<grid_function_type> get_current_solution()
 	{ return m_u; }
 
@@ -388,9 +457,12 @@ protected:
 	// TODO: replace by appropriate call-back
 	SmartPtr<LuaFunction<number, number> > m_spCallbackPre;
 	SmartPtr<LuaFunction<number, number> > m_spCallbackPost;
-	const static size_t numArgs1=0;  // num SmartPtr
-	const static size_t numArgs2=3;
+	SmartPtr<lua_function_type> m_sp_prepare_timestep_callback;
+	SmartPtr<lua_function_type> m_sp_rewind_timestep_callback;
+	SmartPtr<lua_function_type> m_sp_finalize_timestep_callback;
+	const static size_t numArgs2=4;
 	SmartPtr<grid_function_type> m_u;
+	const int m_lua_id;
 };
 
 
@@ -422,7 +494,7 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	virtual bool step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		UG_LOG("L2Error(\t"<< time << "\t) = \t" << L2Error(m_spReference, uNew, "c", time, 4) << std::endl);
 		if (m_sp_vtk.valid())
@@ -432,7 +504,7 @@ public:
 			m_sp_vtk->print("MyReference", *ref, step, time);
 		}
 
-
+		return true;
 
 	}
 
@@ -475,7 +547,7 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	virtual bool step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 
 		for (typename std::vector<IntegralSpecs>::iterator it = m_vIntegralData.begin();
@@ -485,7 +557,7 @@ public:
 			UG_LOG("Integral(\t"<< it->m_idString << "\t"<< time << "\t)=\t" << value << std::endl);
 		}
 
-
+		return true;
 	}
 
 
@@ -522,17 +594,75 @@ public:
 	{m_vProcessObservers.push_back(obs);}
 
 	//! notify all observers that time step evolution starts
-	void notify_step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	bool notify_step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
 	{
+		bool successfull = true;
 		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
-		{(*it)->step_preprocess(u, step, time, dt); }
+		{
+			if ( !(*it)->step_preprocess(u, step, time, dt))
+				successfull = false; 
+		}
+		return successfull;
 	}
 
 	//! notify all observers that time step has been evolved (successfully)
-	void notify_step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	bool notify_step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
+		bool successfull = true;
 		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
-		{(*it)->step_postprocess(uNew, uOld, step, time, dt); }
+		{
+			if (!(*it)->step_postprocess(uNew, uOld, step, time, dt))
+				successfull = false;
+		}
+		return successfull;
+	}
+
+	//! notify all observers that time step preparation starts
+	bool notify_on_prepare_timestep(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		bool successfull = true;
+		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
+		{
+			if (!(*it)->on_prepare_timestep(u, step, time, dt))
+				successfull = false;
+		}
+		return successfull;
+	}
+
+	//! notify all observers that the time step has been rewound
+	bool notify_on_rewind_timestep(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		bool successfull = true;
+		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
+		{
+			if(!(*it)->on_rewind_timestep(u, step, time, dt))
+				successfull = false;
+		}
+		return successfull;
+	}
+
+	//! notify all observers that the time step has been finalized
+	bool notify_on_finalize_timestep(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{
+		bool successfull = true;
+		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
+		{
+				if ( !(*it)->on_finalize_timestep(u, step, time, dt))
+					successfull = false;
+		}
+		return successfull;
+	}
+
+	//! notify all observers that the integration has been completed
+	bool notify_on_finished(SmartPtr<grid_function_type> u, int step, number time)
+	{
+		bool successfull = true;
+		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
+		{
+				if ( !(*it)->on_finished(u, step, time))
+					successfull = false;
+		}
+		return successfull;
 	}
 
 };
