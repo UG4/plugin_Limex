@@ -96,6 +96,9 @@ public:
 	virtual ~VTKOutputObserver()
 	{ m_sp_vtk = SPNULL; }
 
+	void set_output_scales(const std::vector<number>& vScales)
+	{ m_vOutputScales = vScales; }
+
 	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
 	{
 		if (!m_sp_vtk.valid())
@@ -123,7 +126,14 @@ public:
 				alpha, static_cast<typename TAlgebra::vector_type&>(*uOld),
 				1.0 - alpha, static_cast<typename TAlgebra::vector_type&>(*uNew));
 
-			m_sp_vtk->print(m_filename.c_str(), *uCur, curStep, curTime);
+			if (m_vOutputScales.size())
+			{
+				SmartPtr<grid_function_type> uTmp = uCur->clone();
+				ScaleGF<grid_function_type>(uTmp, uCur, m_vOutputScales);
+				m_sp_vtk->print(m_filename.c_str(), *uTmp, curStep, curTime);
+			}
+			else
+				m_sp_vtk->print(m_filename.c_str(), *uCur, curStep, curTime);
 
 			curTime = (++curStep) * m_plotStep;
 		}
@@ -138,6 +148,7 @@ protected:
 	SmartPtr<vtk_type> m_sp_vtk;
 	std::string m_filename;
 	number m_plotStep;
+	std::vector<number> m_vOutputScales;
 };
 
 
@@ -1217,9 +1228,7 @@ protected:
 	inline bool hasTerminated(double tCurrent, double tStart, double tFinal) const
 	{
 	 	/*return (! ((tCurrent < tFinal) && (tFinal-tCurrent > base_type::m_precisionBound)));*/
-		return ((tCurrent >= tFinal) ||
-				(tFinal-tCurrent < (tFinal-tStart)*base_type::m_precisionBound + base_type::m_precisionBound));
-	
+		return tCurrent >= tFinal || tFinal-tCurrent < (tFinal-tStart)*base_type::m_precisionBound;
 	}
 
 	/// metric
