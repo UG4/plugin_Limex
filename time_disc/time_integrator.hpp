@@ -1359,7 +1359,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		//
 		UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*uold),
 				  "Huhh: Different vectors required!");
-		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0/final_dt, *u1, -1.0/final_dt, *uold);
+		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0/final_dt, (typename base_type::vector_type&) *u1, -1.0/final_dt, (typename base_type::vector_type&) *uold);
 	}
 
 	m_spSolTimeSeries->clear();
