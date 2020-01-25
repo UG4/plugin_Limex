@@ -56,7 +56,7 @@
 #include "time_disc/linear_implicit_timestep.h"
 #include "time_disc/limex_integrator.hpp"
 #include "newton_limex.h"
-
+#include <boost/math/special_functions/bessel.hpp>
 
 
 
@@ -74,6 +74,16 @@ namespace ug{
 DebugID LIB_LIMEX("LIB_LIMEX");
 
 namespace Limex{
+
+double BesselJ0(const double x)
+{
+	return boost::math::cyl_bessel_j(0, x);
+}
+
+double BesselJ1(const double x)
+{
+	return boost::math::cyl_bessel_j(1, x);
+}
 
 
 
@@ -223,7 +233,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_<T, typename T::base_type>(name, grp)
 			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
 			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>, number) >("")
-			.add_method("set_output_scales", &T::set_output_scales)
+			//.add_method("set_output_scales", &T::set_output_scales)
 			.add_method("close", &T::close)
 			.set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "VTKOutputObserver", tag);
@@ -322,9 +332,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 	}
 
 	{
-		// LinearTimeIntegrator
+		// ConstStepLinearTimeIntegrator
 		// (e.g., implicit Euler for linear problem)
-
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef ConstStepLinearTimeIntegrator<TDomain, TAlgebra> T;
 		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
@@ -654,6 +663,10 @@ static void Common(Registry& reg, string parentGroup)
 			   .add_constructor()
 			   .set_construct_as_smart_pointer(true);
 	}
+
+
+	reg.add_function("BesselJ0", &BesselJ0, grp);
+	reg.add_function("BesselJ1", &BesselJ1, grp);
 }
 
 }; // end Functionality

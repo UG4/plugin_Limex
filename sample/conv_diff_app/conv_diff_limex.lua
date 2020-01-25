@@ -17,16 +17,17 @@ ug_load_script("util/load_balancing_util.lua")
 local params = {}
 local dim = util.GetParamNumber("-dim", 2, "dimension")
 local numPreRefs = util.GetParamNumber("--numPreRefs", 0, "number of refinements before parallel distribution")
-local numRefs    = util.GetParamNumber("--numRefs",    7, "number of refinements")
+local numRefs    = util.GetParamNumber("--num-refs",    7, "number of refinements")
 local startTime  = util.GetParamNumber("--start", 0.0, "start time")
 local endTime    = util.GetParamNumber("--end", nil, "end time")
 local dt         = util.GetParamNumber("--dt", 1e-2, "time step size")
 local doVTK      = util.HasParamOption("--with-vtk")
 
-params.tol     = util.GetParamNumber("--limex-tol", 1e-2, "time step size")
+params.tol     = util.GetParamNumber("--limex-tol", 1e-3, "time step size")
 params.nstages = util.GetParamNumber("--limex-nstages", 2, "limex stages (2 default)")
 params.limex_partial_mask = util.GetParamNumber("--limex-partial", 0, "limex partial (0 or 3)")
 params.limex_debug_level = util.GetParamNumber("--limex-debug-level", 5, "limex debug level (integer)")
+
 
 
 -- This scales the amount of diffusion of the problem
@@ -107,7 +108,7 @@ local ax = 0.25
 local ay = 0.0
 
 -- The parameter nu specifies the rotation velocity
-local nu = 100
+local nu = 0.0-- 100
 
 -- The parameter delta is a scaling factor influencing the steepness of the cone
 delta = 1e-1  --1e-1
@@ -145,8 +146,9 @@ end
 
 -- post-processing (after each step)
 function postProcess(u, step, time, currdt)
-  
-  print("L2Error\t"..time.."\t=\t"..L2Error("exactSolution", u, "c", time, 4).."\tL2Norm=\t"..L2Norm(u,"c", time))
+  local l2error = L2Error("exactSolution", u, "c", time, 4)
+  local l2norm=L2Norm(u,"c", time)
+  print("L2Error at t=\t"..time.."\t=\t"..l2error..", (rel=".. (l2error/l2norm).. ")\tL2Norm=\t"..l2norm)
 
   if (doVTK) then
      vtk:print("ConvDiffSol", u, step, time)
@@ -160,26 +162,51 @@ end
 
 -- grid function debug writer
 local dbgWriter = GridFunctionDebugWriter(approxSpace)
-
+GetLogAssistant():set_debug_level("LIB_LIMEX", 4)
 -- descriptor for linear solver
 local solverDesc = {
     name = "bicgstab", -- "linear"
     precond = {
       type = "gmg",
       approxSpace = approxSpace,
-      smoother = "ilu",
+      smoother = "sgs",
       rap=true,
 
-      --preSmooth = 2,      -- number presmoothing steps
-      --postSmooth = 2,    -- number postsmoothing steps
-      baseLevel = 3,  -- 2 for 2d -- 1 for 3d
+      preSmooth=2,
+      postSmooth=2,
+      baseLevel = 2,
+      baseSolver = "superlu",
+      
+--[[
+      debugSolver = 
+        {
+          debug = true,
+         type = "linear",    -- linear solver type ["bicgstab", "cg", "linear"]
+            precond = { 
+            type = "ilu",
+             -- damping = 1.0,
+          },
+            
+           
+          convCheck = 
+          {
+            type    = "standard",
+            iterations  = 10, -- number of iterations
+            absolute  = 5e-12, -- absolut value of defact to be reached; usually 1e-8 - 1e-10 (must be larger than in newton section)
+            reduction = 1e-8, -- reduction factor of defect to be reached; usually 1e-7 - 1e-8 (must be larger than in newton section)
+            verbose   = true,   -- print convergence rates if true
+          },
+         },
+--]]
       
     },
     convCheck = {
       type ="standard",
       maxSteps = 100,
       minDef = 1e-9,
-      reduction = 1e-12 }
+      reduction = 1e-12 },
+      
+      
 }
 
 
@@ -196,7 +223,7 @@ elemDisc:set_diffusion(eps)
 if (doVelocity) then
 elemDisc:set_velocity("Velocity")
 end
-elemDisc:set_partial_velocity(params.limex_partial_mask) -- 3 
+--elemDisc:set_partial_velocity(params.limex_partial_mask) -- 3 
 elemDisc:set_partial_flux(0) 
 elemDisc:set_partial_mass(0)  
 
@@ -274,17 +301,22 @@ local elemDisc ={}
 local dirichletBND = {}
 local domainDisc = {}
 
-local upwind = FullUpwind()
+
+--local upwind = FullUpwind()
+local upwind = NoUpwind()
 -- setup for discretizations
-for i=1,params.nstages do 
+
+
+if false then 
+for i=1,nstages do 
   elemDisc[i] = ConvectionDiffusion("c", "Inner", "fv1")
   elemDisc[i]:set_upwind(upwind)
   elemDisc[i]:set_diffusion(eps)
   elemDisc[i]:set_velocity("Velocity")
   
-  elemDisc[i]:set_partial_velocity(params.limex_partial_mask) -- 3 
-  elemDisc[i]:set_partial_flux(0) 
-  elemDisc[i]:set_partial_mass(0)  
+  --elemDisc[i]:set_partial_velocity(params.limex_partial_mask) -- 3 
+  --elemDisc[i]:set_partial_flux(0) 
+  --elemDisc[i]:set_partial_mass(0)  
   
   dirichletBND[i] = DirichletBoundary()
   dirichletBND[i]:add("DirichletValue", "c", "Boundary")
@@ -292,18 +324,37 @@ for i=1,params.nstages do
   domainDisc[i] = DomainDiscretization(approxSpace)
   domainDisc[i]:add(elemDisc[i])
   domainDisc[i]:add(dirichletBND[i]) 
-end
+end 
+else
+   elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
+  elemDisc:set_upwind(upwind)
+  elemDisc:set_diffusion(eps)
+  elemDisc:set_velocity("Velocity")
+  
+  elemDisc:set_partial_velocity(params.limex_partial_mask) -- 3 
+  elemDisc:set_partial_flux(0) 
+  elemDisc:set_partial_mass(0)  
+  
+  dirichletBND = DirichletBoundary()
+  dirichletBND:add("DirichletValue", "c", "Boundary")
+
+  domainDisc = DomainDiscretization(approxSpace)
+  domainDisc:add(elemDisc)
+  domainDisc:add(dirichletBND) 
+ end
+
  
- 
- 
- 
-local limexLSolver = {}
-local limexNLSolver = {}
+local limexLSolver = nil
+local limexNLSolver = nil
 
 local limexConvCheck=ConvCheck(1, 5e-8, 1e-10, true)
 limexConvCheck:set_supress_unsuccessful(true) 
  
-for i=1,params.nstages do 
+if false then 
+ limexLSolver = {}
+ limexNLSolver = {}
+for i=1,nstages do 
+
   limexLSolver[i] = util.solver.CreateSolver(solverDesc)
     
   limexNLSolver[i] = NewtonSolver()
@@ -311,6 +362,13 @@ for i=1,params.nstages do
   limexNLSolver[i]:set_convergence_check(limexConvCheck)
   
   print(limexNLSolver[i])
+end
+else
+ limexLSolver = util.solver.CreateSolver(solverDesc)
+  limexNLSolver = NewtonSolver()
+ limexNLSolver:set_linear_solver(limexLSolver)
+ limexNLSolver:set_convergence_check(limexConvCheck)
+  print(limexNLSolver)
 end
 
 
@@ -334,11 +392,10 @@ local dtlimex = math.min(tSteps, tCFL)
 --local estimator = Norm2Estimator()  
 --tol = 0.37/(gridSize)*tol
 
--- GridFunction (relative norm)
-local limexEstimator = GridFunctionEstimator("c", 2)  
+
 --print (estimator)
-local limexEstimator = ScaledGridFunctionEstimator()
-limexEstimator:add(L2ErrorEvaluator("c", 2))  
+local limexEstimator = CompositeGridFunctionEstimator()
+limexEstimator:add(L2ComponentSpace("c", 2))  
 
 -- descriptor for integrator
 local limexDesc = {
@@ -370,7 +427,7 @@ end
 
 limex:attach_observer(luaObserver)
 --limex:attach_observer(refObserver)
---limex:set_debug(dbgWriter)
+
 
 
 limex:set_stepsize_greedy_order_factor(1.0)
@@ -381,6 +438,15 @@ limex:enable_matrix_cache() -- keep matrix
 print ("dtLimex   = "..dtlimex)
 print ("hGrid     = "..gridSize)
 print ("tolLimex  = "..params.tol)
+
+dbgWriter:set_vtk_output(false)
+dbgWriter:set_conn_viewer_output(true)
+limexNLSolver:set_debug(dbgWriter)
+
+limex:set_stepsize_greedy_order_factor(1.0)
+limex:select_cost_strategy(LimexNonlinearCost())
+-- limex:disable_matrix_cache()  -- recompute ()                                                                                                                                         
+limex:enable_matrix_cache() -- keep matrix     
 
 -- set initial value
 print(">> Interpolating start values")

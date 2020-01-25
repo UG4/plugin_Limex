@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2014-2016:  G-CSC, Goethe University Frankfurt
+ * Copyright (c) 2014 - 2020:  G-CSC, Goethe University Frankfurt
  * Author: Arne Naegel
  *
  * This file is part of UG4.
@@ -221,8 +220,10 @@ public:
 			void set_error(int e)
 			{ m_error=e; }
 
-			int get_error()
-			{ return m_error; }
+
+			void get_error()
+			{ /*return m_error;*/ }
+
 
 			void set_solution(SmartPtr<grid_function_type> sol)
 			{ m_sol = sol;}
@@ -367,6 +368,14 @@ public:
 			UG_LOG("WARNING: add_stage(i, nsteps ,...) is deprecated. Please use 'add_stage(nsteps ,...) instead!'");
 			add_stage(nsteps, solver, spDD);
 		}
+
+		//!
+		SmartPtr<timestep_type> get_time_stepper(size_t i)
+		{
+			UG_ASSERT(i<m_vThreadData.size(), "Huhh: Invalid entry");
+			return m_vThreadData[i].get_time_stepper();
+		}
+
 
 
 
@@ -754,16 +763,20 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		//UG_DLOG(LIB_LIMEX, 5, "+++ LimexTimestep +++" << limex_step << "\n");
 		UG_LOG("+++ LimexTimestep +++" << limex_step << "\n");
 
-		// determine step size
-		number dt = std::min(dtcurr, t1-t);
-		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
-
-		// preprocessing actions
-		itime_integrator_type::notify_step_preprocess(u, limex_step, t+dt, dt);
 
 		// save time stamp for limex step start
 		Stopwatch stopwatch;
 		stopwatch.start();
+
+
+		// determine step size
+		number dt = std::min(dtcurr, t1-t);
+		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
+
+
+		// Notify init observers. (NOTE: u = u(t))
+		itime_integrator_type::notify_init_step(u, limex_step, t+dt, dt);
+
 
 		// determine number of stages to investigate
 		qcurr = qpred;
@@ -861,7 +874,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 				vSwitchHistory[limex_step%nSwitchHistory] = (qpred - qcurr);
 				UG_DLOG(LIB_LIMEX, 5, "LIMEX-ASYMPTOTIC-ORDER switch:  = " <<  (qpred - qcurr)<< std::endl);
 
-				int nSwitches=0;
+				size_t nSwitches=0;
 				for (int s=nSwitchLookBack-1; s>=0; s--)
 				{
 					nSwitches += std::abs(vSwitchHistory[(limex_step-s)%nSwitchHistory]);
@@ -908,7 +921,23 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 */
 
 			// bAsymptoticReduction = (m_num_reductions[0] >= m_max_reductions) || bAsymptoticReduction;
-			bAsymptoticReduction = ((size_t) nSwitches >= m_max_reductions) || bAsymptoticReduction;
+
+			// bAsymptoticReduction = (nSwitches >= m_max_reductions) || bAsymptoticReduction;
+
+			if (nSwitches >= m_max_reductions) {
+
+
+				m_asymptotic_order = std::min<size_t>(m_asymptotic_order-1, 2);
+				bAsymptoticReduction = true;
+
+				for (int s=nSwitchLookBack-1; s>=0; s--)
+				{ vSwitchHistory[(limex_step-s)%nSwitchHistory]=0; }
+
+
+			}
+
+
+
 			// asymptotic order reduction
 			//if (m_num_reductions[0] >= m_max_reductions)
 			if	(bAsymptoticReduction)
@@ -1053,9 +1082,8 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 			// post process
 			UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
-			itime_integrator_type::notify_step_postprocess(ubest, u, limex_step, t+dt, dt);
+			itime_integrator_type::notify_finalize_step(ubest, limex_step++, t+dt, dt);
 
-			++limex_step;
 
 			// copy best solution
 			*u = *ubest;
@@ -1074,6 +1102,8 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			// DISCARD time step
 			UG_LOG("+++ LimexTimestep +++" << limex_step << " FAILED" << std::endl);
 			UG_LOG("LIMEX-REJECTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << std::endl);
+
+			itime_integrator_type::notify_rewind_step(ubest, limex_step, t+dt, dt);
 
 		}
 

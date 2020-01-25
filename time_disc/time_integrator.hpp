@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016:  G-CSC, Goethe University Frankfurt
+ * Copyright (c) 2014-2020:  G-CSC, Goethe University Frankfurt
  * Author: Arne Naegel, Andreas Kreienbuehl
  *
  * This file is part of UG4.
@@ -33,6 +33,10 @@
 #ifndef TIME_INTEGRATOR_HPP_
 #define TIME_INTEGRATOR_HPP_
 
+// std headers.
+#include <string>
+
+// UG4 headers.
 #include "lib_algebra/operator/interface/operator.h"
 #include "lib_algebra/operator/interface/operator_inverse.h"
 #include "lib_algebra/operator/linear_solver/linear_solver.h"
@@ -49,16 +53,14 @@
 #include "lib_disc/function_spaces/integrate.h" //Integral
 #include "lib_disc/io/vtkoutput.h"
 
-// std headers
-#include <string>
 
-// own headers
+// My headers.
 #include "time_extrapolation.h"
 #include "../limex_tools.h"
 
 namespace ug {
 
-/// Base class for time integration observer
+/// Abstract base class for time integration observer
 template<class TDomain, class TAlgebra>
 class ITimeIntegratorObserver
 {
@@ -68,9 +70,9 @@ public:
 	virtual ~ITimeIntegratorObserver() {}
 	//virtual void init(){}
 	//virtual void finish(){}
-
-	virtual void step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt) {}
+	virtual bool step_process(SmartPtr<grid_function_type> u, int step, number time, number dt)  = 0 ;// {return true;}
+	// virtual void step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
+	// virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt) {}
 
 };
 
@@ -96,22 +98,20 @@ public:
 	virtual ~VTKOutputObserver()
 	{ m_sp_vtk = SPNULL; }
 
-	void set_output_scales(const std::vector<number>& vScales)
-	{ m_vOutputScales = vScales; }
 
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	// virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	virtual bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) override
 	{
-		if (!m_sp_vtk.valid())
-			return;
+		if (!m_sp_vtk.valid()) return false;
 
 		if (m_plotStep == 0.0)
 		{
 			m_sp_vtk->print(m_filename.c_str(), *uNew, step, time);
-			return;
+			return true;
 		}
 
 		// otherwise, only plot data at multiples of given time step (interpolate if necessary)
-		number rem = fmod(time-dt, m_plotStep);
+		/* number rem = fmod(time-dt, m_plotStep);
 		number curTime = time - dt - rem + m_plotStep;
 		int curStep = (int) ((curTime + 0.5*m_plotStep) / m_plotStep);
 
@@ -136,7 +136,8 @@ public:
 				m_sp_vtk->print(m_filename.c_str(), *uCur, curStep, curTime);
 
 			curTime = (++curStep) * m_plotStep;
-		}
+		}*/
+		return false;
 	}
 
 	void close(SmartPtr<grid_function_type> u)
@@ -147,8 +148,7 @@ public:
 protected:
 	SmartPtr<vtk_type> m_sp_vtk;
 	std::string m_filename;
-	number m_plotStep;
-	std::vector<number> m_vOutputScales;
+	double m_plotStep;
 };
 
 
@@ -171,12 +171,13 @@ public:
 	virtual ~ConnectionViewerOutputObserver()
 	{}
 
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld, */int step, number time, number dt) override
 	{
 		// quit, if time does not match
-		if (m_outputTime >=0.0 && time != m_outputTime) return;
+		if (m_outputTime >=0.0 && time != m_outputTime) return true;
 
 		SaveVectorForConnectionViewer<grid_function_type>(*uNew, m_filename.c_str());
+		return true;
 	}
 
 protected:
@@ -334,7 +335,7 @@ void LuaFunction2<TData,TDataIn1,TDataIn2>::operator() (TData& out, int numArgs1
 /// Integration observer: Output using Lua callback
 /**!
  * TODO: Calls a LUA function with signature
- * func (SmartPtr<G> u, int step, number dt, number t)
+ * func (SmartPtr<G> u, int step, number t, number dt)
  */
 template<class TDomain, class TAlgebra>
 class LuaCallbackObserver
@@ -346,62 +347,63 @@ public:
 	typedef LuaFunction<number, number> lua_function_type;
 
 	LuaCallbackObserver()
-	: m_spCallbackPre(SPNULL), m_spCallbackPost(SPNULL) {}
+	{}
 
 	virtual ~LuaCallbackObserver()
 	{}
 
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_preprocess(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
+	/*virtual void step_preprocess(SmartPtr<grid_function_type> uNew, int step, number time, number dt)
 	{
-		if (!m_spCallbackPre.valid())
-			return;
-
 		number dummy_return;
 		m_u = uNew;
-		(*m_spCallbackPre)(dummy_return, numArgs2, (number) step, time, dt);
+		m_callbackPre(dummy_return, numArgs2, (number) step, time, dt);
 	}
+*/
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) override
 	{
-		if (!m_spCallbackPost.valid())
-			return;
+		// Store solution
+		m_spu = uNew;
 
+		// Execute callback.
 		number dummy_return;
-		m_u = uNew;
-		(*m_spCallbackPost)(dummy_return, numArgs2, (number) step, time, dt);
+		m_luaCallback(dummy_return, numArgs2, (number) step, time, dt);
+		return true;
 	}
 
-	void set_callback(const char* luaCallbackPost)
+	void set_callback(const char* luaCallbackID)
+	{ m_luaCallback.set_lua_callback(luaCallbackID, numArgs2); };
+
+
+	///! DEPRECATED
+	void set_callback_post(const char* luaCallbackID)
 	{
-		m_spCallbackPost = make_sp(new LuaFunction<number, number>());
-		m_spCallbackPost->set_lua_callback(luaCallbackPost, numArgs2);
-	}
+		UG_LOG("WARNING: LuaCallbackObserver::set_callback_post has been deprecated.")
+		m_luaCallback.set_lua_callback(luaCallbackID, numArgs2);
+	};
 
-	void set_callback_post(const char* luaCallback)
-	{
-		m_spCallbackPost = make_sp(new LuaFunction<number, number>());
-		m_spCallbackPost->set_lua_callback(luaCallback, numArgs2);
-	}
-
+	///! DEPRECATED
 	void set_callback_pre(const char* luaCallback)
 	{
-		m_spCallbackPre = make_sp(new LuaFunction<number, number>());
-		m_spCallbackPre->set_lua_callback(luaCallback, numArgs2);
-	}
+		UG_ASSERT(0, "ERROR: LuaCallbackObserver::set_callback_pre has been deprecated." <<
+				"Please use TimeIntegratorSubject::attach_init_observer instead! ")
+
+	//	m_luaCallback.set_lua_callback(luaCallback, numArgs2);
+	};
 
 	SmartPtr<grid_function_type> get_current_solution()
-	{ return m_u; }
+	{ return m_spu; }
 
 protected:
 	// TODO: replace by appropriate call-back
-	SmartPtr<LuaFunction<number, number> > m_spCallbackPre;
-	SmartPtr<LuaFunction<number, number> > m_spCallbackPost;
+	LuaFunction<number, number> m_luaCallback;
+//	LuaFunction<number, number> m_callbackPost;
 	const static size_t numArgs1=0;  // num SmartPtr
 	const static size_t numArgs2=3;
-	SmartPtr<grid_function_type> m_u;
+	SmartPtr<grid_function_type> m_spu;
 };
 
 
@@ -433,7 +435,7 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	bool step_process(SmartPtr<grid_function_type> uNew, /* SmartPtr<grid_function_type> uOld, */ int step, number time, number dt) override
 	{
 		UG_LOG("L2Error(\t"<< time << "\t) = \t" << L2Error(m_spReference, uNew, "c", time, 4) << std::endl);
 		if (m_sp_vtk.valid())
@@ -441,9 +443,10 @@ public:
 			SmartPtr<grid_function_type> ref = uNew->clone();
 			Interpolate<grid_function_type> (m_spReference, ref, "c", time);
 			m_sp_vtk->print("MyReference", *ref, step, time);
+			return true;
 		}
 
-
+		return false;
 
 	}
 
@@ -486,7 +489,7 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) override
 	{
 
 		for (typename std::vector<IntegralSpecs>::iterator it = m_vIntegralData.begin();
@@ -495,6 +498,8 @@ public:
 			number value=Integral(uNew, it->m_cmp.c_str(), it->m_subsets.c_str(), it->m_quadOrder);
 			UG_LOG("Integral(\t"<< it->m_idString << "\t"<< time << "\t)=\t" << value << std::endl);
 		}
+
+		return true;
 
 
 	}
@@ -515,7 +520,12 @@ protected:
 
 
 
-/// Base class for observer attachment
+/// Base class for a subject notifying observers attachment.
+/** Provides the option to perform pre-/postprocessing for a (tentative step for evolving from t -> t+dt). Three cases are distinguished:
+ *  1) INIT     : Called at t=t0 before time step is executed. Contains solution u0=u(t0).
+ *  2) FINALIZE : Called at t=t0+dt, after time step has been executed and can be accepted. Provides solution u = u(t+dt).
+ *  3) REWIND   : Called at t=t0+dt, after time step has been executed, but must be rejected. Provides (rejected) solution u = u(t+dt).
+ */
 template<class TDomain, class TAlgebra>
 class TimeIntegratorSubject
 {
@@ -524,27 +534,66 @@ public:
 	typedef ITimeIntegratorObserver<TDomain, TAlgebra> process_observer_type;
 	typedef typename std::vector<SmartPtr<process_observer_type> > process_observer_container_type;
 
+	enum observer_group_type {TIO_GROUP_INIT_STEP=0, TIO_GROUP_REWIND_STEP, TIO_GROUP_FINALIZE_STEP, TIO_GROUP_SIZE};
+
 protected:
-	process_observer_container_type m_vProcessObservers;
+	// process_observer_container_type m_vProcessObservers;
+	process_observer_container_type m_vProcessObservers[TIO_GROUP_SIZE];
 
+protected:
+	//! register observer (default: postprocess)
+	template<int tGroup>
+	void attach_to_group(SmartPtr<process_observer_type> obs)
+	{
+		UG_LOG("TimeIntegratorSubject::attach_observer[" << tGroup <<"]" << this << std::endl);
+		m_vProcessObservers[tGroup].push_back(obs);
+	}
 public:
-	//! register observer
+	//! Short-cut for
 	void attach_observer(SmartPtr<process_observer_type> obs)
-	{m_vProcessObservers.push_back(obs);}
+	{ attach_finalize_observer(obs); }
 
-	//! notify all observers that time step evolution starts
-	void notify_step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	void attach_init_observer(SmartPtr<process_observer_type> obs)
+	{ attach_to_group<TIO_GROUP_INIT_STEP>(obs); }
+
+	void attach_rewind_observer(SmartPtr<process_observer_type> obs)
+	{ attach_to_group<TIO_GROUP_REWIND_STEP>(obs); }
+
+	void attach_finalize_observer(SmartPtr<process_observer_type> obs)
+	{ attach_to_group<TIO_GROUP_FINALIZE_STEP>(obs); }
+
+	void reset_observers()
 	{
-		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
-		{(*it)->step_preprocess(u, step, time, dt); }
+		m_vProcessObservers[TIO_GROUP_INIT_STEP].clear();
+		m_vProcessObservers[TIO_GROUP_REWIND_STEP].clear();
+		m_vProcessObservers[TIO_GROUP_FINALIZE_STEP].clear();
 	}
 
-	//! notify all observers that time step has been evolved (successfully)
-	void notify_step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
+protected:
+	/// Notify all observers for a certain group.
+	template<int tGroup>
+	void notify_group(SmartPtr<grid_function_type> u, int step, number time, number dt)
 	{
-		for (typename process_observer_container_type::iterator it = m_vProcessObservers.begin(); it!= m_vProcessObservers.end(); ++it)
-		{(*it)->step_postprocess(uNew, uOld, step, time, dt); }
+		process_observer_container_type &observers = m_vProcessObservers[tGroup];
+		for (typename process_observer_container_type::iterator it = observers.begin(); it!= observers.end(); ++it)
+		{(*it)->step_process(u, step, time, dt); }
+		UG_LOG("TimeIntegratorSubject::notify_group[" << tGroup <<"]: " << observers.size() << " observers. " << this<< std::endl);
 	}
+public:
+
+	/// notify all observers that time step evolution starts
+	void notify_init_step(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{ notify_group<TIO_GROUP_INIT_STEP>(u, step, time, dt); }
+
+	/// Notify all observers that time step must be rewinded.
+	void notify_rewind_step(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{ notify_group<TIO_GROUP_REWIND_STEP>(u, step, time, dt); }
+
+	/// notify all observers that time step has been evolved (successfully)
+	void notify_finalize_step(SmartPtr<grid_function_type> u, int step, number time, number dt)
+	{ notify_group<TIO_GROUP_FINALIZE_STEP>(u, step, time, dt); }
+
+
 
 };
 
@@ -862,7 +911,7 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 	         // number dt = std::min(currdt, t1-t);
 		 const number dt = currdt;
 
-			if(!base_type::m_bNoLogOut)
+		if(!base_type::m_bNoLogOut)
 				UG_LOG("+++ Const timestep +++" << step<< "t=" << t << "->" << dt);// std::endl;
 		
 		 // prepare step
@@ -896,7 +945,7 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 		 }
 		 else
 		 {
-			UG_THROW("Const Time step failed!!!")
+			UG_THROW("ConstStepLinearTimeIntegrator::apply failed!!!");
 		 }
 
 	 }
@@ -1308,8 +1357,8 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				{
 					// m_spSolTimeSeries->oldest() actually holds a pointer to a grid function
 					// but as the time series does not know this, we have to cast ourselves
-					SmartPtr<grid_function_type> tmpOld = m_spSolTimeSeries->oldest().template cast_static<grid_function_type>();
-					this->notify_step_postprocess(u1, tmpOld, step, t, dt);
+					// SmartPtr<grid_function_type> tmpOld = m_spSolTimeSeries->oldest().template cast_static<grid_function_type>();
+					this->notify_finalize_step(u1, /*tmpOld,*/ step, t, dt);
 				}
 
 				// update time
@@ -1347,7 +1396,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	if(base_type::m_bNoLogOut)
 	{
-		this->notify_step_postprocess(u1, uold, step, t, final_dt);
+		this->notify_finalize_step(u1, /*uold,*/ step, t, final_dt);
 	}
 
 
@@ -1359,7 +1408,11 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		//
 		UG_ASSERT(static_cast<typename base_type::vector_type*> (&*u1) != &(*uold),
 				  "Huhh: Different vectors required!");
-		VecScaleAdd((typename base_type::vector_type&) *m_spDerivative, 1.0/final_dt, (typename base_type::vector_type&) *u1, -1.0/final_dt, (typename base_type::vector_type&) *uold);
+
+		VecScaleAdd(static_cast<typename TAlgebra::vector_type&>(*m_spDerivative),
+				1.0/final_dt, static_cast<typename TAlgebra::vector_type&>(*u1),
+				-1.0/final_dt, static_cast<typename TAlgebra::vector_type&>(*uold));
+
 	}
 
 	m_spSolTimeSeries->clear();
@@ -1466,7 +1519,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 		{
 			if(!base_type::m_bNoLogOut)
 			{
-				this->notify_step_postprocess(u1, uold, step, t, dt);
+				this->notify_finalize_step(u1, /*uold, */step, t, dt);
 			}
 
 			// ACCEPT time step
@@ -1481,7 +1534,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 
 	if(base_type::m_bNoLogOut)
 	{
-		this->notify_step_postprocess(u1, uold, step, t, final_dt);
+		this->notify_finalize_step(u1, /*uold,*/ step, t, final_dt);
 	}
 	return true;
 };

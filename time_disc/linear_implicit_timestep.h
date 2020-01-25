@@ -189,14 +189,12 @@ protected:
 		//	resize scaling factors
 		vSM.resize(1);
 		vSM[0] = 1.0;
-		//vSM[1] = -1.0;
 
 		vSA.resize(1);
 		vSA[0] = dt;
-		//vSA[1] = (1.0-theta) * dt;
+
 		return currentTime + dt;
 	}
-
 
 	static const size_t m_prevSteps=1;			///< number of previous steps needed.
 	std::vector<number> m_vScaleMass;			///< Scaling for mass part

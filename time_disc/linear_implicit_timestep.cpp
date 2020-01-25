@@ -223,7 +223,6 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 		if (!m_useCachedMatrices)
 		{
 			// un-cached, (i.e., approximate Newton)
-
 			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, m_dt, gl);
 			UG_DLOG(LIB_LIMEX, 5, "Computed J_limex =" << J_limex << " for dt=" << m_dt << std::endl);
 			write_debug(J_limex, "myMatrixAssembled.mat");
@@ -275,8 +274,10 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 			write_debug(J_stiff, "myStiffX.mat");
 
 			// Updating Jtotal = Mk+ \tau Ja (for non-dirichlet)
-			UG_ASSERT (J_limex.num_rows() == J_stiff.num_rows(), "Huhh: Row dimension does not match");
-			UG_ASSERT (J_limex.num_cols() == J_stiff.num_cols(), "Huhh: Col dimension does not match");
+			UG_ASSERT (J_limex.num_rows() == J_stiff.num_rows(), "Huhh: Row dimension does not match: "
+						<< J_limex.num_rows() <<"!=" << J_stiff.num_rows());
+			UG_ASSERT (J_limex.num_cols() == J_stiff.num_cols(), "Huhh: Col dimension does not match:"
+						<< J_limex.num_cols() <<"!=" << J_stiff.num_cols());
 
 			// Note: J_limex has Dirichlet values
 			MatAddNonDirichlet<matrix_type>(J_limex, 1.0, J_limex, m_dt, J_stiff);

@@ -937,7 +937,7 @@ public:
 			// use sub-diagonal error estimator (i.e. multiply with alpha)
 			enorm2 +=  (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
 			unorm2 += (*it)->norm2(*uFine);
-			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\tratio2="<< (enorm2)/(unorm2) << "est2=" << (enorm2)/(unorm2));
+			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\t(ratio2="<< (enorm2)/(unorm2) << ")");
 		}
 
 		//prevent division by zero
