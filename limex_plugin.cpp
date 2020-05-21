@@ -75,7 +75,7 @@ DebugID LIB_LIMEX("LIB_LIMEX");
 
 namespace Limex{
 
-double BesselJ0(const double x)
+/*double BesselJ0(const double x)
 {
 	return boost::math::cyl_bessel_j(0, x);
 }
@@ -84,7 +84,7 @@ double BesselJ1(const double x)
 {
 	return boost::math::cyl_bessel_j(1, x);
 }
-
+*/
 
 
 /**
@@ -665,8 +665,8 @@ static void Common(Registry& reg, string parentGroup)
 	}
 
 
-	reg.add_function("BesselJ0", &BesselJ0, grp);
-	reg.add_function("BesselJ1", &BesselJ1, grp);
+	// reg.add_function("BesselJ0", &BesselJ0, grp); => Poroelasticity plugin
+	// reg.add_function("BesselJ1", &BesselJ1, grp);
 }
 
 }; // end Functionality
