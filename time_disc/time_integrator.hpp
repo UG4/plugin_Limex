@@ -34,7 +34,7 @@
 #define TIME_INTEGRATOR_HPP_
 
 #if __cplusplus >= 201103L
-#define OVERRIDE OVERRIDE
+#define OVERRIDE override
 #else
 #define OVERRIDE
 #endif
