@@ -33,6 +33,12 @@
 #ifndef TIME_INTEGRATOR_HPP_
 #define TIME_INTEGRATOR_HPP_
 
+#if __cplusplus >= 201103L
+#define OVERRIDE OVERRIDE
+#else
+#define OVERRIDE
+#endif
+
 // std headers.
 #include <string>
 
@@ -100,7 +106,7 @@ public:
 
 
 	// virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
-	virtual bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) override
+	virtual bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) OVERRIDE
 	{
 		if (!m_sp_vtk.valid()) return false;
 
@@ -171,7 +177,7 @@ public:
 	virtual ~ConnectionViewerOutputObserver()
 	{}
 
-	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld, */int step, number time, number dt) override
+	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld, */int step, number time, number dt) OVERRIDE
 	{
 		// quit, if time does not match
 		if (m_outputTime >=0.0 && time != m_outputTime) return true;
@@ -363,7 +369,7 @@ public:
 */
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) override
+	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) OVERRIDE
 	{
 		// Store solution
 		m_spu = uNew;
@@ -435,7 +441,7 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	bool step_process(SmartPtr<grid_function_type> uNew, /* SmartPtr<grid_function_type> uOld, */ int step, number time, number dt) override
+	bool step_process(SmartPtr<grid_function_type> uNew, /* SmartPtr<grid_function_type> uOld, */ int step, number time, number dt) OVERRIDE
 	{
 		UG_LOG("L2Error(\t"<< time << "\t) = \t" << L2Error(m_spReference, uNew, "c", time, 4) << std::endl);
 		if (m_sp_vtk.valid())
@@ -489,7 +495,7 @@ public:
 	{}
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
-	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) override
+	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) OVERRIDE
 	{
 
 		for (typename std::vector<IntegralSpecs>::iterator it = m_vIntegralData.begin();
