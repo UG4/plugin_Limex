@@ -405,6 +405,7 @@ public:
 
 protected:
 	// TODO: replace by appropriate call-back
+	// TODO: replace by something like ICplUserData 
 	LuaFunction<number, number> m_luaCallback;
 //	LuaFunction<number, number> m_callbackPost;
 	const static size_t numArgs1=0;  // num SmartPtr
