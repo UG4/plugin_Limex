@@ -148,6 +148,7 @@ public:
 
 	void close(SmartPtr<grid_function_type> u)
 	{
+    /// TODO: Collecting PVD files are written multiple times, for each timestep. Why?!
 		if (m_sp_vtk.valid())
 			m_sp_vtk->write_time_pvd(m_filename.c_str(), *u);
 	}
