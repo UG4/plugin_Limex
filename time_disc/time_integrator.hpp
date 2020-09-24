@@ -146,6 +146,7 @@ public:
 
 	void close(SmartPtr<grid_function_type> u)
 	{
+    /// TODO: Collecting PVD files are written multiple times, for each timestep. Why?!
 		if (m_sp_vtk.valid())
 			m_sp_vtk->write_time_pvd(m_filename.c_str(), *u);
 	}
@@ -403,6 +404,7 @@ public:
 
 protected:
 	// TODO: replace by appropriate call-back
+	// TODO: replace by something like ICplUserData 
 	LuaFunction<number, number> m_luaCallback;
 //	LuaFunction<number, number> m_callbackPost;
 	const static size_t numArgs1=0;  // num SmartPtr
