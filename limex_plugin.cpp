@@ -300,7 +300,10 @@ static void DomainAlgebra(Registry& reg, string grp)
 				  .add_method("set_precision_bound", &T::set_precision_bound)
 				  .add_method("set_no_log_out", &T::set_no_log_out)
 				  .add_method("init", (void (T::*)(TGridFunction const&u) ) &T::init, "","")
-				  .add_method("attach_observer", &T::attach_observer);
+				  .add_method("attach_observer", &T::attach_observer)
+				  .add_method("attach_init_observer", &T::attach_init_observer)
+				  .add_method("attach_rewind_observer", &T::attach_rewind_observer)
+				  .add_method("attach_finalize_observer", &T::attach_finalize_observer);
 		reg.add_class_to_group(name, "ITimeIntegrator", tag);
 	}
 

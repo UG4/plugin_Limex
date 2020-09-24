@@ -57,7 +57,9 @@
 #include "lib_disc/function_spaces/grid_function_util.h" // SaveVectorForConnectionViewer
 #include "lib_disc/function_spaces/interpolate.h" //Interpolate
 #include "lib_disc/function_spaces/integrate.h" //Integral
+#include "lib_disc/function_spaces/grid_function.h" //GridFunction
 #include "lib_disc/io/vtkoutput.h"
+
 
 
 // My headers.
@@ -74,11 +76,7 @@ public:
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
 
 	virtual ~ITimeIntegratorObserver() {}
-	//virtual void init(){}
-	//virtual void finish(){}
 	virtual bool step_process(SmartPtr<grid_function_type> u, int step, number time, number dt)  = 0 ;// {return true;}
-	// virtual void step_preprocess(SmartPtr<grid_function_type> u, int step, number time, number dt) {}
-	// virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt) {}
 
 };
 

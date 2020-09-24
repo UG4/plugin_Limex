@@ -774,8 +774,8 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!");
 
 
-		// Notify init observers. (NOTE: u = u(t))
-		itime_integrator_type::notify_init_step(u, limex_step, t+dt, dt);
+		// Notify init observers. (NOTE: u = u(t))¸
+		itime_integrator_type::notify_init_step(u, limex_step, t, dt);
 
 
 		// determine number of stages to investigate
@@ -826,14 +826,14 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 		bool limexConverged = false;
 		if (err==0)
-		{
-			// compute extrapolation at t+dtcurr (SERIAL)
+		{	// Compute extrapolation at t+dtcurr (SERIAL)
+			// Consistency check.
 			for (unsigned int i=1; i<ntest; ++i)
 			{
 				UG_LOG("Checking consistency:" <<m_consistency_error[i] <<"/" << m_consistency_error[i-1] << "="<< m_consistency_error[i]/m_consistency_error[i-1] << std::endl);
 			}
 
-
+			// Extrapolation.
 			timex.set_error_estimate(m_spErrorEstimator);
 			for (unsigned int i=0; i<ntest; ++i)
 			{
@@ -852,7 +852,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			}
 			limex_total++;
 
-			// obtain sub-diagonal error estimates
+			// Obtain sub-diagonal error estimates.
 			const std::vector<number>& eps = timex.get_error_estimates();
 			UG_ASSERT(ntest<=eps.size(), "Huhh: Not enough solutions?");
 
@@ -866,10 +866,11 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			epsmin = eps[jbest];
 
 			// check for convergence
-			limexConverged = (epsmin <= m_tol);
+			limexConverged = (epsmin <= m_tol) ;
 
 
-			if (limex_success>3) {
+			if (limex_success>3)
+			{
 
 				vSwitchHistory[limex_step%nSwitchHistory] = (qpred - qcurr);
 				UG_DLOG(LIB_LIMEX, 5, "LIMEX-ASYMPTOTIC-ORDER switch:  = " <<  (qpred - qcurr)<< std::endl);
