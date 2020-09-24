@@ -233,7 +233,8 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 			 *
 			 * Note: Mk has Dirichlet rows (e.g., for inout bnd cond)
 			 */
-			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, 1e-20, gl);
+			// J_limex.set(0.0);
+			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, 0.0, gl);
 			UG_DLOG(LIB_LIMEX, 3, "> Computed Mk (" << &J_limex << " : "<<J_limex <<
 						" at " << m_pPrevSol->oldest_time() << ", " << GetNNZs(J_limex) << " nonzeros)" << std::endl);
 			write_debug(J_limex, "myMk.mat");
@@ -338,7 +339,7 @@ assemble_defect(vector_type& d, const vector_type& u, const GridLevel& gl)
 		this->m_spDomDisc->assemble_jacobian(m_spMatrixJOp->get_matrix(), m_pPrevSol, m_dt, gl);
 		m_spMatrixJOp->apply_sub(d, deltau);
 		*/
-	}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
+	}UG_CATCH_THROW("LinearlyImplicitEuler: Cannot assemble defect.");
 
 	//	pop unknown solution to solution time series
 	m_pPrevSol->remove_latest();
