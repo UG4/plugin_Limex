@@ -75,17 +75,6 @@ DebugID LIB_LIMEX("LIB_LIMEX");
 
 namespace Limex{
 
-/*double BesselJ0(const double x)
-{
-	return boost::math::cyl_bessel_j(0, x);
-}
-
-double BesselJ1(const double x)
-{
-	return boost::math::cyl_bessel_j(1, x);
-}
-*/
-
 
 /**
  * Class exporting the functionality of the plugin. All functionality that is to
@@ -218,14 +207,6 @@ static void DomainAlgebra(Registry& reg, string grp)
 		}
 
 	{
-		// ITimeIntegratorObserver (virtual base class)
-		typedef ITimeIntegratorObserver<TDomain, TAlgebra> T;
-		string name = string("ITimeIntegratorObserver").append(suffix);
-		reg.add_class_<T>(name, grp);
-		reg.add_class_to_group(name, "ITimeIntegratorObserver", tag);
-	}
-
-	{
 		// VTKOutputObserver
 		typedef VTKOutputObserver<TDomain, TAlgebra> T;
 
@@ -252,21 +233,6 @@ static void DomainAlgebra(Registry& reg, string grp)
 	}
 
 	{
-			// LuaOutputObserver
-			typedef LuaCallbackObserver<TDomain, TAlgebra> T;
-
-			string name = string("LuaCallbackObserver").append(suffix);
-			reg.add_class_<T, typename T::base_type>(name, grp)
-				.template add_constructor<void (*)() >("")
-		 	 	.add_method("set_callback", &T::set_callback)
-				.add_method("set_callback_post", &T::set_callback_post)
-				.add_method("set_callback_pre", &T::set_callback_pre)
-				.add_method("get_current_solution", &T::get_current_solution)
-				.set_construct_as_smart_pointer(true);
-			reg.add_class_to_group(name, "LuaCallbackObserver", tag);
-	}
-
-	{
 				// PlotRefOutputObserver
 				typedef PlotRefOutputObserver<TDomain, TAlgebra> T;
 
@@ -276,7 +242,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 					.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
 					.set_construct_as_smart_pointer(true);
 				reg.add_class_to_group(name, "PlotRefOutputObserver", tag);
-		}
+	}
 
 
 	{
@@ -327,6 +293,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		string name = string("LinearTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
 				  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
+				  // .template add_constructor<void (*)(SmartPtr<TTimeDisc>, SmartPtr<TSolver>) >("")
 				  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 				  .add_method("get_time_disc", &T::get_time_disc)
 				  .set_construct_as_smart_pointer(true);
@@ -339,12 +306,12 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// (e.g., implicit Euler for linear problem)
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef ConstStepLinearTimeIntegrator<TDomain, TAlgebra> T;
-		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
-		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
+		typedef typename T::linear_solver_type TSolver;
 
 		string name = string("ConstStepLinearTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
 					  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
+					  .template add_constructor<void (*)(SmartPtr<TTimeDisc>, SmartPtr<TSolver>) >("")
 					  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 					  .add_method("get_time_disc", &T::get_time_disc)
 					  .add_method("set_num_steps", &T::set_num_steps)
