@@ -1221,7 +1221,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 					// m_spSolTimeSeries->oldest() actually holds a pointer to a grid function
 					// but as the time series does not know this, we have to cast ourselves
 					// SmartPtr<grid_function_type> tmpOld = m_spSolTimeSeries->oldest().template cast_static<grid_function_type>();
-					this->notify_finalize_step(u1, /*tmpOld,*/ step, t, dt);
+					this->notify_finalize_step(u1,step, t, dt);
 				}
 
 				// update time
@@ -1402,6 +1402,56 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_multi_stage(SmartPtr<grid_fu
 	return true;
 };
 
+//! This class integrates (t0, t1] with stops at intermediate points tk.
+template<class TDomain, class TAlgebra>
+class DiscontinuityIntegrator :
+		public INonlinearTimeIntegrator<TDomain, TAlgebra>
+{
+public:
+
+	typedef INonlinearTimeIntegrator<TDomain, TAlgebra> base_type;
+	typedef typename base_type::grid_function_type grid_function_type;
+
+	DiscontinuityIntegrator(SmartPtr<base_type> baseIntegrator) :
+		base_type(), m_wrappedIntegrator(baseIntegrator), m_timePoints() {};
+
+	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+	{
+		int dstep = 0;
+		auto tpoint = m_timePoints.begin();
+		double tcurr = (tpoint == m_timePoints.end()) ? t1 : (*tpoint);
+		double eps = 1e-8;
+
+		// Perform first step.
+		//this->notify_init_step(u0, dstep, t0,  tcurr-t0);
+		bool status = m_wrappedIntegrator->apply(u1, tcurr*(1.0-eps), u0, t0);
+		this->notify_finalize_step(u1, dstep++, tcurr, tcurr-t0);
+
+		// Repeat for all intermediate points.
+		while (tpoint != m_timePoints.end())
+		{
+			tpoint++;
+			double tnext = (tpoint == m_timePoints.end()) ? t1 : (*tpoint);
+
+			// Perform step.
+			//this->notify_init_step(u1, dstep, tcurr, tnext-tcurr);
+			status = status && m_wrappedIntegrator->apply(u1, tnext*(1.0-eps), u1, tcurr);
+			this->notify_finalize_step(u1, dstep++, tnext, tnext-tcurr);
+
+			tcurr = tnext;
+		}
+
+		return status;
+	}
+
+	void insert_points (std::vector<double> points)
+	{
+		m_timePoints = points;
+	}
+protected:
+	SmartPtr<base_type> m_wrappedIntegrator;
+	std::vector<double> m_timePoints;
+};
 
 } // namespace ug
 

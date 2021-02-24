@@ -286,7 +286,8 @@ public:
 		  m_useCachedMatrices(false),
 		  m_spCostStrategy(make_sp<LimexDefaultCost>(new LimexDefaultCost())),
 		  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>()),              // default algebraic space
-		  m_bInterrupt(false)
+		  m_bInterrupt(false),
+		  m_limex_step(1)
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
@@ -520,6 +521,8 @@ protected:
 		SmartPtr<IGridFunctionSpace<grid_function_type> > m_spBanachSpace;
 
 		bool m_bInterrupt;
+
+		int m_limex_step;
 };
 
 
@@ -741,7 +744,6 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 	// time integration loop
 	SmartPtr<grid_function_type> ubest = SPNULL;
-	int limex_step = 1;
 	size_t limex_total = 1;
 	size_t limex_success = 0;
 	size_t ntest;    ///< active number of stages <= kmax
@@ -761,7 +763,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		int err = 0;
 
 		//UG_DLOG(LIB_LIMEX, 5, "+++ LimexTimestep +++" << limex_step << "\n");
-		UG_LOG("+++ LimexTimestep +++" << limex_step << "\n");
+		UG_LOG("+++ LimexTimestep +++" << m_limex_step << "\n");
 
 
 		// save time stamp for limex step start
@@ -775,7 +777,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 
 		// Notify init observers. (NOTE: u = u(t))¸
-		itime_integrator_type::notify_init_step(u, limex_step, t, dt);
+		itime_integrator_type::notify_init_step(u, m_limex_step, t, dt);
 
 
 		// determine number of stages to investigate
@@ -795,7 +797,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		{
 			std::ostringstream ossName;
 			ossName << std::setfill('0') << std::setw(4);
-			ossName << "Limex_BeforeSerial_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+			ossName << "Limex_BeforeSerial_iter" << m_limex_step << "_stage" << i << "_total" << limex_total;
 			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 
@@ -807,7 +809,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		{
 			std::ostringstream ossName;
 			ossName << std::setfill('0') << std::setw(4);
-			ossName << "Limex_AfterSerial_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+			ossName << "Limex_AfterSerial_iter" << m_limex_step << "_stage" << i << "_total" << limex_total;
 			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 
@@ -847,7 +849,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			{
 				std::ostringstream ossName;
 				ossName << std::setfill('0') << std::setw(4);
-				ossName << "Limex_Extrapolates_iter" << limex_step << "_stage" << i << "_total" << limex_total;
+				ossName << "Limex_Extrapolates_iter" << m_limex_step << "_stage" << i << "_total" << limex_total;
 				write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 			}
 			limex_total++;
@@ -872,14 +874,14 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			if (limex_success>3)
 			{
 
-				vSwitchHistory[limex_step%nSwitchHistory] = (qpred - qcurr);
+				vSwitchHistory[m_limex_step%nSwitchHistory] = (qpred - qcurr);
 				UG_DLOG(LIB_LIMEX, 5, "LIMEX-ASYMPTOTIC-ORDER switch:  = " <<  (qpred - qcurr)<< std::endl);
 
 				size_t nSwitches=0;
 				for (int s=nSwitchLookBack-1; s>=0; s--)
 				{
-					nSwitches += std::abs(vSwitchHistory[(limex_step-s)%nSwitchHistory]);
-					UG_DLOG(LIB_LIMEX, 6, "LIMEX-ASYMPTOTIC-ORDER: s[" << s<< "] = " <<  vSwitchHistory[(limex_step-s)%nSwitchHistory] << std::endl);
+					nSwitches += std::abs(vSwitchHistory[(m_limex_step-s)%nSwitchHistory]);
+					UG_DLOG(LIB_LIMEX, 6, "LIMEX-ASYMPTOTIC-ORDER: s[" << s<< "] = " <<  vSwitchHistory[(m_limex_step-s)%nSwitchHistory] << std::endl);
 				}
 				UG_DLOG(LIB_LIMEX, 5,"LIMEX-ASYMPTOTIC-ORDER: nSwitches = " <<  nSwitches << std::endl);
 
@@ -932,7 +934,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 				bAsymptoticReduction = true;
 
 				for (int s=nSwitchLookBack-1; s>=0; s--)
-				{ vSwitchHistory[(limex_step-s)%nSwitchHistory]=0; }
+				{ vSwitchHistory[(m_limex_step-s)%nSwitchHistory]=0; }
 
 
 			}
@@ -1018,7 +1020,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 						UG_LOG("... yes.\n")
 
 						// update history
-						vSwitchHistory[limex_step%nSwitchHistory] = (qpred - qcurr);
+						vSwitchHistory[m_limex_step%nSwitchHistory] = (qpred - qcurr);
 						UG_LOG("LIMEX-ASYMPTOTIC-ORDER switch update:  = " <<  (qpred - qcurr)<< std::endl);
 
 					} else {
@@ -1050,7 +1052,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		if ((err==0) && limexConverged)
 		{
 			// ACCEPT time step
-			UG_LOG("+++ LimexTimestep +++" << limex_step << " ACCEPTED"<< std::endl);
+			UG_LOG("+++ LimexTimestep +++" << m_limex_step << " ACCEPTED"<< std::endl);
 			UG_LOG("               :\t time \t dt (success) \t dt (pred) \tq=\t order (curr)" << qcurr+1 << std::endl);
 			UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
 
@@ -1076,14 +1078,14 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 				std::ostringstream ossName;
 				ossName << std::setfill('0');
-				ossName << "Limex_Derivative_iter" << limex_step << "_total" << limex_total;
+				ossName << "Limex_Derivative_iter" << m_limex_step << "_total" << limex_total;
 				write_debug(udot, ossName.str().c_str());
 			}
 
 
 			// post process
 			UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
-			itime_integrator_type::notify_finalize_step(ubest, limex_step++, t+dt, dt);
+			itime_integrator_type::notify_finalize_step(ubest, m_limex_step++, t+dt, dt);
 
 
 			// copy best solution
@@ -1101,10 +1103,10 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		else
 		{
 			// DISCARD time step
-			UG_LOG("+++ LimexTimestep +++" << limex_step << " FAILED" << std::endl);
+			UG_LOG("+++ LimexTimestep +++" << m_limex_step << " FAILED" << std::endl);
 			UG_LOG("LIMEX-REJECTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << std::endl);
 
-			itime_integrator_type::notify_rewind_step(ubest, limex_step, t+dt, dt);
+			itime_integrator_type::notify_rewind_step(ubest, m_limex_step, t+dt, dt);
 
 		}
 

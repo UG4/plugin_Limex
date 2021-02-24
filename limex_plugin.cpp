@@ -288,7 +288,6 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// (e.g., implicit Euler for linear problem)
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef LinearTimeIntegrator<TDomain, TAlgebra> T;
-		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
 		string name = string("LinearTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
@@ -324,8 +323,6 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// Adaptive LinearTimeIntegrator
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef TimeIntegratorLinearAdaptive<TDomain, TAlgebra> T;
-		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
-		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
 
 		string name = string("TimeIntegratorLinearAdaptive").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
@@ -375,7 +372,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		string name = string("SimpleTimeIntegrator").append(suffix);
 		reg.add_class_<T,TBase>(name, grp)
 							  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
-							  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
+							  .add_method("apply", (bool (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 							  .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "SimpleTimeIntegrator", tag);
 	}
@@ -418,6 +415,22 @@ static void DomainAlgebra(Registry& reg, string grp)
 			  .set_construct_as_smart_pointer(true);
 
 			reg.add_class_to_group(name, "LimexTimeIntegrator", tag);
+	}
+
+	{
+		// DiscontinuityIntegrator
+
+		typedef DiscontinuityIntegrator<TDomain, TAlgebra> T;
+		typedef INonlinearTimeIntegrator<TDomain, TAlgebra> TBase;
+		// typedef typename T::base_type TBase;
+
+		string name = string("DiscontinuityIntegrator").append(suffix);
+		reg.add_class_<T,TBase>(name, grp)
+			.template add_constructor<void (*)(SmartPtr<TBase>) >("")
+			.add_method("apply", &T::apply)
+			.add_method("insert_points", &T::insert_points)
+			.set_construct_as_smart_pointer(true);
+		reg.add_class_to_group(name, "DiscontinuityIntegrator", tag);
 	}
 
 }
