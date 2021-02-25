@@ -74,7 +74,10 @@ namespace ug {
 /// Sample class for integration observer: Output to VTK
 template<class TDomain, class TAlgebra>
 class VTKOutputObserver
-: public ITimeIntegratorObserver<TDomain, TAlgebra>
+: public ITimeIntegratorObserver<TDomain, TAlgebra>,
+  public ITimeIntegratorStageObserver_start<TDomain, TAlgebra>,
+  public ITimeIntegratorStageObserver_finalize<TDomain, TAlgebra>,
+  public ITimeIntegratorStageObserver_end<TDomain, TAlgebra>
 {
 public:
 	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
@@ -82,69 +85,114 @@ public:
 	typedef VTKOutput<TDomain::dim> vtk_type;
 
 	VTKOutputObserver()
-	:  m_sp_vtk(SPNULL), m_filename("0000"), m_plotStep(0.0) {}
+	:  m_sp_vtk(SPNULL), m_filename("0000"), m_startTime(0.0), m_plotStep(0.0) {}
 
 	VTKOutputObserver(const char *filename, SmartPtr<vtk_type> vtk)
-	: m_sp_vtk(vtk), m_filename(filename), m_plotStep(0.0) {}
+	: m_sp_vtk(vtk), m_filename(filename), m_startTime(0.0), m_plotStep(0.0) {}
 
 	VTKOutputObserver(const char *filename, SmartPtr<vtk_type> vtk, number plotStep)
-	: m_sp_vtk(vtk), m_filename(filename), m_plotStep(plotStep) {}
+	: m_sp_vtk(vtk), m_filename(filename), m_startTime(0.0), m_plotStep(plotStep) {}
 
 	virtual ~VTKOutputObserver()
 	{ m_sp_vtk = SPNULL; }
 
 
-	// virtual void step_postprocess(SmartPtr<grid_function_type> uNew, SmartPtr<grid_function_type> uOld, int step, number time, number dt)
-	virtual bool step_process(SmartPtr<grid_function_type> uNew, int step, number time, number dt) OVERRIDE
+	void set_output_scales(const std::vector<number>& vScales)
 	{
-		if (!m_sp_vtk.valid()) return false;
+		m_vOutputScales = vScales;
+	}
+
+
+	bool step_process(SmartPtr<grid_function_type> uNew, int step, number time, number dt) OVERRIDE
+	{
+		return true;
+	}
+
+
+	bool start_action(SmartPtr<grid_function_type> u, int step, number time, number dt) OVERRIDE
+	{
+		if (!m_sp_vtk.valid())
+			return false;
+
+		writeToFile(u, step, time);
+
+		m_startTime = time;
+		m_uOld = u->clone();
+
+		return true;
+	}
+
+
+	bool finalize_action(SmartPtr<grid_function_type> uNew, int step, number time, number dt) OVERRIDE
+	{
+		if (!m_sp_vtk.valid())
+			return false;
 
 		if (m_plotStep == 0.0)
 		{
-			m_sp_vtk->print(m_filename.c_str(), *uNew, step, time);
+			writeToFile(uNew, step, time);
 			return true;
 		}
 
 		// otherwise, only plot data at multiples of given time step (interpolate if necessary)
-		/* number rem = fmod(time-dt, m_plotStep);
-		number curTime = time - dt - rem + m_plotStep;
-		int curStep = (int) ((curTime + 0.5*m_plotStep) / m_plotStep);
+		number rem = fmod(time - dt - m_startTime, m_plotStep);
+		number nextPlotTimePt = time - dt - rem + m_plotStep;
+		int nextStep = (int) ((nextPlotTimePt - m_startTime + 0.5 * m_plotStep) / m_plotStep);
 
-		if (curTime > time)
-			return;
+		if (nextPlotTimePt > time)
+		{
+			m_uOld = uNew->clone();
+			return true;
+		}
 
 		SmartPtr<grid_function_type> uCur = uNew->clone_without_values();
-		while (curTime <= time)
+		while (nextPlotTimePt <= time)
 		{
-			number alpha = (time-curTime) / dt;
+			number alpha = (time - nextPlotTimePt) / dt;
 			VecScaleAdd(static_cast<typename TAlgebra::vector_type&>(*uCur),
-				alpha, static_cast<typename TAlgebra::vector_type&>(*uOld),
+				alpha, static_cast<typename TAlgebra::vector_type&>(*m_uOld),
 				1.0 - alpha, static_cast<typename TAlgebra::vector_type&>(*uNew));
 
-			if (m_vOutputScales.size())
-			{
-				SmartPtr<grid_function_type> uTmp = uCur->clone();
-				ScaleGF<grid_function_type>(uTmp, uCur, m_vOutputScales);
-				m_sp_vtk->print(m_filename.c_str(), *uTmp, curStep, curTime);
-			}
-			else
-				m_sp_vtk->print(m_filename.c_str(), *uCur, curStep, curTime);
+			writeToFile(uCur, nextStep, nextPlotTimePt);
 
-			curTime = (++curStep) * m_plotStep;
-		}*/
-		return false;
+			nextPlotTimePt = (++nextStep) * m_plotStep;
+		}
+
+		m_uOld = uNew->clone();
+		return true;
 	}
 
-	void close(SmartPtr<grid_function_type> u)
+
+	bool end_action(SmartPtr<grid_function_type> u, int step, number time, number dt) OVERRIDE
 	{
-    /// TODO: Collecting PVD files are written multiple times, for each timestep. Why?!
-		if (m_sp_vtk.valid())
-			m_sp_vtk->write_time_pvd(m_filename.c_str(), *u);
+		if (!m_sp_vtk.valid())
+			return false;
+
+		m_sp_vtk->write_time_pvd(m_filename.c_str(), *u);
+		return true;
 	}
+
+
+private:
+	void writeToFile(SmartPtr<grid_function_type> u, int step, number time)
+	{
+		if (m_vOutputScales.size())
+		{
+			SmartPtr<grid_function_type> uTmp = u->clone_without_values();
+			ScaleGF<grid_function_type>(uTmp, u, m_vOutputScales);
+			m_sp_vtk->print(m_filename.c_str(), *uTmp, step, time);
+		}
+		else
+			m_sp_vtk->print(m_filename.c_str(), *u, step, time);
+	}
+
 protected:
 	SmartPtr<vtk_type> m_sp_vtk;
+	SmartPtr<grid_function_type> m_uOld;
 	std::string m_filename;
-	double m_plotStep;
+	number m_startTime;
+	number m_plotStep;
+	std::vector<number> m_vOutputScales;
 };
 
 
