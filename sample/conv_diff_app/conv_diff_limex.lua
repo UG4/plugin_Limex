@@ -23,7 +23,7 @@ local endTime    = util.GetParamNumber("--end", nil, "end time")
 local dt         = util.GetParamNumber("--dt", 1e-2, "time step size")
 local doVTK      = util.HasParamOption("--with-vtk")
 
-params.tol     = util.GetParamNumber("--limex-tol", 1e-3, "time step size")
+params.tol     = util.GetParamNumber("--limex-tol", 1e-2, "time step size")
 params.nstages = util.GetParamNumber("--limex-nstages", 2, "limex stages (2 default)")
 params.limex_partial_mask = util.GetParamNumber("--limex-partial", 0, "limex partial (0 or 3)")
 params.limex_debug_level = util.GetParamNumber("--limex-debug-level", 5, "limex debug level (integer)")
@@ -45,7 +45,7 @@ GetLogAssistant():set_debug_level("LIB_LIMEX", params.limex_debug_level)
 util.CheckAndPrintHelp("Time-dependent problem setup example\n(by Andreas Vogel)");
 
 local gridName = nil
-if dim == 2 then gridName = util.GetParam("-grid", "./grids/unit_square_01_quads_2x2.ugx")
+if dim == 2 then gridName = util.GetParam("-grid", "unit_square_01_quads_2x2.ugx")
 else print("Dimension "..dim.." not supported."); exit(); end
 
 local diffTime = 1.0*(1.0*1.0)/eps;
@@ -383,11 +383,14 @@ function luaPostProcess(step, time, currdt)
 end
 luaObserver:set_callback("luaPostProcess")
 
-local gridSize = 0.5*math.pow(0.5, numRefs)
-local tCFL = gridSize/50.0
 local tSteps = (endTime-startTime)/10.0
-local dtlimex = math.min(tSteps, tCFL)
+local dtlimex = tSteps 
 
+local gridSize = 0.5*math.pow(0.5, numRefs)
+if (doVelocity) then
+  local tCFL = gridSize/50.0
+  dtlimex = math.min(dtlimex, tCFL)
+end
 --  Euclidean (algebraic) norm
 --local estimator = Norm2Estimator()  
 --tol = 0.37/(gridSize)*tol
@@ -419,7 +422,7 @@ local limex = util.limex.CreateIntegrator(limexDesc)
 
 limex:set_dt_min(1e-9)
 limex:add_error_estimator(limexEstimator)
--- limex:set_increase_factor(2.0)
+limex:set_increase_factor(2.0)
 
 if (vtk) then 
    limex:attach_observer(vtkObserver)
@@ -441,7 +444,7 @@ print ("tolLimex  = "..params.tol)
 
 dbgWriter:set_vtk_output(false)
 dbgWriter:set_conn_viewer_output(true)
-limexNLSolver:set_debug(dbgWriter)
+-- limexNLSolver:set_debug(dbgWriter)
 
 limex:set_stepsize_greedy_order_factor(1.0)
 limex:select_cost_strategy(LimexNonlinearCost())

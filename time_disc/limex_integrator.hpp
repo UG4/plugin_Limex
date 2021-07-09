@@ -1062,7 +1062,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			epslast =  timex.get_error_estimates();  // double check ???
 			dtlast = dt;
 */
-			// compute time derivative (by extrapolation)
+			// Compute time derivatives (by extrapolation)
 			if (this->has_time_derivative())
 			{
 				UG_LOG("Computing derivative" << std::endl);
@@ -1083,14 +1083,13 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			}
 
 
-			// post process
+			// Copy best solution.
 			UG_ASSERT(ubest.valid(), "Huhh: Invalid error estimate?");
-			itime_integrator_type::notify_finalize_step(ubest, m_limex_step++, t+dt, dt);
-
-
-			// copy best solution
 			*u = *ubest;
 			t += dt;
+
+			// Initiate post process.
+			itime_integrator_type::notify_finalize_step(u, m_limex_step++, t, dt);
 
 			// make sure that all threads continue
 			// with identical initial value u(t)

@@ -803,7 +803,7 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 			 SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
 			 VecAssign(*tmp,  *u1.template cast_dynamic<typename base_type::vector_type>());
 			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
-			 this->notify_finalize_step(u1, step, t+dt, dt);
+			 this->notify_finalize_step(u1, step, t, dt);  // t updated already!
 		 }
 		 else
 		 {
@@ -1221,7 +1221,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 					// m_spSolTimeSeries->oldest() actually holds a pointer to a grid function
 					// but as the time series does not know this, we have to cast ourselves
 					// SmartPtr<grid_function_type> tmpOld = m_spSolTimeSeries->oldest().template cast_static<grid_function_type>();
-					this->notify_finalize_step(u1,step, t, dt);
+					this->notify_finalize_step(u1, step, t+dt, dt);
 				}
 
 				// update time
