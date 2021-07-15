@@ -133,7 +133,7 @@ public:
 
 		UG_LOG("A_0="<< m_vSteps[0] << std::endl);
 		m_costA[0] = (1.0)*m_vSteps[0];
-		for (size_t i=1; i<=nstages; ++i)
+		for (size_t i=1; i<nstages; ++i)
 		{
 			m_costA[i] = m_costA[i-1] + (1.0)*m_vSteps[i];
 			UG_LOG("A_i="<< m_vSteps[i] << std::endl);
