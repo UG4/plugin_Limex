@@ -1206,8 +1206,8 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 			 currdt *= base_type::get_reduction_factor();
 			 continue;
 		 }
+		 //UG_LOG("m_spSolTimeSeries.size="<< m_spSolTimeSeries->size());
 
-		 UG_LOG("m_spSolTimeSeries.size="<< m_spSolTimeSeries->size());
 		 // execute step
 		 if (solver.apply(*u1))
 		 {
