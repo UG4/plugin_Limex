@@ -260,8 +260,9 @@ static void DomainAlgebra(Registry& reg, string grp)
 	{
 		// ITimeIntegrator (virtual base class)
 		typedef ITimeIntegrator<TDomain, TAlgebra> T;
+		typedef TimeIntegratorSubject<TDomain, TAlgebra> TBase;
 		string name = string("ITimeIntegrator").append(suffix);
-		reg.add_class_<T>(name, grp)
+		reg.add_class_<T, TBase>(name, grp)
 				  .add_method("set_time_step", &T::set_time_step)
 				  .add_method("set_precision_bound", &T::set_precision_bound)
 				  .add_method("set_no_log_out", &T::set_no_log_out)
