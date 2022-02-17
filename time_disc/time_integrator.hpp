@@ -51,6 +51,7 @@
 #include "lib_disc/operator/linear_operator/assembled_linear_operator.h"
 #include "lib_disc/operator/non_linear_operator/assembled_non_linear_operator.h"
 #include "lib_disc/spatial_disc/domain_disc.h"
+#include "lib_disc/time_disc/finished_conditions.hpp" // FinishedTester
 #include "lib_disc/time_disc/time_disc_interface.h"
 #include "lib_disc/time_disc/theta_time_step.h"
 #include "lib_disc/time_disc/solution_time_series.h"
@@ -67,8 +68,32 @@
 // My headers.
 #include "time_extrapolation.h"
 #include "../limex_tools.h"
+#include "../trace.h"
+
+#ifdef NDEBUG
+// debug anyway.
+#undef assert
+#define assert(x) if(!(x)){std::cerr << "assertion failed " << __FILE__ << ":" << __LINE__ << "\n"; exit(1); }
+#endif
 
 namespace ug {
+
+// for better comparison with (historic) lua version
+static std::string lua_like_string(double number)
+{
+	std::ostringstream oss;
+	oss << std::fixed << std::setprecision(2) << number;
+	std::string s = oss.str();
+	if(s.find('.') != std::string::npos) {
+		s = s.substr(0, s.find_last_not_of('0')+1);
+		if(s.find('.') == s.size()-1) {
+			s = s.substr(0, s.size()-1);
+		}else{
+		}
+	}else{
+	}
+	return s;
+}
 
 
 /// Sample class for integration observer: Output to VTK

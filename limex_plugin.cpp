@@ -280,6 +280,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> T;
 		string name = string("ILinearTimeIntegrator").append(suffix);
 		reg.add_class_<T, TBase>(name, grp)
+					  //.add_method("set_dt_min", &T::set_dt_min)
+					  //.add_method("set_dt_max", &T::set_dt_max)
 					  .add_method("set_linear_solver", &T::set_linear_solver);
 		reg.add_class_to_group(name, "ILinearTimeIntegrator", tag);
 	}
@@ -374,6 +376,9 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_<T,TBase>(name, grp)
 							  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 							  .add_method("apply", (bool (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
+							  .add_method("set_finished_tester", &T::set_finished_tester) // here? base class?
+							  .add_method("set_b_finish_time_step", &T::set_b_finish_time_step) // really?
+							  .add_method("set_output", &T::set_output) // here?
 							  .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "SimpleTimeIntegrator", tag);
 	}
@@ -451,7 +456,6 @@ static void Domain(Registry& reg, string grp)
 //	useful defines
 	string suffix = GetDomainSuffix<TDomain>();
 	string tag = GetDomainTag<TDomain>();
-
 }
 
 /**
