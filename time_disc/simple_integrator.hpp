@@ -38,9 +38,9 @@ public:
 
 
 	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
-	{ untested();
+	{
 		time_disc_type &tdisc = *tdisc_dep_type::m_spTimeDisc;
-		if (tdisc.num_stages() == 1) { untested();
+		if (tdisc.num_stages() == 1) {
 			return apply_single_stage(u1,t1,u0,t0);
 		}else{ untested();
 			return apply_multi_stage(u1,t1,u0,t0);
@@ -74,7 +74,7 @@ protected:
 	bool apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 	bool apply_multi_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0);
 
-	bool hasTerminated(double tCurrent, double tStart, double tFinal, unsigned step=0) const { untested();
+	bool hasTerminated(double tCurrent, double tStart, double tFinal, unsigned step=0) const {
 		if(_finished_tester){
 			return _finished_tester->is_finished(tCurrent, step);
 		}else{ untested();
@@ -99,7 +99,7 @@ private: // to base class?
 
 template<typename TDomain, typename TAlgebra>
 bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
-{ untested();
+{
 	LIMEX_PROFILE_FUNC()
 
 	// short-cuts
@@ -133,12 +133,12 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	double final_dt = base_type::m_dt;
 
-	if(!base_type::m_bNoLogOut) {untested();
+	if(!base_type::m_bNoLogOut) {
 		UG_LOG("+++ Integrating: [\t"<< t0 <<"\t, \t"<< t1 <<"\t] with\t" << currdt <<"\n");
 	}else{
 	}
 
-	while(!hasTerminated(t, t0, t1, step)) { untested();
+	while(!hasTerminated(t, t0, t1, step)) {
 		if(!base_type::m_bNoLogOut){
 			UG_LOG("++++++ TIMESTEP " << step << " BEGIN (current time: " << lua_like_string(t) << ") ++++++\n");
 		}else{
@@ -185,7 +185,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 			currdt *= base_type::get_reduction_factor();
 			continue;
-		}else{ untested();
+		}else{
 		}
 		//UG_LOG("m_spSolTimeSeries.size="<< m_spSolTimeSeries->size());
 
@@ -193,7 +193,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		// is this obsolete (and part of newton solver?)
 
 		// execute step
-		if (solver.apply(*u1)) { untested();
+		if (solver.apply(*u1)) {
 
 			pp_res = notify_postprocess_step(u1, step, tdisc.future_time(), dt);
 			if(pp_res){
@@ -209,7 +209,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 			// post prcess (e.g. physics)
 			if(base_type::m_bNoLogOut){ untested();
-			}else{ untested();
+			}else{
 				// m_spSolTimeSeries->oldest() actually holds a pointer to a grid function
 				// but as the time series does not know this, we have to cast ourselves
 				// SmartPtr<grid_function_type> tmpOld = m_spSolTimeSeries->oldest().template cast_static<grid_function_type>();
@@ -244,7 +244,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 					"Huhh: Different vectors required!");
 			*m_spDerivative = *u0;
 			m_initial_consistency_error = m_spBanachSpace->distance(*m_spDerivative, *u1);
-		}else{ untested();
+		}else{
 		}
 
 		// } stage loop?
@@ -255,7 +255,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		}else{
 		}
 
-		if(_output){ untested();
+		if(_output){
 			_output->step_process(u1, step, tdisc.future_time(), 0.);
 		}else{
 		}
@@ -269,7 +269,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 
 	if(base_type::m_bNoLogOut) { untested();
 		this->notify_finalize_step(u1, /*uold,*/ step, t, final_dt);
-	}else{ untested();
+	}else{
 	}
 
 
@@ -286,7 +286,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 				1.0/final_dt, static_cast<typename TAlgebra::vector_type&>(*u1),
 				-1.0/final_dt, static_cast<typename TAlgebra::vector_type&>(*uold));
 
-	}else{ untested();
+	}else{
 	}
 
 	m_spSolTimeSeries->clear();
