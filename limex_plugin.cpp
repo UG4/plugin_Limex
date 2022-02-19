@@ -56,8 +56,6 @@
 #include "time_disc/linear_implicit_timestep.h"
 #include "time_disc/limex_integrator.hpp"
 #include "newton_limex.h"
-#include <boost/math/special_functions/bessel.hpp>
-
 
 
 // include for plugins
