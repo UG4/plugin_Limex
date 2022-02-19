@@ -212,8 +212,8 @@ static void DomainAlgebra(Registry& reg, string grp)
 		reg.add_class_<T, typename T::base_type>(name, grp)
 			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
 			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>, number) >("")
-			//.add_method("set_output_scales", &T::set_output_scales)
-			.add_method("close", &T::close)
+			.add_method("set_output_scales", &T::set_output_scales)
+			//.add_method("close", &T::close)
 			.set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "VTKOutputObserver", tag);
 	}
@@ -258,8 +258,9 @@ static void DomainAlgebra(Registry& reg, string grp)
 	{
 		// ITimeIntegrator (virtual base class)
 		typedef ITimeIntegrator<TDomain, TAlgebra> T;
+		typedef TimeIntegratorSubject<TDomain, TAlgebra> TBase;
 		string name = string("ITimeIntegrator").append(suffix);
-		reg.add_class_<T>(name, grp)
+		reg.add_class_<T, TBase>(name, grp)
 				  .add_method("set_time_step", &T::set_time_step)
 				  .add_method("set_precision_bound", &T::set_precision_bound)
 				  .add_method("set_no_log_out", &T::set_no_log_out)
