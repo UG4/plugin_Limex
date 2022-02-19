@@ -230,30 +230,31 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 		else
 		{
 			/* Assemble (Mk + \tau J)
-			 *
-			 * Note: Mk has Dirichlet rows (e.g., for inout bnd cond)
-			 */
-			// J_limex.set(0.0);
+			 * where Mk has Dirichlet rows (e.g., for inout bnd cond) */
+
+			// First, compute J_limex as the derivative of the storage (mass) terms,
 			this->m_spMatrixJDisc->assemble_jacobian(J_limex, m_pPrevSol, 0.0, gl);
 			UG_DLOG(LIB_LIMEX, 3, "> Computed Mk (" << &J_limex << " : "<<J_limex <<
 						" at " << m_pPrevSol->oldest_time() << ", " << GetNNZs(J_limex) << " nonzeros)" << std::endl);
 			write_debug(J_limex, "myMk.mat");
 
+			// Second, compute the derivative of the time dependent part.
 			const double mydt = 1.0;    // use time step 1.0 for assembly
 			matrix_type &J_stiff = m_spMatrixJOp->get_matrix();
 
 			if (m_bMatrixJNeedsUpdate)
 			{
-				// First part of J: -df/du
+				// First part of J: -df/du = Jm + \tau Ja
 				this->m_spMatrixJDisc->assemble_jacobian(J_stiff, m_pPrevSol, mydt, gl);
 				UG_DLOG(LIB_LIMEX, 3, "> Cached  J_0 = -df/du (" << &J_stiff << ":"<< J_stiff<< ")"<< std::endl);
 				write_debug(J_stiff, "myStiff0.mat");
 
-				// subtracting mass matrix yields J
+				// Subtracting mass matrix yields $\tau*Ja$.
 				MatAddNonDirichlet<matrix_type>(J_stiff, 1.0, J_stiff, -1.0, J_limex);
 				write_debug(J_stiff, "myStiff1.mat");
 
 				// Second part of J: Gamma update (if applicable)
+				// (Both time dependent and time-independent.)
 				if (m_spGammaDisc.valid())
 				{
 					UG_ASSERT(m_spGammaOp != SPNULL, "Huhh: No operator??? ");
@@ -270,7 +271,7 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 
 				// do not need to recompute
 				m_bMatrixJNeedsUpdate = false;
-			}
+			} // m_bMatrixJNeedsUpdate == true;
 
 			write_debug(J_stiff, "myStiffX.mat");
 
@@ -280,7 +281,7 @@ assemble_jacobian(matrix_type& J_limex, const vector_type& u, const GridLevel& g
 			UG_ASSERT (J_limex.num_cols() == J_stiff.num_cols(), "Huhh: Col dimension does not match:"
 						<< J_limex.num_cols() <<"!=" << J_stiff.num_cols());
 
-			// Note: J_limex has Dirichlet values
+			// Note: J_limex has Dirichlet values.
 			MatAddNonDirichlet<matrix_type>(J_limex, 1.0, J_limex, m_dt, J_stiff);
 			UG_DLOG(LIB_LIMEX, 3, "Computed $J=Mk+ tau J_a$ (" << J_limex << " with tau=" << m_dt);
 			UG_DLOG(LIB_LIMEX, 3,  " at " << m_pPrevSol->oldest_time() <<", " << GetNNZs(J_limex) << " nonzeros)" << std::endl);
