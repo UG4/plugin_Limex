@@ -62,6 +62,7 @@ local limexDescParallel = {
 }
 
 --]]
+print("LIMEX-Plugin: Loading util.limex.*")
 
 ug_load_script("util/table_desc_util.lua")
 ug_load_script("util/table_util.lua")
@@ -305,9 +306,7 @@ local dtmin = 1e-4*limexDesc.dt
 
 
 -- debug writer (optional)
-if (limexDesc.rhoSafetyOPT) then
-  limex:set_stepsize_safety_factor(limexDesc.rhoSafetyOPT)
-end
+if (limexDesc.rhoSafetyOPT) then limex:set_stepsize_safety_factor(limexDesc.rhoSafetyOPT) end
 
 -- debug writer (optional)
 if (limexDesc.debugOPT) then
