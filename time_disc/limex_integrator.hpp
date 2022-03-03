@@ -195,16 +195,15 @@ public:
 
 	LimexTimeIntegratorConfig(unsigned int nstages)
 	: m_nstages(nstages),
-		  m_tol(0.01),
-		  m_rhoSafety(0.8),
-		  m_sigmaReduction(0.5),
-		  m_greedyOrderIncrease(2.0),
-		  m_max_reductions(2),
-		  m_asymptotic_order(1000),
-		  m_useCachedMatrices(false),
-		  m_conservative(0)
-		  {}
-
+	  m_tol(0.01),
+	  m_rhoSafety(0.8),
+	  m_sigmaReduction(0.5),
+	  m_greedyOrderIncrease(2.0),
+	  m_max_reductions(2),
+	  m_asymptotic_order(1000),
+	  m_useCachedMatrices(false),
+	  m_conservative(0)
+		{}
 
 
 protected:
@@ -227,6 +226,21 @@ protected:
         				m_sigmaReduction, m_greedyOrderIncrease, m_max_reductions, m_asymptotic_order,
 						m_useCachedMatrices, m_conservative)
 #endif
+public:
+	std::string config_string() const {
+	#ifdef UG_JSON
+			try{
+				nlohmann::json j(*this);
+					//	to_json(j, *this);
+				return j.dump();
+			} catch (...) {
+				return std::string("EXCEPTION!!!");
+			}
+	#else
+					return std::string("LimexTimeIntegratorConfig::config_string()");
+	#endif
+		}
+
 };
 
 //! Base class for LIMEX time integrator
@@ -539,17 +553,7 @@ public:
 		{ m_conservative = (c) ? 1 : 0; }
 
 		std::string config_string() const
-		{
-#ifdef UG_JSON
-			try{
-				nlohmann::json j;
-				to_json(j, (const LimexTimeIntegratorConfig&) *this);
-				return j.dump();
-			} catch (...) {
-			    return std::string("EXCEPTION!!!");
-			}
-#endif
-		}
+		{ return LimexTimeIntegratorConfig::config_string(); }
 
 protected:
 
