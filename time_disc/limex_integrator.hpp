@@ -541,14 +541,13 @@ public:
 		std::string config_string() const
 		{
 #ifdef UG_JSON
-			nlohmann::json j;
 			try{
+				nlohmann::json j;
 				to_json(j, (const LimexTimeIntegratorConfig&) *this);
-
+				return j.dump();
 			} catch (...) {
 			    return std::string("EXCEPTION!!!");
 			}
-			return j.dump();
 #endif
 		}
 
