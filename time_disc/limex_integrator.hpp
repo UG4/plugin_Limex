@@ -68,6 +68,11 @@
 #include "../limex_tools.h"
 //#include "../multi_thread_tools.h"
 
+
+#ifdef UG_JSON
+#include <nlohmann/json.hpp>
+#endif
+
 #undef LIMEX_MULTI_THREAD
 
 namespace ug {
@@ -172,12 +177,64 @@ protected:
 };
 
 
+class LimexTimeIntegratorConfig
+
+{
+public:
+	LimexTimeIntegratorConfig()
+	: m_nstages(2),
+	  m_tol(0.01),
+	  m_rhoSafety(0.8),
+	  m_sigmaReduction(0.5),
+	  m_greedyOrderIncrease(2.0),
+	  m_max_reductions(2),
+	  m_asymptotic_order(1000),
+	  m_useCachedMatrices(false),
+	  m_conservative(0)
+	  {}
+
+	LimexTimeIntegratorConfig(unsigned int nstages)
+	: m_nstages(nstages),
+		  m_tol(0.01),
+		  m_rhoSafety(0.8),
+		  m_sigmaReduction(0.5),
+		  m_greedyOrderIncrease(2.0),
+		  m_max_reductions(2),
+		  m_asymptotic_order(1000),
+		  m_useCachedMatrices(false),
+		  m_conservative(0)
+		  {}
+
+
+
+protected:
+	unsigned int m_nstages; 				///< Number of Aitken-Neville stages
+	double m_tol;
+	double m_rhoSafety;
+	double m_sigmaReduction;
+
+	double m_greedyOrderIncrease;
+
+	size_t m_max_reductions;
+	size_t m_asymptotic_order;  				///< For PDEs, we may apply an symptotic order reduction
+
+	bool m_useCachedMatrices;
+	unsigned int m_conservative; // stepping back?
+
+#ifdef UG_JSON
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(LimexTimeIntegratorConfig,
+        				m_nstages, m_tol, m_rhoSafety,
+        				m_sigmaReduction, m_greedyOrderIncrease, m_max_reductions, m_asymptotic_order,
+						m_useCachedMatrices, m_conservative)
+#endif
+};
 
 //! Base class for LIMEX time integrator
 template<class TDomain, class TAlgebra>
 class LimexTimeIntegrator
 : public INonlinearTimeIntegrator<TDomain, TAlgebra>,
-  public VectorDebugWritingObject<typename TAlgebra::vector_type>
+  public VectorDebugWritingObject<typename TAlgebra::vector_type>,
+  public LimexTimeIntegratorConfig // TODO: should become a 'has a'.
 {
 
 
@@ -268,22 +325,15 @@ protected:
 
 
 public:
-		LimexTimeIntegrator(int nstages)
-		: m_tol(0.01),
-		  m_rhoSafety(0.8),
-		  m_sigmaReduction(0.5),
-		  m_nstages(nstages),
+		LimexTimeIntegrator(int nstages):
+		  LimexTimeIntegratorConfig(nstages),
 		  m_gamma(m_nstages+1),
 		  m_costA(m_nstages+1),
 		  m_monitor(((m_nstages)*(m_nstages))), // TODO: wasting memory here!
 		  m_workload(m_nstages),
 		  m_lambda(m_nstages), 
 		  m_num_reductions(m_nstages, 0),
-		  m_max_reductions(2),
-		  m_asymptotic_order(1000),
 		  m_consistency_error(m_nstages),
-		  m_greedyOrderIncrease(0.0),
-		  m_useCachedMatrices(false),
 		  m_spCostStrategy(make_sp<LimexDefaultCost>(new LimexDefaultCost())),
 		  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>()),              // default algebraic space
 		  m_bInterrupt(false),
@@ -291,10 +341,9 @@ public:
 		{
 			m_vThreadData.reserve(m_nstages);
 			m_vSteps.reserve(m_nstages);
-
-			// init exponents (i.e. k+1, k, 2k+1, ...)
-			init_gamma();
+			init_gamma(); // init exponents (i.e. k+1, k, 2k+1, ...)
 		}
+
 
 
 		/// tolerance
@@ -486,14 +535,22 @@ public:
 		/// interrupt execution of apply() by external call via observer
 		void interrupt() {m_bInterrupt = true;}
 
+		void set_conservative(bool c)
+		{ m_conservative = (c) ? 1 : 0; }
+
+		std::string config_string() const
+		{
+#ifdef UG_JSON
+			nlohmann::json j;
+			to_json(j, (const LimexTimeIntegratorConfig&) *this);
+			return j.dump();
+#endif
+		}
+
 protected:
 
-		double m_tol;
-		double m_rhoSafety;
-		double m_sigmaReduction;
 		SmartPtr<error_estim_type> m_spErrorEstimator;     // (smart ptr for) error estimator
 
-		unsigned int m_nstages; 				///< Number of Aitken-Neville stages
 		std::vector<size_t> m_vSteps;			///< generating sequence for extrapolation
 		std::vector<ThreadData> m_vThreadData;	///< vector with thread information
 
@@ -506,14 +563,10 @@ protected:
 		std::vector<number> m_lambda;
 
 		std::vector<size_t> m_num_reductions;		///< history of reductions
-		size_t m_max_reductions;
-		size_t m_asymptotic_order;  				///< For PDEs, we may apply an symptotic order reduction
 
-		std::vector<number> m_consistency_error;///<Consistency error
-  		double m_greedyOrderIncrease;
+		std::vector<number> m_consistency_error;	///<Consistency error
 
-		SmartPtr<grid_function_type> m_spDtSol;   ///< Time derivative
-		bool m_useCachedMatrices;
+		SmartPtr<grid_function_type> m_spDtSol;   	///< Time derivative
 
 		SmartPtr<ILimexCostStrategy> m_spCostStrategy;
 
@@ -521,8 +574,9 @@ protected:
 		SmartPtr<IGridFunctionSpace<grid_function_type> > m_spBanachSpace;
 
 		bool m_bInterrupt;
+		int m_limex_step;						///<Current counter
 
-		int m_limex_step;
+
 };
 
 
@@ -864,7 +918,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			UG_ASSERT(jbest < ntest, "Huhh: Not enough solutions?");
 
 			// best solution
-			ubest  = timex.get_solution(jbest).template cast_dynamic<grid_function_type>();
+			ubest  = timex.get_solution(jbest-m_conservative).template cast_dynamic<grid_function_type>();
 			epsmin = eps[jbest];
 
 			// check for convergence
