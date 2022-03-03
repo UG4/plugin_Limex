@@ -542,7 +542,12 @@ public:
 		{
 #ifdef UG_JSON
 			nlohmann::json j;
-			to_json(j, (const LimexTimeIntegratorConfig&) *this);
+			try{
+				to_json(j, (const LimexTimeIntegratorConfig&) *this);
+
+			} catch (...) {
+			    return std::string("EXCEPTION!!!");
+			}
 			return j.dump();
 #endif
 		}
