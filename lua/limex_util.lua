@@ -77,6 +77,7 @@ util.limex.defaultDesc = util.limex.defaultDesc or
     steps = {1,2,3,4,5,6,7,8,9,10},
     nthreads = 1,
     tol = 0.001,
+    conservative = false,
     
     makeConsistent = false,
 }
@@ -323,11 +324,12 @@ else
    limex:disable_matrix_cache()
 end
 
--- selest cost strategy
+-- select cost strategy
 if (limexDesc.costStrategyOPT) then
    limex:select_cost_strategy(limexDesc.costStrategyOPT)
 end
 
+ limex:set_conservative(limexDesc.conservative or false)
 -- grid function spaces (e.g. for norms)
 
 
