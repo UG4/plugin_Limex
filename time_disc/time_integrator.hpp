@@ -742,6 +742,8 @@ bool LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 	}
 
+	this->notify_end(u1, step, t1, currdt);
+
 	return true;
 };
 
@@ -860,6 +862,8 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 		 }
 
 	 }
+
+	 this->notify_end(u1, numSteps, t1, currdt);
 
 	 return true;
 };
@@ -1170,7 +1174,7 @@ public:
 
 			tcurr = tnext;
 		}
-
+		this->notify_end(u1, dstep, t1, 0.0);
 		return status;
 	}
 
