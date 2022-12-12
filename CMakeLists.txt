@@ -39,12 +39,13 @@ endif(buildEmbeddedPlugins)
 # Python binding
 ################################################################################
 if(USE_PYBIND11)
-	SET(pyPluginName pylimex) # Must match module name!
+	SET(pyPluginName pylimex) # Must match module name after PYBIND11_MODULE call
 	pybind11_add_module(${pyPluginName} limex_pybind.cpp)
 	set_target_properties(${pyPluginName} PROPERTIES	
   		CXX_STANDARD 11 
   		CXX_STANDARD_REQUIRED YES
    		CXX_EXTENSIONS NO
    		OUTPUT_NAME ug4py/${pyPluginName})
+   	# We need to link against 'this' plugin and UG4 library.
 	target_link_libraries (${pyPluginName} PRIVATE ug4 ${pluginName})
 endif(USE_PYBIND11)
