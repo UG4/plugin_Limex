@@ -90,8 +90,8 @@ struct Functionality
  * @param reg				registry
  * @param parentGroup		group for sorting of functionality
  */
-template <typename TDomain, typename TAlgebra>
-static void DomainAlgebra(Registry& reg, string grp)
+template <typename TDomain, typename TAlgebra, typename TRegistry=ug::bridge::Registry>
+static void DomainAlgebra(TRegistry& reg, string grp)
 {
 	//	some defines/typedefs
 	string suffix = GetDomainAlgebraSuffix<TDomain,TAlgebra>();
@@ -105,18 +105,18 @@ static void DomainAlgebra(Registry& reg, string grp)
 		/// GridFunctionEstimator (REPLACED, sub-diagonal)
 		typedef ISubDiagErrorEst<TVector> TBase;
 		typedef GridFunctionEstimator<TDomain, TAlgebra> T;
-		typedef IComponentSpace<TGridFunction> TCompSpace;
-		typedef typename T::composite_type TCompositeSpace;
+		typedef typename T::subspace_type  TSubSpace;
+		//typedef typename T::composite_type TCompositeSpace;
 
 		string name = string("GridFunctionEstimator").append(suffix);
 
-		reg.add_class_<T, TBase>(name, grp)
+		reg.template add_class_<T, TBase>(name, grp)
 					   .template add_constructor<void (*)() >("")
 					   .template add_constructor<void (*)(number) >("")
 					   .add_method("set_reference_norm", &T::set_reference_norm)
-					   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>) > (&T::add))
-					   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>, number) > (&T::add))
-					   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompositeSpace>) > (&T::add))
+					   .add_method("add", static_cast<void (T::*)(SmartPtr<TSubSpace>) > (&T::add))
+					   .add_method("add", static_cast<void (T::*)(SmartPtr<TSubSpace>, number) > (&T::add))
+					//   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompositeSpace>) > (&T::add))
 					   .add_method("config_string", &T::config_string)
 					   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "GridFunctionEstimator", tag);
@@ -128,7 +128,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef IComponentSpace<TGridFunction> TBase;
 
 		string name = string("SupErrorEvaluator").append(suffix);
-		reg.add_class_<T, TBase>(name, grp)
+		reg.template add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)(const char *) >("fctNames")
 		 //  .template add_constructor<void (*)(const char *, number) >("fctNames, scale")
 		   .template add_constructor<void (*)(const char *, const char */*, number*/) >("fctNames, subsetNames, scale")
@@ -142,7 +142,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			typedef IComponentSpace<TGridFunction> TBase;
 
 			string name = string("UserDataSpaceNumber").append(suffix);
-			reg.add_class_<T, TBase>(name, grp)
+			reg.template add_class_<T, TBase>(name, grp)
 			   .template add_constructor<void (*)(const char *) >("fctNames")
 			   .template add_constructor<void (*)(const char *, int) >("fctNames, scale")
 			  // .template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
@@ -157,7 +157,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			typedef IComponentSpace<TGridFunction> TBase;
 
 			string name = string("UserDataSpaceVector").append(suffix);
-			reg.add_class_<T, TBase>(name, grp)
+			reg.template add_class_<T, TBase>(name, grp)
 				.template add_constructor<void (*)(const char *) >("fctNames")
 				.template add_constructor<void (*)(const char *, int) >("fctNames, scale")
 				//.template add_constructor<void (*)(const char *, int, number) >("fctNames, subsetNames, scale")
@@ -176,7 +176,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 		string name = string("ScaledGridFunctionEstimator").append(suffix);
 
-		reg.add_class_<T, TBase>(name, grp)
+		reg.template add_class_<T, TBase>(name, grp)
 		   .template add_constructor<void (*)() >("Default constructor")
 		   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>) > (&T::add))
 		   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompositeSpace>) > (&T::add))
@@ -195,7 +195,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 
 			string name = string("CompositeGridFunctionEstimator").append(suffix);
 
-			reg.add_class_<T, TBase>(name, grp)
+			reg.template add_class_<T, TBase>(name, grp)
 			   .template add_constructor<void (*)() >("Default constructor")
 			   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>) > (&T::add))
 			   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompositeSpace>) > (&T::add))
@@ -209,7 +209,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef VTKOutputObserver<TDomain, TAlgebra> T;
 
 		string name = string("VTKOutputObserver").append(suffix);
-		reg.add_class_<T, typename T::base_type>(name, grp)
+		reg.template add_class_<T, typename T::base_type>(name, grp)
 			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
 			.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>, number) >("")
 			.add_method("set_output_scales", &T::set_output_scales)
@@ -223,7 +223,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef ConnectionViewerOutputObserver<TDomain, TAlgebra> T;
 
 		string name = string("ConnectionViewerOutputObserver").append(suffix);
-		reg.add_class_<T, typename T::base_type>(name, grp)
+		reg.template add_class_<T, typename T::base_type>(name, grp)
 		   .template add_constructor<void (*)(const char*) >("")
 		   .template add_constructor<void (*)(const char*, number) >("")
 		   .set_construct_as_smart_pointer(true);
@@ -235,7 +235,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 				typedef PlotRefOutputObserver<TDomain, TAlgebra> T;
 
 				string name = string("PlotRefOutputObserver").append(suffix);
-				reg.add_class_<T, typename T::base_type>(name, grp)
+				reg.template add_class_<T, typename T::base_type>(name, grp)
 				    .template add_constructor<void (*)(const char*) >("")
 					.template add_constructor<void (*)(const char*, SmartPtr<typename T::vtk_type>) >("")
 					.set_construct_as_smart_pointer(true);
@@ -248,7 +248,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			typedef IntegrationOutputObserver<TDomain, TAlgebra> T;
 
 			string name = string("IntegrationOutputObserver").append(suffix);
-			reg.add_class_<T, typename T::base_type>(name, grp)
+			reg.template add_class_<T, typename T::base_type>(name, grp)
 				    .template add_constructor<void (*)() >("")
 					 .add_method("add_integral_specs", &T::add_integral_specs)
 					.set_construct_as_smart_pointer(true);
@@ -260,7 +260,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef ITimeIntegrator<TDomain, TAlgebra> T;
 		typedef TimeIntegratorSubject<TDomain, TAlgebra> TBase;
 		string name = string("ITimeIntegrator").append(suffix);
-		reg.add_class_<T, TBase>(name, grp)
+		reg.template add_class_<T, TBase>(name, grp)
 				  .add_method("set_time_step", &T::set_time_step)
 				  .add_method("set_precision_bound", &T::set_precision_bound)
 				  .add_method("set_no_log_out", &T::set_no_log_out)
@@ -277,7 +277,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
 		typedef ILinearTimeIntegrator<TDomain, TAlgebra> T;
 		string name = string("ILinearTimeIntegrator").append(suffix);
-		reg.add_class_<T, TBase>(name, grp)
+		reg.template add_class_<T, TBase>(name, grp)
 					  .add_method("set_linear_solver", &T::set_linear_solver);
 		reg.add_class_to_group(name, "ILinearTimeIntegrator", tag);
 	}
@@ -289,7 +289,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef LinearTimeIntegrator<TDomain, TAlgebra> T;
 
 		string name = string("LinearTimeIntegrator").append(suffix);
-		reg.add_class_<T,TBase>(name, grp)
+		reg.template add_class_<T,TBase>(name, grp)
 				  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 				  // .template add_constructor<void (*)(SmartPtr<TTimeDisc>, SmartPtr<TSolver>) >("")
 				  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
@@ -307,7 +307,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef typename T::linear_solver_type TSolver;
 
 		string name = string("ConstStepLinearTimeIntegrator").append(suffix);
-		reg.add_class_<T,TBase>(name, grp)
+		reg.template add_class_<T,TBase>(name, grp)
 					  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 					  .template add_constructor<void (*)(SmartPtr<TTimeDisc>, SmartPtr<TSolver>) >("")
 					  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
@@ -324,7 +324,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		typedef TimeIntegratorLinearAdaptive<TDomain, TAlgebra> T;
 
 		string name = string("TimeIntegratorLinearAdaptive").append(suffix);
-		reg.add_class_<T,TBase>(name, grp)
+		reg.template add_class_<T,TBase>(name, grp)
 				  .template add_constructor<void (*)(SmartPtr<TTimeDisc>, SmartPtr<TTimeDisc>) >("tdisc1, tdisc2")
 				  .add_method("apply", (void (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 				  .add_method("get_time_disc", &T::get_time_disc)
@@ -340,7 +340,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			typedef ITimeIntegrator<TDomain, TAlgebra> TBase;
 			typedef INonlinearTimeIntegrator<TDomain, TAlgebra> T;
 			string name = string("INonlinearTimeIntegrator").append(suffix);
-			reg.add_class_<T, TBase>(name, grp)
+			reg.template add_class_<T, TBase>(name, grp)
 						  .add_method("set_solver", &T::set_solver)
 						  .add_method("set_dt_min", &T::set_dt_min)
 						  .add_method("set_dt_max", &T::set_dt_max)
@@ -369,7 +369,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
 
 		string name = string("SimpleTimeIntegrator").append(suffix);
-		reg.add_class_<T,TBase>(name, grp)
+		reg.template add_class_<T,TBase>(name, grp)
 							  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 							  .add_method("apply", (bool (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 							  .set_construct_as_smart_pointer(true);
@@ -383,7 +383,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 			typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
 			string name = string("LimexTimeIntegrator").append(suffix);
-			reg.add_class_<T,TBase>(name, grp)
+			reg.template add_class_<T,TBase>(name, grp)
 
 			  //.template add_constructor<void (*)() >("")
 			  //.ADD_CONSTRUCTOR( (SmartPtr<TDomainDisc>, int) ) ("Domain disc|number of steps (vector)")
@@ -426,7 +426,7 @@ static void DomainAlgebra(Registry& reg, string grp)
 		// typedef typename T::base_type TBase;
 
 		string name = string("DiscontinuityIntegrator").append(suffix);
-		reg.add_class_<T,TBase>(name, grp)
+		reg.template add_class_<T,TBase>(name, grp)
 			.template add_constructor<void (*)(SmartPtr<TBase>) >("")
 			.add_method("apply", &T::apply)
 			.add_method("insert_points", &T::insert_points)
@@ -481,8 +481,8 @@ static void Dimension(Registry& reg, string grp)
  * @param reg				registry
  * @param parentGroup		group for sorting of functionality
  */
-template <typename TAlgebra>
-static void Algebra(Registry& reg, string parentGroup)
+template <typename TAlgebra, typename TRegistry=ug::bridge::Registry>
+static void Algebra(TRegistry& reg, string parentGroup)
 {
 
 	//	typedefs for Vector and Matrix
@@ -511,7 +511,7 @@ static void Algebra(Registry& reg, string parentGroup)
 		typedef ITimeDiscretization<TAlgebra> TBase;
 		typedef LinearImplicitEuler<TAlgebra> T;
 		string name = string("LinearImplicitEuler").append(suffix);
-		reg.add_class_<T, TBase>(name, grp)
+		reg.template add_class_<T, TBase>(name, grp)
 								.template add_constructor<void (*)(SmartPtr<IDomainDiscretization<TAlgebra> >)>("LinearImplicitEuler")
 								.add_method("set_gamma_disc", &T::set_gamma_disc)
 								.add_method("enable_matrix_cache", &T::enable_matrix_cache)
@@ -527,7 +527,7 @@ static void Algebra(Registry& reg, string parentGroup)
 			typedef ISubDiagErrorEst<VT> ET;
 			typedef AitkenNevilleTimex<VT> T;
 			string name = string("AitkenNevilleTimex").append(suffix);
-			reg.add_class_<T>(name, grp)
+			reg.template add_class_<T>(name, grp)
 						.ADD_CONSTRUCTOR( (std::vector<size_t> nsteps) ) ("number of steps (vector)")
 						.ADD_CONSTRUCTOR( (std::vector<size_t> nsteps, SmartPtr<ET> ) ) ("number of steps (vector)")
 						.add_method("set_solution", &T::set_solution)
@@ -548,7 +548,7 @@ static void Algebra(Registry& reg, string parentGroup)
 				std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
 				typedef ISubDiagErrorEst<vector_type> T;
 				string name = string("ISubDiagErrorEst").append(suffix);
-				reg.add_class_<T>(name, grp)
+				reg.template add_class_<T>(name, grp)
 				   .add_method("config_string", &T::config_string);
 				reg.add_class_to_group(name, "ISubDiagErrorEst", tag);
 		}
@@ -559,7 +559,7 @@ static void Algebra(Registry& reg, string parentGroup)
 			typedef Norm2Estimator<vector_type> T;
 			typedef ISubDiagErrorEst<vector_type> TBase;
 			string name = string("Norm2Estimator").append(suffix);
-			reg.add_class_<T, TBase>(name, grp)
+			reg.template add_class_<T, TBase>(name, grp)
 			   .ADD_CONSTRUCTOR( (void) ) ("")
 			   .add_method("set_stride", &T::set_stride)
 			   .add_method("set_offset", &T::set_offset)
@@ -573,7 +573,7 @@ static void Algebra(Registry& reg, string parentGroup)
 			typedef NormInfEstimator<vector_type> T;
 			typedef ISubDiagErrorEst<vector_type> TBase;
 			string name = string("NormInfEstimator").append(suffix);
-			reg.add_class_<T,TBase>(name, grp)
+			reg.template add_class_<T,TBase>(name, grp)
 			   .ADD_CONSTRUCTOR( (void) ) ("")
 			   .add_method("set_stride", &T::set_stride)
 			   .add_method("set_offset", &T::set_offset)
@@ -587,7 +587,7 @@ static void Algebra(Registry& reg, string parentGroup)
 			typedef NormRelEstimator<vector_type> T;
 			typedef ISubDiagErrorEst<vector_type> TBase;
 			string name = string("NormRelEstimator").append(suffix);
-			reg.add_class_<T,TBase>(name, grp)
+			reg.template add_class_<T,TBase>(name, grp)
 			   .ADD_CONSTRUCTOR( (void) ) ("")
 			   .set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "NormRelEstimator", tag);
@@ -600,7 +600,7 @@ static void Algebra(Registry& reg, string parentGroup)
 			typedef LimexNewtonSolver<TAlgebra> T;
 			typedef IOperatorInverse<vector_type> TBase;
 			string name = string("LimexNewtonSolver").append(suffix);
-			reg.add_class_<T, TBase>(name, grp)
+			reg.template add_class_<T, TBase>(name, grp)
 				.add_constructor()
 				.template add_constructor<void (*)(SmartPtr<IOperator<vector_type> >)>("Operator")
 				.template add_constructor<void (*)(SmartPtr<IAssemble<TAlgebra> >)>("AssemblingRoutine")
@@ -625,17 +625,18 @@ static void Algebra(Registry& reg, string parentGroup)
  * @param reg				registry
  * @param parentGroup		group for sorting of functionality
  */
-static void Common(Registry& reg, string parentGroup)
+template <typename TRegistry=ug::bridge::Registry>
+static void Common(TRegistry& reg, string parentGroup)
 {
 
 	std::string grp = parentGroup; grp.append("/Discretization/TimeDisc");
 	typedef ILimexCostStrategy TBase;
-	reg.add_class_<TBase>(std::string("ILimexCostStrategy"), grp);
+	reg.template add_class_<TBase>(std::string("ILimexCostStrategy"), grp);
 
 	{
 		typedef LimexDefaultCost T;
 		string name = string("LimexDefaultCost");
-		reg.add_class_<T, TBase>(name, grp)
+		reg.template add_class_<T, TBase>(name, grp)
 		   .add_constructor()
 		   .set_construct_as_smart_pointer(true);
 	}
@@ -643,7 +644,7 @@ static void Common(Registry& reg, string parentGroup)
 	{
 			typedef LimexNonlinearCost T;
 			string name = string("LimexNonlinearCost");
-			reg.add_class_<T, TBase>(name, grp)
+			reg.template add_class_<T, TBase>(name, grp)
 			   .add_constructor()
 			   .set_construct_as_smart_pointer(true);
 	}
@@ -664,6 +665,9 @@ static void Common(Registry& reg, string parentGroup)
 /**
  * This function is called when the plugin is loaded.
  */
+
+#ifndef UG_USE_PYBIND11
+
 extern "C" void
 InitUGPlugin_Limex(Registry* reg, string grp)
 {
@@ -672,13 +676,44 @@ InitUGPlugin_Limex(Registry* reg, string grp)
 
 	try{
 		RegisterCommon<Functionality>(*reg,grp);
-		RegisterDimensionDependent<Functionality>(*reg,grp);
-		RegisterDomainDependent<Functionality>(*reg,grp);
+	//	RegisterDimensionDependent<Functionality>(*reg,grp);
+	// 	RegisterDomainDependent<Functionality>(*reg,grp);
 		RegisterAlgebraDependent<Functionality>(*reg,grp);
 		RegisterDomainAlgebraDependent<Functionality>(*reg,grp);
 	}
 	UG_REGISTRY_CATCH_THROW(grp);
 }
+#else
+template <typename TRegistry=ug::bridge::Registry>
+void InitUGPlugin_Limex_(TRegistry* reg, string grp)
+{
+	grp.append("/Limex");
+	typedef Limex::Functionality Functionality;
+
+	try{
+		RegisterCommon<Functionality>(*reg,grp);
+		// RegisterDimensionDependent<Functionality>(*reg,grp);
+		// RegisterDomainDependent<Functionality, TRegistry>(*reg,grp);
+		RegisterAlgebraDependent<Functionality, TRegistry>(*reg,grp);
+		RegisterDomainAlgebraDependent<Functionality, TRegistry>(*reg,grp);
+	}
+	UG_REGISTRY_CATCH_THROW(grp);
+}
+
+extern "C" void
+InitUGPlugin_Limex(ug::bridge::Registry* reg, string grp)
+{ InitUGPlugin_Limex_<ug::bridge::Registry>(reg, grp); }
+
+#endif
+
+#ifdef UG_USE_PYBIND11
+// Expose for pybind11.
+namespace Limex{
+	void InitUGPlugin(ug::pybind::Registry* reg, string grp)
+	{ InitUGPlugin_Limex_<ug::pybind::Registry>(reg, grp); }
+}
+#endif
+
 
 extern "C" UG_API void
 FinalizeUGPlugin_Limex()

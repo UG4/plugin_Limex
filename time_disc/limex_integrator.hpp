@@ -349,7 +349,7 @@ public:
 		  m_num_reductions(m_nstages, 0),
 		  m_consistency_error(m_nstages),
 		  m_spCostStrategy(make_sp<LimexDefaultCost>(new LimexDefaultCost())),
-		  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>()),              // default algebraic space
+		  m_spBanachSpace(new AlgebraicSpace<grid_function_type>()),              // default algebraic space
 		  m_bInterrupt(false),
 		  m_limex_step(1)
 		{

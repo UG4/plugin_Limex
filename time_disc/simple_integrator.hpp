@@ -21,7 +21,7 @@ public:
 	// constructor
 	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc)
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc),
-	  m_spBanachSpace(new IGridFunctionSpace<grid_function_type>() ),
+	  m_spBanachSpace(new AlgebraicSpace<grid_function_type>() ),
 	  m_spDerivative(SPNULL), m_initial_consistency_error(0.0)
 
 	{}

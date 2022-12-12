@@ -19,7 +19,7 @@ set(SOURCES		limex_plugin.cpp
 ################################################################################
 # The code below doesn't have to be changed (usually)
 ################################################################################
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 
 project(UG_PLUGIN_${pluginName})
 
@@ -34,3 +34,17 @@ else(buildEmbeddedPlugins)
 	add_library(${pluginName} SHARED ${SOURCES})
 	target_link_libraries (${pluginName} ug4)
 endif(buildEmbeddedPlugins)
+
+################################################################################
+# Python binding
+################################################################################
+if(USE_PYBIND11)
+	SET(pyPluginName pylimex) # Must match module name!
+	pybind11_add_module(${pyPluginName} limex_pybind.cpp)
+	set_target_properties(${pyPluginName} PROPERTIES	
+  		CXX_STANDARD 11 
+  		CXX_STANDARD_REQUIRED YES
+   		CXX_EXTENSIONS NO
+   		OUTPUT_NAME ug4py/${pyPluginName})
+	target_link_libraries (${pyPluginName} PRIVATE ug4 ${pluginName})
+endif(USE_PYBIND11)

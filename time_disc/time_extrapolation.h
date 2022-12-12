@@ -693,8 +693,8 @@ protected:
 public:
 	typedef ISubDiagErrorEst<TVector> base_type;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IComponentSpace<grid_function_type> subspace_type ;
-	typedef CompositeSpace<grid_function_type> composite_type;
+	typedef IGridFunctionSpace<grid_function_type> subspace_type ;
+	//typedef CompositeSpace<grid_function_type> composite_type;
 
 protected:
 	typedef std::pair<SmartPtr<subspace_type>, number> weighted_obj_type;
@@ -719,7 +719,7 @@ public:
 	{  m_spWeightedSubspaces.push_back(std::make_pair(spSubspace, sigma)); }
 
 	// add subspaces (from container)
-	void add(SmartPtr<composite_type> spCompositeSpace)
+/*	void add(SmartPtr<composite_type> spCompositeSpace)
 	{
 		typedef typename composite_type::weighted_obj_type weighted_obj_type;
 		const std::vector<weighted_obj_type> &spaces = spCompositeSpace->get_subspaces();
@@ -727,7 +727,7 @@ public:
 		{
 			add(it->first, it->second);
 		}
-	}
+	}*/
 
 
 	/// apply w/ rel norm
@@ -884,9 +884,8 @@ protected:
 };
 
 
-// Evaluate difference between two functions (w.r.t various norms)
-/* \|\\
- */
+//! Evaluate difference between two functions (w.r.t various norms)
+/*! \| u \|^2  = \sum |u|_i^2 */
 template <class TDomain, class TAlgebra>
 class CompositeGridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
