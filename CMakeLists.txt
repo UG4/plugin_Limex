@@ -19,7 +19,7 @@ set(SOURCES		limex_plugin.cpp
 ################################################################################
 # The code below doesn't have to be changed (usually)
 ################################################################################
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 project(UG_PLUGIN_${pluginName})
 
@@ -38,14 +38,10 @@ endif(buildEmbeddedPlugins)
 ################################################################################
 # Python binding
 ################################################################################
+
 if(USE_PYBIND11)
-	SET(pyPluginName pylimex) # Must match module name after PYBIND11_MODULE call
-	pybind11_add_module(${pyPluginName} limex_pybind.cpp)
-	set_target_properties(${pyPluginName} PROPERTIES	
-  		CXX_STANDARD 11 
-  		CXX_STANDARD_REQUIRED YES
-   		CXX_EXTENSIONS NO
-   		OUTPUT_NAME ug4py/${pyPluginName})
-   	# We need to link against 'this' plugin and UG4 library.
-	target_link_libraries (${pyPluginName} PRIVATE ug4 ${pluginName})
+	SET(PYBIND_SOURCES 	limex_pybind.cpp)
+	SET(myLibraries ug4 ${pluginName})
+	# First argument must match module name in PYBIND11_MODULE call
+	ug4pybind_add_module(pylimex ${PYBIND_SOURCES} ${myLibraries})
 endif(USE_PYBIND11)
