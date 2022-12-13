@@ -44,4 +44,5 @@ if(USE_PYBIND11)
 	SET(myLibraries ug4 ${pluginName})
 	# First argument must match module name in PYBIND11_MODULE call
 	ug4pybind_add_module(pylimex ${PYBIND_SOURCES} ${myLibraries})
+	target_link_libraries (pylimex PRIVATE ${pluginName})
 endif(USE_PYBIND11)
