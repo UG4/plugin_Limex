@@ -667,6 +667,7 @@ bool LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 {
 
 	LIMEX_PROFILE_FUNC()
+	UG_COND_THROW(!base_type::m_spLinearSolver.valid(), "Linear solver invalid");
 
 	// short-cuts
 	GridLevel const &gl = u0->grid_level();
@@ -788,6 +789,8 @@ template<typename TDomain, typename TAlgebra>
 bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 {
 	LIMEX_PROFILE_FUNC()
+	UG_COND_THROW(!base_type::m_spLinearSolver.valid(), "Linear solver invalid");
+
 	// short-cuts
 	GridLevel const &gl = u0->grid_level();
 	time_disc_type &tdisc = *tdisc_dep_type::m_spTimeDisc;
@@ -808,6 +811,8 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 	 int numSteps = round((t1-t0) / base_type::m_dt);
 	 number currdt = (t1-t0) / numSteps;
 	
+
+
 	 //std::cerr << "+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)\n";
 	if(!base_type::m_bNoLogOut)
 	{
