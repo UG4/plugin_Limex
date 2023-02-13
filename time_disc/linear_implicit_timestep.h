@@ -51,7 +51,8 @@
 
 namespace ug{
 
-
+/// \addtogroup limex
+/// \{
 /// linear implicit time stepping scheme
 /**
  * This time stepping scheme discretizes equations of the form
@@ -248,7 +249,8 @@ protected:
 
 };
 
-
+// end group limex
+/// \}
 
 }  // namespace ug
 #endif

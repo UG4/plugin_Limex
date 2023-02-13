@@ -73,6 +73,13 @@ DebugID LIB_LIMEX("LIB_LIMEX");
 
 namespace Limex{
 
+/**
+ *  \defgroup limex Limex
+ *  \ingroup plugins
+ *  This plugin provides the basic mechanisms for linearly implicit extrapolation methods.
+ *  \{
+ */
+
 
 /**
  * Class exporting the functionality of the plugin. All functionality that is to
@@ -656,7 +663,7 @@ static void Common(TRegistry& reg, string parentGroup)
 
 }; // end Functionality
 
-// end group sample_plugin
+// end group limex
 /// \}
 
 }// end of namespace Sample
