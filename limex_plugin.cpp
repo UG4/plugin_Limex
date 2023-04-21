@@ -371,12 +371,13 @@ static void DomainAlgebra(TRegistry& reg, string grp)
 		// SimpleTimeIntegrator
 		// (e.g., implicit Euler for linear problem)
 		typedef INonlinearTimeIntegrator<TDomain, TAlgebra> TBase;
+		typedef DebugWritingObject<TAlgebra> TDebugBase;
 		typedef SimpleTimeIntegrator<TDomain, TAlgebra> T;
 		//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 		//typedef MultiStepTimeDiscretization<TAlgebra> TTimeDisc;
 
 		string name = string("SimpleTimeIntegrator").append(suffix);
-		reg.template add_class_<T,TBase>(name, grp)
+		reg.template add_class_<T,TBase,TDebugBase>(name, grp)
 							  .template add_constructor<void (*)(SmartPtr<TTimeDisc>) >("")
 							  .add_method("apply", (bool (T::*)(SmartPtr<TGridFunction> u, number time, ConstSmartPtr<TGridFunction> u0, number time0) ) &T::apply, "","")
 							  .set_construct_as_smart_pointer(true);

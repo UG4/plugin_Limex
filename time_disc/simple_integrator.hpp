@@ -1,3 +1,4 @@
+#include "lib_algebra/operator/debug_writer.h"
 
 namespace ug {
 
@@ -5,7 +6,8 @@ namespace ug {
 template<class TDomain, class TAlgebra>
 class SimpleTimeIntegrator :
 		public INonlinearTimeIntegrator<TDomain, TAlgebra>,
-		public ITimeDiscDependentObject<TAlgebra>
+		public ITimeDiscDependentObject<TAlgebra>,
+		public DebugWritingObject<TAlgebra>
 {
 protected:
 	typedef ITimeDiscDependentObject<TAlgebra> tdisc_dep_type;
@@ -110,6 +112,13 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 	while(!hasTerminated(t, t0, t1)) {
 		if(!base_type::m_bNoLogOut)
 			UG_LOG("+++ Timestep +++" << step << "\n");
+			
+		if (this->debug_writer_valid())
+		{
+			char debug_name_ext[16];
+			sprintf(debug_name_ext, "%04d", step);
+			this->enter_debug_writer_section(std::string("SimpleTimeIntegrator_step") + debug_name_ext);
+		}
 
 		// determine step size
 		UG_COND_THROW(currdt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!")
@@ -175,6 +184,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 		step++;
 		// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
 
+		this->leave_debug_writer_section();
 	}
 
 	if(base_type::m_bNoLogOut)
