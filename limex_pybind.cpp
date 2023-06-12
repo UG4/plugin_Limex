@@ -1,6 +1,9 @@
-#include "limex_plugin.h"
+
 
 #ifdef UG_USE_PYBIND11
+
+#include "limex_plugin.h"
+
 PYBIND11_MODULE(pylimex, m)
 {
 	m.doc() = "Limex module";
