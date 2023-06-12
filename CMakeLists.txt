@@ -33,6 +33,7 @@ else(buildEmbeddedPlugins)
 	# create a shared library from the sources and link it against ug4.
 	add_library(${pluginName} SHARED ${SOURCES})
 	target_link_libraries (${pluginName} ug4)
+	set_target_properties(${pluginName} PROPERTIES INSTALL_RPATH "$ORIGIN/../../lib/")
 	install(TARGETS ${pluginName} LIBRARY DESTINATION bin/plugins COMPONENT plugins)
 endif(buildEmbeddedPlugins)
 
@@ -46,5 +47,6 @@ if(USE_PYBIND11)
 	# First argument must match module name in PYBIND11_MODULE call
 	ug4pybind_add_module(pylimex ${PYBIND_SOURCES} ${myLibraries})
 	target_link_libraries (pylimex PRIVATE ${pluginName})
+	set_target_properties(pylimex PROPERTIES INSTALL_RPATH "$ORIGIN/..:$ORIGIN/../../../lib")
 	install(TARGETS pylimex LIBRARY DESTINATION bin/plugins/ug4 COMPONENT plugins)
 endif(USE_PYBIND11)
