@@ -390,18 +390,19 @@ assemble_linear(matrix_type& J, vector_type& b, const GridLevel& gl)
 			m_prevSteps <<", but only "<< m_pPrevSol->size() << " passed.");
 
 	// 	future solution part
-		try{
-			UG_ASSERT(m_pPrevSol->size()<2, "Only need one solution,,,");
+	try {
+		UG_ASSERT(m_pPrevSol->size()<2, "Only need one solution,,,");
 
-			// J(u_{k+1} - u_k) = -\tau f_k
-			// NOTE: both routines have invoked the contraints, so constraint adjustment are assumed to be correct!
-			this->assemble_jacobian(J, *m_pPrevSol->oldest(), gl);
-			this->assemble_defect(b, *m_pPrevSol->oldest(), gl);
+		// J(u_{k+1} - u_k) = -\tau f_k
+		// NOTE: both routines have invoked the contraints, so constraint adjustment are assumed to be correct!
+		this->assemble_jacobian(J, *m_pPrevSol->oldest(), gl);
+		this->assemble_defect(b, *m_pPrevSol->oldest(), gl);
 
-			// J u_{k+1} = -\tau f_k + J u_k
-			//AxpyCommonSparseMatrix(J, b, 0.0, *m_pPrevSol->oldest(), +1.0, *m_pPrevSol->oldest());
-			J.axpy(b, -1.0, b, 1.0, *m_pPrevSol->oldest());
-		}UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
+		// J u_{k+1} = -\tau f_k + J u_k
+		//AxpyCommonSparseMatrix(J, b, 0.0, *m_pPrevSol->oldest(), +1.0, *m_pPrevSol->oldest());
+		J.axpy(b, -1.0, b, 1.0, *m_pPrevSol->oldest());
+	}
+	UG_CATCH_THROW("LinearImplicitEuler: Cannot assemble defect.");
 }
 
 
