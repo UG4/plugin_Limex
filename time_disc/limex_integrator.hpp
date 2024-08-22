@@ -835,7 +835,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 		// determine step size
 		number dt = std::min(dtcurr, t1-t);
-		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING!" "dt:" << dt << "; dt_min" << base_type::get_dt_min() << "\n");
+		UG_COND_THROW(dt < base_type::get_dt_min(), "Time step size below minimum. ABORTING! dt:" << dt << "; dt_min" << base_type::get_dt_min() << "\n");
 
 
 		// Notify init observers. (NOTE: u = u(t))¸
