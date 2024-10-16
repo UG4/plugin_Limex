@@ -934,8 +934,13 @@ public:
 				it!= m_spSubspaces.end(); ++it)
 		{
 			// use sub-diagonal error estimator (i.e. multiply with alpha)
-			enorm2 +=  (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
-			unorm2 += (*it)->norm2(*uFine);
+			double dist2_local=(*it)->distance2(*uFine, *uCoarse);
+			double enorm2_local=(alpha*alpha) * dist2_local;//(*it)->distance2(*uFine, *uCoarse);
+			double unorm2_local=(*it)->norm2(*uFine);
+			UG_LOGN("local.unorm2=" << unorm2_local << "\tlocal.enorm2=" << enorm2_local << "\t(local.ratio2="<<(enorm2_local)/(unorm2_local)<<"\tdist2="<< dist2_local<< ")");
+
+			enorm2 += enorm2_local; //(alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
+			unorm2 += unorm2_local;//(*it)->norm2(*uFine);
 			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\t(ratio2="<< (enorm2)/(unorm2) << ")");
 		}
 
