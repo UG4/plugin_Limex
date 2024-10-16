@@ -755,13 +755,12 @@ public:
 			  const double dist2 = alpha * alpha * (it->first->distance2(*uFine, *uCoarse));
 			  unorm2 += sigma * norm2;
 			  enorm2 += sigma * dist2;
-
-			  std::cerr << "unorm=" << norm2 << "\tenorm=" << dist2 <<  "\tsigma=" << sigma << std::endl;
-
+			  
+			  UG_LOG("unorm=" << norm2 << "\tenorm=" << dist2 <<  "\tsigma=" << sigma << std::endl);			
 			}
 
 			base_type::m_est = sqrt(enorm2/unorm2);
-			std::cerr << ">>> unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\teps="<< base_type::m_est << std::endl;
+			UG_LOG(">>> unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\teps="<< base_type::m_est << std::endl);
 		}
 		else
 		{
@@ -775,8 +774,7 @@ public:
 			}
 
 			base_type::m_est = sqrt(enorm2)/m_refNormValue;
-			std::cerr << "unorm (FIXED)=" << m_refNormValue << "enorm2=" << enorm2 << "eps="<< base_type::m_est << std::endl;
-
+			UG_LOG("unorm (FIXED)=" << m_refNormValue << "enorm2=" << enorm2 << "eps="<< base_type::m_est << std::endl);
 		}
 
 		// update

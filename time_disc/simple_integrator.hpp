@@ -115,8 +115,7 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage(SmartPtr<grid_f
 			
 		if (this->debug_writer_valid())
 		{
-			char debug_name_ext[16];
-			sprintf(debug_name_ext, "%04d", step);
+			char debug_name_ext[16]; snprintf(debug_name_ext, 16, "%04d", step);
 			this->enter_debug_writer_section(std::string("SimpleTimeIntegrator_step") + debug_name_ext);
 		}
 

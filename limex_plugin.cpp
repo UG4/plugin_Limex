@@ -236,7 +236,7 @@ static void DomainAlgebra(TRegistry& reg, string grp)
 		   .set_construct_as_smart_pointer(true);
 		reg.add_class_to_group(name, "ConnectionViewerOutputObserver", tag);
 	}
-
+#ifdef UG_FOR_LUA
 	{
 				// PlotRefOutputObserver
 				typedef PlotRefOutputObserver<TDomain, TAlgebra> T;
@@ -248,7 +248,7 @@ static void DomainAlgebra(TRegistry& reg, string grp)
 					.set_construct_as_smart_pointer(true);
 				reg.add_class_to_group(name, "PlotRefOutputObserver", tag);
 	}
-
+#endif
 
 	{
 			// IntegrationOutputObserver

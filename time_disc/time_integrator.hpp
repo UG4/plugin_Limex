@@ -384,7 +384,6 @@ class PlotRefOutputObserver
 public:
 	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef LuaFunction<number, number> lua_function_type;
 	typedef VTKOutput<TDomain::dim> vtk_type;
 
 	PlotRefOutputObserver(SmartPtr<UserData<number, grid_function_type::dim> > spExactSol)
@@ -437,7 +436,6 @@ class IntegrationOutputObserver
 public:
 	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
 	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef LuaFunction<number, number> lua_function_type;
 	typedef VTKOutput<TDomain::dim> vtk_type;
 protected:
 	struct IntegralSpecs
