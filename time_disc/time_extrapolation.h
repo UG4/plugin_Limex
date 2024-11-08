@@ -939,7 +939,8 @@ public:
 			enorm2 += cmp_e2;
 			unorm2 += cmp_u2;
 
-			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 <<
+			UG_LOGN("ui-2=" << cmp_u2 << "\ei-2=" <<  cmp_e2<<
+					"unorm2=" << unorm2 << "\tenorm2=" << enorm2 <<
 					"\tratio2="<< (enorm2)/(unorm2) <<
 					"\tmax. rel (squared) ="<< max_rel);
 		}
