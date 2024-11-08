@@ -718,17 +718,6 @@ public:
 	void add(SmartPtr<subspace_type> spSubspace, number sigma)
 	{  m_spWeightedSubspaces.push_back(std::make_pair(spSubspace, sigma)); }
 
-	// add subspaces (from container)
-/*	void add(SmartPtr<composite_type> spCompositeSpace)
-	{
-		typedef typename composite_type::weighted_obj_type weighted_obj_type;
-		const std::vector<weighted_obj_type> &spaces = spCompositeSpace->get_subspaces();
-		for (typename std::vector<weighted_obj_type>::const_iterator it = spaces.begin(); it != spaces.end(); ++it)
-		{
-			add(it->first, it->second);
-		}
-	}*/
-
 
 	/// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
@@ -898,7 +887,10 @@ public:
 	typedef CompositeSpace<grid_function_type> composite_type;
 
 	// constructor
-	CompositeGridFunctionEstimator() : base_type() {}
+	CompositeGridFunctionEstimator() : base_type(), m_strictRelativeError(false) {}
+
+	void use_strict_relative_norms(bool b)
+	{ m_strictRelativeError  = b; }
 
 	// add (single subspace)
 	void add(SmartPtr<subspace_type> spSubspace)
@@ -928,17 +920,33 @@ public:
 		// error estimate
 		double enorm2 = 0.0;
 		double unorm2 = 0.0;
+		const double SMALL = 1e-10;
+
+		double max_rel = 0.0;
+
+
+
 		for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin();
 				it!= m_spSubspaces.end(); ++it)
 		{
 			// use sub-diagonal error estimator (i.e. multiply with alpha)
-			enorm2 +=  (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
-			unorm2 += (*it)->norm2(*uFine);
-			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 << "\t(ratio2="<< (enorm2)/(unorm2) << ")");
+			double cmp_e2 = (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
+			double cmp_u2 = (*it)->norm2(*uFine);
+
+			// |delta_i|/|u_i|
+			max_rel = std::max(max_rel, cmp_e2/std::max(cmp_u2, SMALL*cmp_e2));
+
+			enorm2 += cmp_e2;
+			unorm2 += cmp_u2;
+
+			UG_LOGN("unorm2=" << unorm2 << "\tenorm2=" << enorm2 <<
+					"\tratio2="<< (enorm2)/(unorm2) <<
+					"\tmax. rel (squared) ="<< max_rel);
 		}
 
 		//prevent division by zero
-		base_type::m_est  = sqrt(enorm2/std::max(unorm2, 1e-10*enorm2));
+		base_type::m_est  = (m_strictRelativeError) ? sqrt(max_rel) :
+				sqrt(enorm2/std::max(unorm2, SMALL*enorm2));
 		UG_LOGN("eps="<< base_type::m_est);
 
 		// update
@@ -963,7 +971,7 @@ public:
 protected:
 
 	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
-
+	bool m_strictRelativeError;
 };
 
 
