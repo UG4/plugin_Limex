@@ -950,8 +950,8 @@ bool TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_functi
 	m_spSolTimeSeries2->push(u2old, t0);
 	
 	// automatic selection of min/max time step
-	if (m_dtmin<0.0) m_dtmin = (t1-10.0)/1.0e+5; 
-	if (m_dtmax<0.0) m_dtmax = (t1-10.0)/10.0; 
+	if (m_dtmin <= 0.0) { m_dtmin = (t1 - t0)/1.0e+5; }
+	if (m_dtmax <= 0.0) { m_dtmax = (t1 - t0)/10.0; }
 
 	// Aitken Neville extrapolation
 	const size_t tsteps[2] = {1,2};
