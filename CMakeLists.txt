@@ -27,7 +27,7 @@ project(UG_PLUGIN_${pluginName})
 include(${UG_ROOT_CMAKE_PATH}/ug_plugin_includes.cmake)
 
 ################################################################################
-# Classic binding.
+# Classic binding (static or dynamic plugin).
 ################################################################################
 if(NOT USE_PYBIND11)
 if(buildEmbeddedPlugins)
@@ -43,15 +43,15 @@ endif(buildEmbeddedPlugins)
 endif(NOT USE_PYBIND11)
 
 ################################################################################
-# Python binding
+# Python binding (static plugin, dynamic python interface).
 ################################################################################
-
 if(USE_PYBIND11)
 	# Create a STATIC library for UG4 stuff from the sources
 	add_library(${pluginName} STATIC ${SOURCES})
 	
 	SET(myPluginSources limex_pybind.cpp)
 	SET(myLibraries ug4 ${pluginName})
+	
 	# First argument must match module name in PYBIND11_MODULE call
 	python_add_library(pylimex MODULE  ${myPluginSources} ${SOURCES} WITH_SOABI)
 	#ug4pybind_add_module(pylimex ${myPluginSources} ${myLibraries})
