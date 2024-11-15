@@ -934,13 +934,15 @@ public:
 			double cmp_u2 = (*it)->norm2(*uFine);
 
 			// |delta_i|/|u_i|
-			max_rel = std::max(max_rel, cmp_e2/std::max(cmp_u2, SMALL*cmp_e2));
+			max_rel = std::max(max_rel, cmp_e2/
+					(cmp_u2 + SMALL/ (1.0+cmp_e2+cmp_u2)));
+					//std::max(cmp_u2, SMALL*cmp_e2));
 
 			enorm2 += cmp_e2;
 			unorm2 += cmp_u2;
 
-			UG_LOGN("ui-2=" << cmp_u2 << "\ei-2=" <<  cmp_e2<<
-					"unorm2=" << unorm2 << "\tenorm2=" << enorm2 <<
+			UG_LOGN("ui-2=" << cmp_u2 << "\tei-2=" <<  cmp_e2<<
+					"\tunorm2=" << unorm2 << "\tenorm2=" << enorm2 <<
 					"\tratio2="<< (enorm2)/(unorm2) <<
 					"\tmax. rel (squared) ="<< max_rel);
 		}
