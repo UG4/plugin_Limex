@@ -10,7 +10,7 @@
 --------------------------------------------------------------------------------
 
 ug_load_script("ug_util.lua")
-ug_load_script("plugins/Limex/limex_util.lua")
+ug_load_script("plugins/Limex/lua/limex_util.lua")
 ug_load_script("util/profiler_util.lua")
 ug_load_script("util/load_balancing_util.lua")
 
