@@ -52,9 +52,12 @@
 
 // plugin
 #include "time_disc/time_integrator.hpp"
+#include "time_disc/simple_integrator.hpp"
 #include "time_disc/time_extrapolation.h"
 #include "time_disc/linear_implicit_timestep.h"
 #include "time_disc/limex_integrator.hpp"
+#include "time_disc/data_output_observer.hpp"
+#include "time_disc/aux_output_observer.hpp"
 #include "newton_limex.h"
 
 

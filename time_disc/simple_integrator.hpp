@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2025: Goethe University Frankfurt
- * Author: Arne Naegel
- * 
+ * Copyright (c) 2014-2020:  G-CSC, Goethe University Frankfurt
+ * Author: Arne Naegel, Andreas Kreienbuehl
+ *
  * This file is part of UG4.
  * 
  * UG4 is free software: you can redistribute it and/or modify it under the
@@ -34,6 +34,8 @@
 #define __H__LIMEX__SIMPLE_INTEGRATOR_HPP__
 
 #include "lib_algebra/operator/debug_writer.h"
+
+#include "time_integrator.hpp"
 
 namespace ug {
 
