@@ -36,7 +36,13 @@
 namespace ug {
 
 template<typename TDomain, typename TAlgebra>
-bool LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool LinearTimeIntegrator<TDomain, TAlgebra>::apply
+(
+	SmartPtr<grid_function_type> u1,
+	number t1,
+	ConstSmartPtr<grid_function_type> u0,
+	number t0
+)
 {
 
 	LIMEX_PROFILE_FUNC()
@@ -123,7 +129,13 @@ bool LinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type>
 
 
 template<typename TDomain, typename TAlgebra>
-bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply
+(
+	SmartPtr<grid_function_type> u1,
+	number t1,
+	ConstSmartPtr<grid_function_type> u0,
+	number t0
+)
 {
 	LIMEX_PROFILE_FUNC()
 	UG_COND_THROW(!base_type::m_spLinearSolver.valid(), "Linear solver invalid");
@@ -211,7 +223,13 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply(SmartPtr<grid_funct
 };
 
 template<typename TDomain, typename TAlgebra>
-bool TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
+bool TimeIntegratorLinearAdaptive<TDomain, TAlgebra>::apply
+(
+	SmartPtr<grid_function_type> u1,
+	number t1,
+	ConstSmartPtr<grid_function_type> u0,
+	number t0
+)
 {
 	// short-cuts
 	GridLevel const &gl = u0->grid_level();
