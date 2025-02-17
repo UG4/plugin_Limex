@@ -146,10 +146,15 @@ bool SimpleTimeIntegrator<TDomain, TAlgebra>::apply_single_stage
 			m_initial_consistency_error = m_spBanachSpace->distance(*m_spDerivative, *u1);
 		}
 
+		if (this->debug_writer_valid())
+		{
+			this->leave_debug_writer_section();
+			char debug_name_ext[16]; snprintf(debug_name_ext, 16, "%04d", step);
+			this->write_debug(*u1, std::string("TimeSolution_step") + debug_name_ext);
+		}
+
 		step++;
 		// tdisc.finish_step_elem(m_spSolTimeSeries, dt);
-
-		this->leave_debug_writer_section();
 	}
 
 	if(base_type::m_bNoLogOut)
