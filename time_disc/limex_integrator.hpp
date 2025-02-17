@@ -247,7 +247,7 @@ public:
 template<class TDomain, class TAlgebra>
 class LimexTimeIntegrator
 : public INonlinearTimeIntegrator<TDomain, TAlgebra>,
-  public VectorDebugWritingObject<typename TAlgebra::vector_type>,
+  public DebugWritingObject<TAlgebra>,
   public LimexTimeIntegratorConfig // TODO: should become a 'has a'.
 {
 
@@ -668,6 +668,9 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 		integrator.set_reduction_factor(0.0);                 // quit immediately, if step fails
 		integrator.set_solver(m_vThreadData[i].get_solver());
 		integrator.set_derivative(m_vThreadData[i].get_derivative());
+		
+		if(this->debug_writer_valid())
+			integrator.set_debug(this->debug_writer());
 
 		UG_ASSERT(m_spBanachSpace.valid(), "Huhh: Need valid (default) banach space");
 		integrator.set_banach_space(m_spBanachSpace);
@@ -862,9 +865,17 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			ossName << "Limex_BeforeSerial_iter" << m_limex_step << "_stage" << i << "_total" << limex_total;
 			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
+		if(this->debug_writer_valid())
+		{
+			char debug_step_id_ext[16]; snprintf(debug_step_id_ext, 16, "%04d", m_limex_step);
+			char debug_total_id_ext[16]; snprintf(debug_total_id_ext, 16, "%04d", (int) limex_total);
+			this->enter_debug_writer_section(std::string("LimexTimeIntegrator_iter") + debug_step_id_ext + "_total" + debug_total_id_ext);
+		}
 
 		// integrate: t -> t+dt
 		err = apply_integrator_threads(dt, u, t, ntest-1);
+		
+		this->leave_debug_writer_section();
 
 		// write_debug
 		for (size_t i=0; i<ntest; ++i)
