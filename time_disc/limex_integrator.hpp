@@ -332,9 +332,9 @@ public:
 		UG_LOG("set_debug:" << m_vThreadData.size());
 	}
 
-	using VectorDebugWritingObject<vector_type>::set_debug;
+	//using VectorDebugWritingObject<vector_type>::set_debug;
 protected:
-	using VectorDebugWritingObject<vector_type>::write_debug;
+	//using VectorDebugWritingObject<vector_type>::write_debug;
 
 
 
@@ -797,7 +797,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		std::ostringstream ossName;
 		ossName << std::setfill('0') << std::setw(4);
 		ossName << "Limex_Init_iter" << 0 << "_stage" << i;
-		write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
+		this->write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 	}
 
 	number t = t0;
@@ -869,7 +869,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			std::ostringstream ossName;
 			ossName << std::setfill('0') << std::setw(4);
 			ossName << "Limex_BeforeSerial_iter" << m_limex_step << "_stage" << i << "_total" << limex_total;
-			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
+			this->write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 		if(this->debug_writer_valid())
 		{
@@ -889,7 +889,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			std::ostringstream ossName;
 			ossName << std::setfill('0') << std::setw(4);
 			ossName << "Limex_AfterSerial_iter" << m_limex_step << "_stage" << i << "_total" << limex_total;
-			write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
+			this->write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 		}
 
 		join_integrator_threads();
@@ -929,7 +929,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 				std::ostringstream ossName;
 				ossName << std::setfill('0') << std::setw(4);
 				ossName << "Limex_Extrapolates_iter" << m_limex_step << "_stage" << i << "_total" << limex_total;
-				write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
+				this->write_debug(*m_vThreadData[i].get_solution(), ossName.str().c_str());
 			}
 			limex_total++;
 
@@ -1158,7 +1158,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 				std::ostringstream ossName;
 				ossName << std::setfill('0');
 				ossName << "Limex_Derivative_iter" << m_limex_step << "_total" << limex_total;
-				write_debug(udot, ossName.str().c_str());
+				this->write_debug(udot, ossName.str().c_str());
 			}
 
 
