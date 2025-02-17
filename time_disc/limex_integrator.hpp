@@ -670,7 +670,11 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 		integrator.set_derivative(m_vThreadData[i].get_derivative());
 		
 		if(this->debug_writer_valid())
+		{
 			integrator.set_debug(this->debug_writer());
+			char debug_name_ext[16]; snprintf(debug_name_ext, 16, "%04d", i);
+			this->enter_debug_writer_section(std::string("Stage_") + debug_name_ext);
+		}
 
 		UG_ASSERT(m_spBanachSpace.valid(), "Huhh: Need valid (default) banach space");
 		integrator.set_banach_space(m_spBanachSpace);
@@ -691,6 +695,8 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 			MyPrintError(err);
 
 		}
+		
+		this->leave_debug_writer_section();
 
 		if (!exec)
 		{
