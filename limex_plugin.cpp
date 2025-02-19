@@ -52,9 +52,12 @@
 
 // plugin
 #include "time_disc/time_integrator.hpp"
+#include "time_disc/simple_integrator.hpp"
 #include "time_disc/time_extrapolation.h"
 #include "time_disc/linear_implicit_timestep.h"
 #include "time_disc/limex_integrator.hpp"
+#include "time_disc/data_output_observer.hpp"
+#include "time_disc/aux_output_observer.hpp"
 #include "newton_limex.h"
 
 
@@ -388,11 +391,13 @@ static void DomainAlgebra(TRegistry& reg, string grp)
 	{
 			// LimexTimeIntegrator
 			typedef INonlinearTimeIntegrator<TDomain, TAlgebra> TBase;
+			typedef DebugWritingObject<TAlgebra> TDebugBase;
 			typedef LimexTimeIntegrator<TDomain, TAlgebra> T;
-			typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
+			
+			//typedef DomainDiscretization<TDomain, TAlgebra> TDomainDisc;
 
 			string name = string("LimexTimeIntegrator").append(suffix);
-			reg.template add_class_<T,TBase>(name, grp)
+			reg.template add_class_<T,TBase,TDebugBase>(name, grp)
 
 			  //.template add_constructor<void (*)() >("")
 			  //.ADD_CONSTRUCTOR( (SmartPtr<TDomainDisc>, int) ) ("Domain disc|number of steps (vector)")
@@ -405,7 +410,7 @@ static void DomainAlgebra(TRegistry& reg, string grp)
 			  .add_method("add_stage", (void (T::*)(size_t, size_t,  SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::solver_type>) ) &T::add_stage)
 			  .add_method("add_stage", (void (T::*)(size_t, SmartPtr<typename T::solver_type>, SmartPtr<typename T::domain_discretization_type>) ) &T::add_stage)
 			  .add_method("add_stage", (void (T::*)(size_t, SmartPtr<typename T::solver_type>, SmartPtr<typename T::domain_discretization_type>, SmartPtr<typename T::domain_discretization_type>) ) &T::add_stage_ext)
-			  .add_method("set_debug", &T::set_debug)
+			 // .add_method("set_debug", &T::set_debug)
 			  .add_method("set_debug_for_timestepper", &T::set_debug_for_timestepper)
 			  .add_method("has_time_derivative", &T::has_time_derivative)
 			  .add_method("get_time_derivative", &T::get_time_derivative)
