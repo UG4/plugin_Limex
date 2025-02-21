@@ -1,0 +1,4 @@
+var searchData=
+[
+  ['linearimpliciteuler_0',['LinearImplicitEuler',['../classug_1_1LinearImplicitEuler.html#a5ac8beaceeccdbfe2cada4d3b3493655',1,'ug::LinearImplicitEuler::LinearImplicitEuler(SmartPtr&lt; IDomainDiscretization&lt; algebra_type &gt; &gt; spDD)'],['../classug_1_1LinearImplicitEuler.html#aa3cdbfc2e59ada6cfcb9ec311535e9f4',1,'ug::LinearImplicitEuler::LinearImplicitEuler(SmartPtr&lt; IDomainDiscretization&lt; algebra_type &gt; &gt; spDefectDisc, SmartPtr&lt; IDomainDiscretization&lt; algebra_type &gt; &gt; spMatrixJDisc)'],['../classug_1_1LinearImplicitEuler.html#a6280e79e09fbf347f4d695f163c76057',1,'ug::LinearImplicitEuler::LinearImplicitEuler(SmartPtr&lt; IDomainDiscretization&lt; algebra_type &gt; &gt; spDefectDisc, SmartPtr&lt; IDomainDiscretization&lt; algebra_type &gt; &gt; spMatrixJDisc, SmartPtr&lt; IDomainDiscretization&lt; algebra_type &gt; &gt; spGammaDisc)']]]
+];
