@@ -1,6 +1,8 @@
 
 /*
- * Copyright (c) 2014-2016:  G-CSC, Goethe University Frankfurt
+ * SPDX-FileCopyrightText: Copyright (c) 2014-2025:  Goethe University Frankfurt
+ * SPDX-License-Identifier: LicenseRef-UG4-LGPL-3.0
+ *
  * Author: Arne Naegel
  *
  * This file is part of UG4.

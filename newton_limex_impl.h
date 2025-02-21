@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2010-2015:  G-CSC, Goethe University Frankfurt
+ * SPDX-FileCopyrightText:  Copyright (c) 2010-2015:  G-CSC, Goethe University Frankfurt
+ * SPDX-License-Identifier: LicenseRef-UG4-LGPL-3.0
+ *
  * Author: Markus Breit,
  *         but largely copied from ugcore Newton implementation by Andreas Vogel
  * 

@@ -8,6 +8,9 @@
 # a list of your source files.
 ################################################################################
 
+# SPDX-FileCopyrightText:  Copyright (c) 2025:  G-CSC, Goethe University Frankfurt
+# SPDX-License-Identifier: LicenseRef-UG4-LGPL-3.0
+
 # Name of your plugin, path to your plugin (relative to ug's root path) and sources.
 set(pluginName	Limex)
 set(SOURCES		limex_plugin.cpp
