@@ -108,13 +108,16 @@ bool LinearTimeIntegrator<TDomain, TAlgebra>::apply
 		if (base_type::m_spLinearSolver->apply(*u1, *b))
 		{
 			// ACCEPTING:
+			// Notify observers (which could modify u1!)
+			this->notify_finalize_step(u1, step++, t+dt, dt);
+
+			// prepare next step.
 			// push updated solution into time series
 			t += dt;
 			SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
 			VecAssign(*tmp, *u1.template cast_dynamic<typename base_type::vector_type>());
 			m_spSolTimeSeries->push_discard_oldest(tmp, t);
 
-			this->notify_finalize_step(u1, step++, t+dt, dt);
 		}
 		else
 		{
@@ -204,12 +207,16 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply
 		 // execute step
 		 if (base_type::m_spLinearSolver->apply(*u1, *b))
 		 {
-			 // ACCEPTING: push updated solution into time series
-			 t += dt;
+			 // ACCEPTING: 
+			// Notify observers (which could modify u1!)
+			 this->notify_finalize_step(u1, step, t+dt, dt);  
+
+			 // push updated solution into time series
+			 t += dt; // Update time.
 			 SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
 			 VecAssign(*tmp,  *u1.template cast_dynamic<typename base_type::vector_type>());
 			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
-			 this->notify_finalize_step(u1, step, t, dt);  // t updated already!
+			
 		 }
 		 else
 		 {
