@@ -1135,9 +1135,13 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 		else
 		{
 			// solver failed -> cut time step //
-			dtcurr *= m_sigmaReduction;
-			if(m_epsmin>0 && m_tol>0 )
-				dtcurr *= std::min(m_sigmaReduction,(epsmin>0)? m_tol/epsmin:m_epsmin/m_tol);
+			number base_dtmin=base_type::get_dt_min();
+			if(dtcurr <= base_dtmin)
+					base_type::set_dt_min(base_dtmin*std::sqrt(m_tol));
+			
+			dtcurr=std::max(base_type::get_dt_min(), dtcurr*std::min(m_sigmaReduction, (m_epsmin>0)? (std::log(m_tol)/std::log(m_epsmin)): std::sqrt(m_tol)));
+			
+			//dtcurr=std:max(base_type::get_dt_min(), dtcurr);
 		}
 
 		// output compute time for Limex step
