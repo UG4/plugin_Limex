@@ -363,7 +363,7 @@ public:
 
 
 		/// tolerance
-		void set_tolerance(double tol) { m_tol = tol;m_epsmin=tol;}
+		void set_tolerance(double tol) { m_tol = tol;}
 		void set_stepsize_safety_factor(double rho) { m_rhoSafety = rho;}
 		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;}
 		void set_stepsize_greedy_order_factor(double sigma) { m_greedyOrderIncrease = sigma;}
@@ -587,7 +587,6 @@ protected:
 
 		bool m_bInterrupt;
 		int m_limex_step;						///<Current counter
-		number m_epsmin;
 
 
 };
@@ -668,14 +667,8 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 		// integrate (t0, t0+dtcurr)
 		time_integrator_type integrator(m_vThreadData[i].get_time_stepper());
 		integrator.set_time_step(dtcurr/m_vSteps[i]);
-		/*integrator.set_dt_min(dtcurr/m_vSteps[i]);
-		integrator.set_dt_max(dtcurr/m_vSteps[i]);*/
-		number dtFactor=1.0;
-		if(m_tol>0 && m_epsmin>0)
-			 dtFactor=std::max(1.0, std::log(m_epsmin)/std::log(m_tol));
-		
-		integrator.set_dt_min(dtcurr/m_vSteps[i]/dtFactor); // /(log(m_epsmin)/log(m_tol))
-		integrator.set_dt_max(dtcurr/m_vSteps[i]*dtFactor); // *log(m_epsmin)/log(m_tol)
+		integrator.set_dt_min(dtcurr/m_vSteps[i]);
+		integrator.set_dt_max(dtcurr/m_vSteps[i]);
 		integrator.set_reduction_factor(0.0);                 // quit immediately, if step fails
 		integrator.set_solver(m_vThreadData[i].get_solver());
 		integrator.set_derivative(m_vThreadData[i].get_derivative());
@@ -1084,8 +1077,6 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 			// select (predicted) order for next step//double dtpred = dtcurr*std::min(m_lambda[qpred-1], itime_integrator_type::get_increase_factor());
 			double dtpred = dtcurr*std::min(m_lambda[qpred-1], itime_integrator_type::get_increase_factor());
-			if(m_epsmin>0 && m_tol>0)
-				dtpred = dtcurr*std::min(m_lambda[qpred-1], itime_integrator_type::get_increase_factor())*std::max(1.0, (epsmin>m_epsmin*0.1 && epsmin<m_epsmin*10)? (std::log(epsmin)/std::log(m_tol)/2) : std::log(epsmin)/std::log(m_epsmin));
 			//double dtpred = dtcurr*m_lambda[qpred-1];
 			UG_LOG("+++++\nget_increase_factor() gives "<<itime_integrator_type::get_increase_factor()<<" \n+++++++")
 			UG_LOG("koptim=\t" << jbest << ",\t eps(k)=" << epsmin << ",\t q=\t" << qpred<< "("<<  ntest << "), lambda(q)=" << m_lambda[qpred-1] << ", alpha(q-1,q)=" << monitor(qpred-1, qpred) << "dt(q)=" << dtpred<< std::endl);
@@ -1137,9 +1128,9 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			// solver failed -> cut time step //
 			number base_dtmin=base_type::get_dt_min();
 			if(dtcurr <= base_dtmin)
-					base_type::set_dt_min(base_dtmin*std::sqrt(m_tol));
+					base_type::set_dt_min(base_dtmin*m_sigmaReduction);
 			
-			dtcurr=std::max(base_type::get_dt_min(), dtcurr*std::min(m_sigmaReduction, (m_epsmin>0)? (std::log(m_tol)/std::log(m_epsmin)): std::sqrt(m_tol)));
+			dtcurr=std::max(base_type::get_dt_min(), dtcurr*m_sigmaReduction);
 			
 			//dtcurr=std:max(base_type::get_dt_min(), dtcurr);
 		}
@@ -1154,7 +1145,6 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 			UG_LOG("+++ LimexTimestep +++" << m_limex_step << " ACCEPTED"<< std::endl);
 			UG_LOG("               :\t time \t dt (success) \t dt (pred) \tq=\t order (curr)" << qcurr+1 << std::endl);
 			UG_LOG("LIMEX-ACCEPTING:\t" << t <<"\t"<< dt << "\t" << dtcurr << "\tq=\t" << qcurr+1 << std::endl);
-			m_epsmin=epsmin;
 
 			// update PID controller
 			/*qlast = qcurr;
