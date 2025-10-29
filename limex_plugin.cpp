@@ -510,7 +510,7 @@ static void Algebra(TRegistry& reg, string parentGroup)
 	string suffix = GetAlgebraSuffix<TAlgebra>();
 	string tag = GetAlgebraTag<TAlgebra>();
 
-/*
+/* note: moved to core
 	{
 		// IErrorEvaluator (abstract base class)
 		typedef IBanachSpace<vector_type> T;

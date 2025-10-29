@@ -303,17 +303,17 @@ class SupErrorEvaluator
 		//SupErrorEvaluator(const char *fctNames, number scale) : base_type(fctNames, 1, scale) {};
 		SupErrorEvaluator(const char *fctNames, const char* ssNames /*, number scale*/)
 			: base_type(fctNames, ssNames, 1/*, scale*/) {};
-		~SupErrorEvaluator() {};
+		~SupErrorEvaluator() override = default;
 
 
 		using IComponentSpace<TGridFunction>::norm;
 		using IComponentSpace<TGridFunction>::distance;
 
-		double norm(SmartPtr<TGridFunction> uFine) 
-		{ return norm(*uFine); }
+		double norm(SmartPtr<TGridFunction> uFine) {
+			return norm(*uFine);
+		}
 
-		double norm(TGridFunction& uFine)
-		{
+		double norm(TGridFunction& uFine) override {
 			// gather subsets in group
 			SubsetGroup ssGrp(uFine.domain()->subset_handler());
 			if (base_type::m_ssNames != NULL)
@@ -355,11 +355,12 @@ class SupErrorEvaluator
 			return maxVal;
 		}
 
-		double norm2(TGridFunction& uFine) 
-		{ double norm1 = norm(uFine); return norm1*norm1;}
+		double norm2(TGridFunction& uFine) override {
+			double norm1 = norm(uFine);
+			return norm1*norm1;
+		}
 
-		double distance(TGridFunction& uFine, TGridFunction& uCoarse) 
-		{
+		double distance(TGridFunction& uFine, TGridFunction& uCoarse) override {
 			UG_COND_THROW(uFine.dof_distribution().get() != uCoarse.dof_distribution().get(),
 				"Coarse and fine solutions do not have the same underlying dof distro.");
 
@@ -368,8 +369,9 @@ class SupErrorEvaluator
 			return norm(*uErr);
 		}
 
-		double distance2(TGridFunction& uFine, TGridFunction& uCoarse)
-		{ double dist = distance(uFine, uCoarse); return dist*dist;}
+		double distance2(TGridFunction& uFine, TGridFunction& uCoarse) override {
+			double dist = distance(uFine, uCoarse); return dist*dist;
+		}
 
 	protected:
 		template <typename TBaseElem>
@@ -557,7 +559,7 @@ public:
 
 	UserDataSpace(const char *fctNames) : base_type(fctNames) {};
 	UserDataSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
-	~UserDataSpace() {};
+	~UserDataSpace() override = default;
 
 	void set_user_data(SmartPtr<input_user_data_type> spData)
 	{ m_userData = spData; }
@@ -567,14 +569,12 @@ public:
 	using IComponentSpace<TGridFunction>::norm;
 	using IComponentSpace<TGridFunction>::distance;
 
-	double norm2(TGridFunction& uFine) 
-	{
+	double norm2(TGridFunction& uFine) override {
 		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, NULL, 0.0);
 		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
 	}
 
-	double distance2(TGridFunction& uFine, TGridFunction& uCoarse) 
-	{
+	double distance2(TGridFunction& uFine, TGridFunction& uCoarse) override {
 		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, &uCoarse, 0.0);
 		std::cerr << "uFine="<<(void*) (&uFine) << ", uCoarse="<< (void*) (&uCoarse) << std::endl;
 		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");

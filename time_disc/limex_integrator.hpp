@@ -62,7 +62,8 @@
 #include "lib_disc/io/vtkoutput.h"
 
 #include "lib_grid/refinement/refiner_interface.h"
-
+#include "simple_integrator.hpp"
+#include "linear_implicit_timestep.h"
 
 // own headers
 #include "time_extrapolation.h"
@@ -365,13 +366,14 @@ public:
 		/// tolerance
 		void set_tolerance(double tol) { m_tol = tol;m_epsmin=tol;}
 		void set_stepsize_safety_factor(double rho) { m_rhoSafety = rho;}
-		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;}
+		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;} // unused function?
 		void set_stepsize_greedy_order_factor(double sigma) { m_greedyOrderIncrease = sigma;}
 
 		void set_max_reductions(size_t nred) { m_max_reductions = nred;}
 		void set_asymptotic_order(size_t q) { m_asymptotic_order = q;}
 
 		void set_start_step(size_t step){m_limex_step=step;}
+		size_t get_step(){return m_limex_step;}
 
 		/// add an error estimator
 		void add_error_estimator(SmartPtr<error_estim_type> spErrorEstim)
