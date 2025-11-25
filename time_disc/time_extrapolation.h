@@ -922,7 +922,7 @@ public:
 		// error estimate
 		double enorm2 = 0.0;
 		double unorm2 = 0.0;
-		const double SMALL = 1e-10;
+		constexpr double SMALL = 1e-10;
 
 		double max_rel = 0.0;
 
@@ -1007,7 +1007,7 @@ class AitkenNevilleTimex
 		  m_subdiag_error_est(nsteps.size(), INFINITY)
 		{};
 
-		virtual ~AitkenNevilleTimex() {}
+		virtual ~AitkenNevilleTimex() = default;
 
 		void set_global_stepsize(number H) {m_stepsize=H;}
 		number get_global_stepsize() {return m_stepsize;}
