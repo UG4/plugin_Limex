@@ -111,7 +111,7 @@ static void MyPrintError(UGError &err)
 
 class ILimexRefiner
 {
-	virtual ~ILimexRefiner(){};
+	virtual ~ILimexRefiner() = default;
 
 protected:
 	SmartPtr<IRefiner> m_spRefiner;
@@ -123,7 +123,7 @@ class ILimexCostStrategy
 {
 public:
 	/// destructor
-	virtual ~ILimexCostStrategy(){}
+	virtual ~ILimexCostStrategy()= default;
 
 	/// provides the cost for all 0...nstages stages.
 	virtual void update_cost(std::vector<number> &costA, const std::vector<size_t> &vSteps, const size_t nstages) = 0;
@@ -134,7 +134,9 @@ public:
 class LimexDefaultCost : public ILimexCostStrategy
 {
 public:
-	LimexDefaultCost(){};
+
+	LimexDefaultCost()= default;
+
 	void update_cost(std::vector<number> &m_costA, const std::vector<size_t> &m_vSteps, const size_t nstages)
 	{
 		UG_ASSERT(m_costA.size() >= nstages, "Huhh: Vectors match in size:" << m_costA.size() << "vs." << nstages);
