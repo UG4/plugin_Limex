@@ -554,6 +554,12 @@ public:
 		  UG_LOG("set_space:" << m_spBanachSpace->config_string()); 
 		}
 
+		/// get banach space (e.g. for computing consistency error)
+		SmartPtr<IGridFunctionSpace<grid_function_type> > get_space()
+		{
+			return m_spBanachSpace;
+		}
+
 		/// interrupt execution of apply() by external call via observer
 		void interrupt() {m_bInterrupt = true;}
 
