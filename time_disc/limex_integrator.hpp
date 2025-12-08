@@ -287,11 +287,19 @@ public:
 			{ return m_stepper; }
 
 
-			void set_solver(SmartPtr<solver_type> solver)
-			{ m_solver = solver;}
+			void set_solver(SmartPtr<solver_type> solver) {
+				if (solver  != SPNULL) {
+					std::cout << "limex integrator solver set" << std::endl;
+				} else {
+					std::cout << "solver is nullptr" << std::endl;
+				}
+				m_solver = solver;
+			}
 
-			SmartPtr<solver_type> get_solver()
-			{ return m_solver;}
+			SmartPtr<solver_type> get_solver() {
+				return this->m_solver;
+
+			}
 
 			void set_error(int e)
 			{ m_error=e; }
@@ -448,7 +456,16 @@ public:
 			return m_vThreadData[i].get_time_stepper();
 		}
 
+		SmartPtr<solver_type> get_solver(size_t i) {
+			auto solver = m_vThreadData[i].get_solver();
+			if ( solver == SPNULL) {
+				std::cout << "INonlinearTimeIntegrator (base)->m_solver == nullptr" << std::endl;
+			} else {
+				std::cout << "INonlinearTimeIntegrator return (base)->solver" << std::endl;
+				return solver;
+			}
 
+		}
 
 
 protected:
