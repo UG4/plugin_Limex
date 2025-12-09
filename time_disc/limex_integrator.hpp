@@ -462,8 +462,8 @@ public:
 				std::cout << "INonlinearTimeIntegrator (base)->m_solver == nullptr" << std::endl;
 			} else {
 				std::cout << "INonlinearTimeIntegrator return (base)->solver" << std::endl;
-				return solver;
 			}
+			return solver;
 
 		}
 
