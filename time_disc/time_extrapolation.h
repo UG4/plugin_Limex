@@ -889,10 +889,18 @@ public:
 	typedef CompositeSpace<grid_function_type> composite_type;
 
 	// constructor
-	CompositeGridFunctionEstimator() : base_type(), m_strictRelativeError(false) {}
+	CompositeGridFunctionEstimator() : base_type(), m_strictRelativeError(0) {}
 
-	void use_strict_relative_norms(bool b)
+	void use_strict_relative_norms(int b)//bool b)
 	{ m_strictRelativeError  = b; }
+
+	void use_strict_relative_norms(bool b){
+		if(b){
+			m_strictRelativeError=1;
+		}else{
+			m_strictRelativeError=0;
+		}
+	}
 
 	// add (single subspace)
 	void add(SmartPtr<subspace_type> spSubspace)
@@ -919,40 +927,79 @@ public:
 		SmartPtr<grid_function_type> uCoarse = vCoarse.template cast_dynamic<grid_function_type>();
 		if (uFine.invalid() || uCoarse.invalid()) return false;
 
+		size_t numFct=uFine->num_fct();
+		std::vector<double> vcmp_e2, vcmp_u2;
+		vcmp_e2.resize(numFct, 0);
+		vcmp_u2.resize(numFct, 0);
+
 		// error estimate
 		double enorm2 = 0.0;
 		double unorm2 = 0.0;
 		const double SMALL = 1e-10;
 
+		double cmp_rel=0.0;
+		double cmp_rel4=0.0;
 		double max_rel = 0.0;
-
-
+		double max_rel_e4=0.0;
 
 		for (typename std::vector<SmartPtr<subspace_type> >::iterator it = m_spSubspaces.begin();
 				it!= m_spSubspaces.end(); ++it)
 		{
 			// use sub-diagonal error estimator (i.e. multiply with alpha)
+			std::string cmp=(*it)->function_name();
+			size_t cmp_id= uFine->fct_id_by_name(cmp.c_str());
 			double cmp_e2 = (alpha*alpha) * (*it)->distance2(*uFine, *uCoarse);
 			double cmp_u2 = (*it)->norm2(*uFine);
+			vcmp_e2[cmp_id]+=cmp_e2;
+			vcmp_u2[cmp_id]+=cmp_u2;
+			cmp_rel=std::max(cmp_rel,(cmp_e2==0)?0:cmp_e2/(cmp_u2 + SMALL/ (1.0+cmp_e2+cmp_u2)));
+			cmp_rel4=std::max(cmp_rel4,(cmp_e2==0)?0:cmp_e2/std::sqrt(cmp_u2*cmp_u2+SMALL*SMALL));
+			UG_LOGN("cmp=" << cmp << "(id=" << cmp_id << "):\tui-2=" << cmp_u2 << "\tei-2=" <<  cmp_e2<<
+					"\tratio2="<< (vcmp_e2[cmp_id])/(vcmp_u2[cmp_id]) <<
+					"\tmax.rel(squared)="<< cmp_rel<<"\tmax.rel(ei4)="<<cmp_rel4
+			);
+		}
 
+		for(size_t cmp_id=0; cmp_id<numFct; ++cmp_id){
+			double cmp_e2=vcmp_e2[cmp_id];
+			double cmp_u2=vcmp_u2[cmp_id];
 			// |delta_i|/|u_i|
-			max_rel = std::max(max_rel, cmp_e2/
+			max_rel = std::max(max_rel, (cmp_e2==0)?0:cmp_e2/
 					(cmp_u2 + SMALL/ (1.0+cmp_e2+cmp_u2)));
 					//std::max(cmp_u2, SMALL*cmp_e2));
+			max_rel_e4=std::max(max_rel_e4, (cmp_e2==0)?0:cmp_e2/std::sqrt(cmp_u2*cmp_u2+SMALL*SMALL));
 
 			enorm2 += cmp_e2;
 			unorm2 += cmp_u2;
 
-			UG_LOGN("ui-2=" << cmp_u2 << "\tei-2=" <<  cmp_e2<<
-					"\tunorm2=" << unorm2 << "\tenorm2=" << enorm2 <<
+			UG_LOGN("summe by cmp_id=" << cmp_id << ":\tui-2=" << cmp_u2 << "\tei-2=" <<  cmp_e2<<
 					"\tratio2="<< (enorm2)/(unorm2) <<
-					"\tmax. rel (squared) ="<< max_rel);
+					"\tmax.rel(squared)="<< max_rel<<"\tmax.rel(ei4)="<<max_rel_e4);
 		}
 
 		//prevent division by zero
-		base_type::m_est  = (m_strictRelativeError) ? sqrt(max_rel) :
-				sqrt(enorm2/std::max(unorm2, SMALL*enorm2));
-		UG_LOGN("eps="<< base_type::m_est);
+		/*base_type::m_est  = (m_strictRelativeError) ? sqrt(max_rel) :
+				sqrt(enorm2/std::max(unorm2, SMALL*enorm2));*/
+
+			switch(m_strictRelativeError)
+				{
+					   case 0:
+								base_type::m_est=sqrt(enorm2/std::max(unorm2, SMALL*enorm2)); /* absolute: */
+								break;
+					   case 1:
+					   			base_type::m_est=sqrt(cmp_rel); /* relative max: max(e2/(u2+SMALL/(1+e2+u2))) for each cmp on each subset */
+								break;
+					   case 2:
+					   			base_type::m_est=sqrt(cmp_rel4); /* relative max: max(e2/sqrt(u2*u2+SMALL*SMALL)) for each cmp on each subset*/
+								break;
+					   case 3:
+								base_type::m_est=sqrt(max_rel); /* relative max based on cmp: max(sum_si e2/( sum_si u2+SMALL/(1+sum_si e2+ sum_si u2))) for each cmp on whole domain.*/
+							 	break;
+					   case 4:
+								base_type::m_est=sqrt(max_rel_e4); /* relative max based on cmp: max(sum_si e2/sqrt( sum_si u2* sum_si u2+SMALL*SMALL)) for each cmp on whole domain.*/
+								 break;
+				}
+		UG_LOGN("eps="<< base_type::m_est<<" with strictRelativeError="<<m_strictRelativeError);
 
 		// update
 		VecScaleAdd(*vUpdate, 1.0+alpha, *vFine, -alpha, *vCoarse);
@@ -976,7 +1023,8 @@ public:
 protected:
 
 	std::vector<SmartPtr<subspace_type> > m_spSubspaces;
-	bool m_strictRelativeError;
+	//bool m_strictRelativeError;
+	int m_strictRelativeError;
 };
 
 

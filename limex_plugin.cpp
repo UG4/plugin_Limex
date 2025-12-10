@@ -212,7 +212,9 @@ static void DomainAlgebra(TRegistry& reg, string grp)
 			   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompSpace>) > (&T::add))
 			   .add_method("add", static_cast<void (T::*)(SmartPtr<TCompositeSpace>) > (&T::add))
 			   .add_method("config_string", &T::config_string)
-			   .add_method("use_strict_relative_norms", &T::use_strict_relative_norms)
+			   //.add_method("use_strict_relative_norms", &T::use_strict_relative_norms)
+			   .add_method("use_strict_relative_norms",OVERLOADED_METHOD_PTR(void, T, use_strict_relative_norms, (bool)), "", "", "Use relative norm?")
+			   .add_method("use_strict_relative_norms",OVERLOADED_METHOD_PTR(void, T, use_strict_relative_norms, (int)), "", "", "Which norm model? 0:abs,1:rel(add),2:rel(sqrt),3:rel(add,cmp),4:(sqrt,cmp)")
 			   .set_construct_as_smart_pointer(true);
 			reg.add_class_to_group(name, "CompositeGridFunctionEstimator", tag);
 		}
