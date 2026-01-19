@@ -170,7 +170,7 @@ template <class TVector>
 class NormInfEstimator : public ISubDiagErrorEst<TVector>
 {
 protected:
-	typedef ISubDiagErrorEst<TVector> base_type;
+	using base_type = ISubDiagErrorEst<TVector>;
 	int m_stride;
 	int m_offset;
 
@@ -204,7 +204,7 @@ template <class TVector>
 class Norm2Estimator : public ISubDiagErrorEst<TVector>
 {
 protected:
-	typedef ISubDiagErrorEst<TVector> base_type;
+	using base_type = ISubDiagErrorEst<TVector>;
 	int m_stride;
 	int m_offset;
 
@@ -248,7 +248,7 @@ template <class TVector>
 class NormRelEstimator : public ISubDiagErrorEst<TVector>
 {
 protected:
-	typedef ISubDiagErrorEst<TVector> base_type;
+	using base_type = ISubDiagErrorEst<TVector>;
 
 public:
 	// constructor
@@ -270,7 +270,7 @@ class VectorDebugWritingEstimator
 {
 public:
 ///	type of vector
-	typedef TVector vector_type;
+	using vector_type = TVector;
 
 public:
 	VectorDebugWritingEstimator()
@@ -297,26 +297,26 @@ class SupErrorEvaluator
 : public IComponentSpace<TGridFunction>
 {
 	public:
-		typedef IComponentSpace<TGridFunction> base_type;
+		using base_type = IComponentSpace<TGridFunction>;
 
 		SupErrorEvaluator(const char *fctNames) : base_type(fctNames) {};
 		//SupErrorEvaluator(const char *fctNames, number scale) : base_type(fctNames, 1, scale) {};
 		SupErrorEvaluator(const char *fctNames, const char* ssNames /*, number scale*/)
 			: base_type(fctNames, ssNames, 1/*, scale*/) {};
-		~SupErrorEvaluator() override = default;
+		~SupErrorEvaluator() = default;
 
 
 		using IComponentSpace<TGridFunction>::norm;
 		using IComponentSpace<TGridFunction>::distance;
 
-		double norm(SmartPtr<TGridFunction> uFine) {
-			return norm(*uFine);
-		}
+		double norm(SmartPtr<TGridFunction> uFine)
+		{ return norm(*uFine); }
 
-		double norm(TGridFunction& uFine) override {
+		double norm(TGridFunction& uFine)
+		{
 			// gather subsets in group
 			SubsetGroup ssGrp(uFine.domain()->subset_handler());
-			if (base_type::m_ssNames != NULL)
+			if (base_type::m_ssNames != nullptr)
 				ssGrp.add(TokenizeString(base_type::m_ssNames));
 			else
 				ssGrp.add_all();
@@ -355,12 +355,11 @@ class SupErrorEvaluator
 			return maxVal;
 		}
 
-		double norm2(TGridFunction& uFine) override {
-			double norm1 = norm(uFine);
-			return norm1*norm1;
-		}
+		double norm2(TGridFunction& uFine)
+		{ double norm1 = norm(uFine); return norm1*norm1;}
 
-		double distance(TGridFunction& uFine, TGridFunction& uCoarse) override {
+		double distance(TGridFunction& uFine, TGridFunction& uCoarse)
+		{
 			UG_COND_THROW(uFine.dof_distribution().get() != uCoarse.dof_distribution().get(),
 				"Coarse and fine solutions do not have the same underlying dof distro.");
 
@@ -369,9 +368,8 @@ class SupErrorEvaluator
 			return norm(*uErr);
 		}
 
-		double distance2(TGridFunction& uFine, TGridFunction& uCoarse) override {
-			double dist = distance(uFine, uCoarse); return dist*dist;
-		}
+		double distance2(TGridFunction& uFine, TGridFunction& uCoarse)
+		{ double dist = distance(uFine, uCoarse); return dist*dist;}
 
 	protected:
 		template <typename TBaseElem>
@@ -418,7 +416,7 @@ class DeltaSquareIntegrand
 		static const int worldDim = TGridFunction::dim;
 
 	//	data type
-		typedef TDataIn data_type;
+		using data_type = TDataIn;
 
 	private:
 
@@ -451,7 +449,7 @@ class DeltaSquareIntegrand
 
 	/// constructor
 		DeltaSquareIntegrand(SmartPtr<UserData<TDataIn, worldDim> > spData, number time)
-		: m_spData(spData), m_pGridFct1(NULL), m_pGridFct2(NULL), m_time(time)
+		: m_spData(spData), m_pGridFct1(nullptr), m_pGridFct2(nullptr), m_time(time)
 		{
 			if(m_spData->requires_grid_fct())
 				UG_THROW("UserDataDeltaIntegrand: Missing GridFunction, but "
@@ -523,7 +521,7 @@ class DeltaSquareIntegrand
 				get_values<elemDim>(&v1[0], m_spData, *m_pGridFct1, vGlobIP, pElem, vCornerCoords, vLocIP, vJT, numIP);
 				std::cout << "--- got v1!" << std::endl;
 
-				if (m_pGridFct2 != NULL)
+				if (m_pGridFct2 != nullptr)
 				{
 					std::vector<TDataIn> v2(numIP);
 				/*	m_spGridFct->set(0.5);
@@ -554,12 +552,12 @@ template <typename TGridFunction, typename TDataInput>
 class UserDataSpace : public IComponentSpace<TGridFunction>
 {
 public:
-	typedef IComponentSpace<TGridFunction> base_type;
-	typedef UserData<TDataInput, TGridFunction::dim> input_user_data_type;
+	using base_type = IComponentSpace<TGridFunction>;
+	using input_user_data_type = UserData<TDataInput, TGridFunction::dim>;
 
 	UserDataSpace(const char *fctNames) : base_type(fctNames) {};
 	UserDataSpace(const char *fctNames, int order) : base_type(fctNames, order) {};
-	~UserDataSpace() override = default;
+	~UserDataSpace() = default;
 
 	void set_user_data(SmartPtr<input_user_data_type> spData)
 	{ m_userData = spData; }
@@ -569,12 +567,14 @@ public:
 	using IComponentSpace<TGridFunction>::norm;
 	using IComponentSpace<TGridFunction>::distance;
 
-	double norm2(TGridFunction& uFine) override {
-		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, NULL, 0.0);
+	double norm2(TGridFunction& uFine)
+	{
+		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, nullptr, 0.0);
 		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
 	}
 
-	double distance2(TGridFunction& uFine, TGridFunction& uCoarse) override {
+	double distance2(TGridFunction& uFine, TGridFunction& uCoarse)
+	{
 		DeltaSquareIntegrand<TDataInput, TGridFunction> spIntegrand(m_userData, &uFine, &uCoarse, 0.0);
 		std::cerr << "uFine="<<(void*) (&uFine) << ", uCoarse="<< (void*) (&uCoarse) << std::endl;
 		return IntegrateSubsets(spIntegrand, uFine, base_type::m_ssNames, base_type::m_quadorder, "best");
@@ -592,15 +592,15 @@ class GridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
 {
 protected:
-	typedef typename TAlgebra::vector_type TVector;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IErrorEvaluator<grid_function_type> evaluator_type;
+	using TVector = typename TAlgebra::vector_type;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
+	using evaluator_type = IErrorEvaluator<grid_function_type>;
 
 	std::vector<SmartPtr<evaluator_type> > m_evaluators;
 	number m_refNormValue;
 
 public:
-	typedef ISubDiagErrorEst<TVector> base_type;
+	using base_type = ISubDiagErrorEst<TVector> ;
 
 	// constructor
 	ScaledGridFunctionEstimator() : m_refNormValue(0.0) {}
@@ -614,8 +614,8 @@ public:
 	// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
-		// typedef ScaleAddLinker<number, TDomain::dim, number> linker_type;
-		typedef GridFunctionNumberData<TGridFunction> TNumberData;
+		// using linker_type =  ScaleAddLinker<number, TDomain::dim, number>;
+		using TNumberData = GridFunctionNumberData<TGridFunction>;
 
 		// try upcast
 		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
@@ -691,15 +691,15 @@ class GridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
 {
 protected:
-	typedef typename TAlgebra::vector_type TVector;
+	using TVector = typename TAlgebra::vector_type;
 public:
-	typedef ISubDiagErrorEst<TVector> base_type;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IGridFunctionSpace<grid_function_type> subspace_type ;
-	//typedef CompositeSpace<grid_function_type> composite_type;
+	using base_type = ISubDiagErrorEst<TVector>;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
+	using subspace_type = IGridFunctionSpace<grid_function_type>;
+	// using composite_type = CompositeSpace<grid_function_type>;
 
 protected:
-	typedef std::pair<SmartPtr<subspace_type>, number> weighted_obj_type;
+	using weighted_obj_type = std::pair<SmartPtr<subspace_type>, number>;
 
 	number m_refNormValue;
 	std::vector<weighted_obj_type> m_spWeightedSubspaces;
@@ -724,9 +724,9 @@ public:
 	/// apply w/ rel norm
 	bool update(SmartPtr<TVector> vUpdate, number alpha,  SmartPtr<TVector> vFine, SmartPtr<TVector> vCoarse)
 	{
-		// typedefs
-		typedef ScaleAddLinker<number, TDomain::dim, number> linker_type;
-		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+		// type definitions
+		using linker_type = ScaleAddLinker<number, TDomain::dim, number>;
+		using grid_function_type = GridFunction<TDomain, TAlgebra>;
 
 		//  upcast to GridFunction
 		SmartPtr<grid_function_type> uFine = vFine.template cast_dynamic<grid_function_type>();
@@ -796,13 +796,13 @@ class ScaledGridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
 {
 protected:
-	typedef typename TAlgebra::vector_type TVector;
+	using TVector = typename TAlgebra::vector_type;
 
 public:
-	typedef ISubDiagErrorEst<TVector> base_type;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IComponentSpace<grid_function_type> subspace_type;
-	typedef CompositeSpace<grid_function_type> composite_type;
+	using base_type = ISubDiagErrorEst<TVector>;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
+	using subspace_type = IComponentSpace<grid_function_type>;
+	using composite_type = CompositeSpace<grid_function_type>;
 
 	// constructor
 	ScaledGridFunctionEstimator() : base_type() {}
@@ -814,7 +814,7 @@ public:
 	// add subspaces (from container)
 	void add(SmartPtr<composite_type> spCompositeSpace)
 	{
-		typedef typename composite_type::weighted_obj_type weighted_obj_type;
+		using weighted_obj_type = typename composite_type::weighted_obj_type;
 		const std::vector<weighted_obj_type> &spaces = spCompositeSpace->get_subspaces();
 		for (typename std::vector<weighted_obj_type>::const_iterator it = spaces.begin(); it != spaces.end(); ++it)
 		{
@@ -880,13 +880,13 @@ class CompositeGridFunctionEstimator :
 		public ISubDiagErrorEst<typename TAlgebra::vector_type>
 {
 protected:
-	typedef typename TAlgebra::vector_type TVector;
+	using TVector = typename TAlgebra::vector_type;
 
 public:
-	typedef ISubDiagErrorEst<TVector> base_type;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef IComponentSpace<grid_function_type> subspace_type;
-	typedef CompositeSpace<grid_function_type> composite_type;
+	using base_type = ISubDiagErrorEst<TVector>;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
+	using subspace_type = IComponentSpace<grid_function_type>;
+	using composite_type = CompositeSpace<grid_function_type>;
 
 	// constructor
 	CompositeGridFunctionEstimator() : base_type(), m_strictRelativeError(false) {}
@@ -901,7 +901,7 @@ public:
 	// add subspaces (from container)
 	void add(SmartPtr<composite_type> spCompositeSpace)
 	{
-		typedef typename composite_type::weighted_obj_type weighted_obj_type;
+		using weighted_obj_type = typename composite_type::weighted_obj_type;
 		const std::vector<weighted_obj_type> &spaces = spCompositeSpace->get_subspaces();
 		for (typename std::vector<weighted_obj_type>::const_iterator it = spaces.begin(); it != spaces.end(); ++it)
 		{
@@ -943,10 +943,10 @@ public:
 			enorm2 += cmp_e2;
 			unorm2 += cmp_u2;
 
-			UG_LOGN("ui-2=" << cmp_u2 << "\tei-2=" <<  cmp_e2<<
-					"\tunorm2=" << unorm2 << "\tenorm2=" << enorm2 <<
-					"\tratio2="<< (enorm2)/(unorm2) <<
-					"\tmax. rel (squared) ="<< max_rel);
+			UG_LOGN("norm^2=" << cmp_u2 << "\t dist^2=" <<  cmp_e2<<
+					"\tunorm^2=" << unorm2 << "\tenorm^2=" << enorm2 <<
+					"\tratio^2="<< (enorm2)/(unorm2) <<
+					"\tmax_rel^2="<< max_rel);
 		}
 
 		//prevent division by zero
@@ -986,7 +986,7 @@ class AitkenNevilleTimex
 {
 	public:
 	///	vector type of solutions
-		typedef TVector vector_type;
+		using vector_type = TVector;
 
 	public:
 
@@ -1091,9 +1091,9 @@ class AitkenNevilleTimex
 					// (2^p -1)
 					// m_solution[i] += (1.0/scal)*(m_solution[i]- m_solution[i-1]);
 					const number scaling = ((1.0*m_num_steps[i])/(1.0*m_num_steps[i-k])-1.0);
-					UG_LOG("scaling="<<i << ","<< k <<
-							": ns["<<i<<"]="<< m_num_steps[i] <<
-							"ns2["<<i-k<<"]=" <<  m_num_steps[i-k] <<"=" << scaling << std::endl);
+					UG_LOG("(i="<<i << ",k="<< k <<
+							"): ns["<<i<<"]="<< m_num_steps[i] <<
+							" ns["<<i-k<<"]=" <<  m_num_steps[i-k] <<" scaling=" << scaling << std::endl);
 
 					if (with_error && (i==k))
 					{

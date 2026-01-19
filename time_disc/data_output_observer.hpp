@@ -52,9 +52,9 @@ class VTKOutputObserver
   public ITimeIntegratorStageObserver_end<TDomain, TAlgebra>
 {
 public:
-	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef VTKOutput<TDomain::dim> vtk_type;
+	using base_type = ITimeIntegratorObserver<TDomain, TAlgebra>;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
+	using vtk_type = VTKOutput<TDomain::dim>;
 
 	VTKOutputObserver()
 	:  m_sp_vtk(SPNULL), m_filename("0000"), m_startTime(0.0), m_plotStep(0.0) {}
@@ -65,8 +65,7 @@ public:
 	VTKOutputObserver(const char *filename, SmartPtr<vtk_type> vtk, number plotStep)
 	: m_sp_vtk(vtk), m_filename(filename), m_startTime(0.0), m_plotStep(plotStep) {}
 
-	virtual ~VTKOutputObserver()
-	{ m_sp_vtk = SPNULL; }
+	~VTKOutputObserver() override { m_sp_vtk = SPNULL; }
 
 
 	void set_output_scales(const std::vector<number>& vScales)
@@ -148,7 +147,7 @@ public:
 private:
 	void writeToFile(SmartPtr<grid_function_type> u, int step, number time)
 	{
-		if (m_vOutputScales.size())
+		if (!m_vOutputScales.empty())
 		{
 			SmartPtr<grid_function_type> uTmp = u->clone_without_values();
 			ScaleGF<grid_function_type>(uTmp, u, m_vOutputScales);
@@ -173,17 +172,16 @@ class ConnectionViewerOutputObserver
 : public ITimeIntegratorObserver<TDomain, TAlgebra>
 {
 public:
-	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+	using base_type = ITimeIntegratorObserver<TDomain, TAlgebra>;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
 
-	ConnectionViewerOutputObserver(const char *filename)
+	explicit ConnectionViewerOutputObserver(const char *filename)
 	: m_filename(filename), m_outputTime(-1.0) {}
 
 	ConnectionViewerOutputObserver(const char *filename, number t_out)
 	: m_filename(filename), m_outputTime(t_out) {}
 
-	virtual ~ConnectionViewerOutputObserver()
-	{}
+	~ConnectionViewerOutputObserver() override = default;
 
 	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld, */int step, number time, number dt) OVERRIDE
 	{

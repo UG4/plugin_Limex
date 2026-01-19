@@ -77,14 +77,13 @@ class ITimeIntegrator
 			public TimeIntegratorSubject<TDomain, TAlgebra>
 {
 	public:
+		using algebra_type = TAlgebra;
+		using vector_type = typename TAlgebra::vector_type;
+		using matrix_type = typename TAlgebra::matrix_type;
 
-		typedef TAlgebra algebra_type;
-		typedef typename TAlgebra::vector_type vector_type;
-		typedef typename TAlgebra::matrix_type matrix_type;
 
-
-		typedef TDomain domain_type;
-		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
+		using domain_type = TDomain;
+		using grid_function_type = GridFunction<TDomain, TAlgebra>;
 
 	protected:
 		double m_dt;
@@ -103,7 +102,7 @@ class ITimeIntegrator
 		 {}
 
 		/// virtual	destructor
-		virtual ~ITimeIntegrator() {};
+		~ITimeIntegrator() override = default;
 
 	///	init operator depending on a function u
 	/**
@@ -115,7 +114,6 @@ class ITimeIntegrator
 	 * by simply calling init() and forgetting about the linearization point.
 	 *
 	 * \param[in]	u		function (linearization point)
-	 * \returns 	bool	success flag
 	 */
 	 virtual void init(grid_function_type const& u)
 	 {
@@ -128,14 +126,13 @@ class ITimeIntegrator
 	/**
 	 * This method initializes the operator. Once initialized the 'apply'-method
 	 * can be called.
-	 * \returns 	bool	success flag
 	 */
 	  void init()
 	  { UG_THROW("Please init with grid function!"); }
 
 	///	prepares functions for application
 
-	/*	This method is used to prepare the in- and output vector used later in apply.
+	/**	This method is used to prepare the in- and output vector used later in apply.
 	 * It can be called, after the init method has been called at least once.
 	 * The prepare method is e.g. used to set dirichlet values.
 	 */
@@ -156,10 +153,10 @@ class ITimeIntegrator
 	{ return m_dt; }
 
 	void set_precision_bound(double precisionBound)
-	{ m_precisionBound = precisionBound; return; }
+	{ m_precisionBound = precisionBound; }
 
 	void set_no_log_out(bool bNoLogOut)
-	{ m_bNoLogOut = bNoLogOut; return; }
+	{ m_bNoLogOut = bNoLogOut; }
 
 };
 
@@ -170,16 +167,16 @@ class ILinearTimeIntegrator : public ITimeIntegrator<TDomain, TAlgebra>
 {
 
 public:
-	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::vector_type vector_type;
-	typedef ILinearOperatorInverse<vector_type> linear_solver_type;
-	typedef AssembledLinearOperator<TAlgebra> assembled_operator_type;
+	using base_type = ITimeIntegrator<TDomain, TAlgebra>;
+	using vector_type = typename base_type::vector_type;
+	using linear_solver_type = ILinearOperatorInverse<vector_type>;
+	using assembled_operator_type = AssembledLinearOperator<TAlgebra>;
 
 	// forward constructor
 	ILinearTimeIntegrator()
 	: base_type() {}
 
-	ILinearTimeIntegrator(SmartPtr<linear_solver_type> lSolver)
+	explicit ILinearTimeIntegrator(SmartPtr<linear_solver_type> lSolver)
 	: base_type(),  m_spLinearSolver(lSolver)
 	{}
 
@@ -198,9 +195,9 @@ template<class TAlgebra>
 class ITimeDiscDependentObject
 {
 public:
-	typedef ITimeDiscretization<TAlgebra> time_disc_type;
+	using time_disc_type = ITimeDiscretization<TAlgebra>;
 
-	ITimeDiscDependentObject(SmartPtr<time_disc_type> spTimeDisc) :
+	explicit ITimeDiscDependentObject(SmartPtr<time_disc_type> spTimeDisc) :
 		m_spTimeDisc(spTimeDisc)
 	{}
 
@@ -217,18 +214,16 @@ class LinearTimeIntegrator :
 	public ITimeDiscDependentObject<TAlgebra>
 
 {
-private:
-
 protected:
-	typedef ITimeDiscDependentObject<TAlgebra> tdisc_dep_type;
+	using tdisc_dep_type = ITimeDiscDependentObject<TAlgebra>;
 public:
-	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef ITimeDiscretization<TAlgebra> time_disc_type;
-	typedef typename base_type::grid_function_type grid_function_type;
-	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
+	using base_type = ILinearTimeIntegrator<TDomain, TAlgebra>;
+	using time_disc_type = ITimeDiscretization<TAlgebra>;
+	using grid_function_type = typename base_type::grid_function_type;
+	using vector_time_series_type = VectorTimeSeries<typename base_type::vector_type>;
 
 	// constructor
-	LinearTimeIntegrator (SmartPtr< time_disc_type> tDisc)
+	explicit LinearTimeIntegrator (SmartPtr< time_disc_type> tDisc)
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc) {}
 
 	LinearTimeIntegrator (SmartPtr< time_disc_type> tDisc, 	SmartPtr<typename base_type::linear_solver_type> lSolver)
@@ -245,15 +240,13 @@ class ConstStepLinearTimeIntegrator :
 	public ITimeDiscDependentObject<TAlgebra>
 {
 protected:
-	typedef ITimeDiscDependentObject<TAlgebra> tdisc_dep_type;
+	using tdisc_dep_type = ITimeDiscDependentObject<TAlgebra>;
 public:
-	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef ITimeDiscretization<TAlgebra> time_disc_type;
-	typedef typename base_type::linear_solver_type linear_solver_type;
-	typedef typename base_type::grid_function_type grid_function_type;
-	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
-
-private:
+	using base_type = ILinearTimeIntegrator<TDomain, TAlgebra>;
+	using time_disc_type = ITimeDiscretization<TAlgebra>;
+	using linear_solver_type = typename base_type::linear_solver_type;
+	using grid_function_type = typename base_type::grid_function_type;
+	using vector_time_series_type = VectorTimeSeries<typename base_type::vector_type>;
 
 protected:
 
@@ -261,7 +254,7 @@ protected:
 public:
 
 	// constructor
-	ConstStepLinearTimeIntegrator (SmartPtr<time_disc_type> tDisc)
+	explicit ConstStepLinearTimeIntegrator (SmartPtr<time_disc_type> tDisc)
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc), m_numSteps(1) {}
 
 	ConstStepLinearTimeIntegrator (SmartPtr<time_disc_type> tDisc, SmartPtr<typename base_type::linear_solver_type> lSolver)
@@ -280,13 +273,13 @@ class TimeIntegratorLinearAdaptive :
 	public ITimeDiscDependentObject<TAlgebra>
 {
 protected:
-	typedef ITimeDiscDependentObject<TAlgebra> tdisc_dep_type;
+	using tdisc_dep_type = ITimeDiscDependentObject<TAlgebra>;
 	
 public:
-	typedef ILinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef ITimeDiscretization<TAlgebra> time_disc_type;
-	typedef typename base_type::grid_function_type grid_function_type;
-	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
+	using base_type = ILinearTimeIntegrator<TDomain, TAlgebra>;
+	using time_disc_type = ITimeDiscretization<TAlgebra>;
+	using grid_function_type = typename base_type::grid_function_type;
+	using vector_time_series_type = VectorTimeSeries<typename base_type::vector_type>;
 
 protected:
 
@@ -350,13 +343,13 @@ class INonlinearTimeIntegrator
 : public ITimeIntegrator<TDomain, TAlgebra>
 {
 public:
-	typedef ITimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::vector_type vector_type;
-	typedef IOperatorInverse<vector_type> solver_type;
-	typedef AssembledOperator<TAlgebra> assembled_operator_type;
+	using base_type = ITimeIntegrator<TDomain, TAlgebra>;
+	using vector_type = typename base_type::vector_type;
+	using solver_type = IOperatorInverse<vector_type>;
+	using assembled_operator_type = AssembledOperator<TAlgebra>;
 
-	INonlinearTimeIntegrator()
-	: m_dtBounds() {}
+	INonlinearTimeIntegrator() = default;
+
 
 	void set_solver(SmartPtr<solver_type> solver)
 	{ m_spSolver=solver;}
@@ -392,12 +385,11 @@ class DiscontinuityIntegrator :
 		public INonlinearTimeIntegrator<TDomain, TAlgebra>
 {
 public:
+	using base_type = INonlinearTimeIntegrator<TDomain, TAlgebra>;
+	using grid_function_type = typename base_type::grid_function_type;
 
-	typedef INonlinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef typename base_type::grid_function_type grid_function_type;
-
-	DiscontinuityIntegrator(SmartPtr<base_type> baseIntegrator) :
-		base_type(), m_wrappedIntegrator(baseIntegrator), m_timePoints() {};
+	explicit DiscontinuityIntegrator(SmartPtr<base_type> baseIntegrator) :
+		base_type(), m_wrappedIntegrator(baseIntegrator) {};
 
 	bool apply(SmartPtr<grid_function_type> u1, number t1, ConstSmartPtr<grid_function_type> u0, number t0)
 	{
@@ -430,7 +422,7 @@ public:
 
 	void insert_points (std::vector<double> points)
 	{
-		m_timePoints = points;
+		m_timePoints = std::move(points);
 	}
 protected:
 	SmartPtr<base_type> m_wrappedIntegrator;

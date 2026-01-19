@@ -49,21 +49,21 @@ class SimpleTimeIntegrator :
 		public DebugWritingObject<TAlgebra>
 {
 protected:
-	typedef ITimeDiscDependentObject<TAlgebra> tdisc_dep_type;
+	using tdisc_dep_type = ITimeDiscDependentObject<TAlgebra>;
 
 public:
-	typedef INonlinearTimeIntegrator<TDomain, TAlgebra> base_type;
-	typedef ITimeDiscretization<TAlgebra> time_disc_type;
-	typedef typename TAlgebra::vector_type vector_type;
-	typedef typename base_type::grid_function_type grid_function_type;
-	typedef IGridFunctionSpace<grid_function_type> grid_function_space_type;
-	typedef VectorTimeSeries<typename base_type::vector_type> vector_time_series_type;
+	using base_type = INonlinearTimeIntegrator<TDomain, TAlgebra>;
+	using time_disc_type = ITimeDiscretization<TAlgebra>;
+	using vector_type = typename TAlgebra::vector_type;
+	using grid_function_type = typename base_type::grid_function_type;
+	using grid_function_space_type = IGridFunctionSpace<grid_function_type>;
+	using vector_time_series_type = VectorTimeSeries<typename base_type::vector_type>;
 
 	// constructor
 	SimpleTimeIntegrator (SmartPtr<time_disc_type> tDisc)
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc),
 	  m_spBanachSpace(new AlgebraicSpace<grid_function_type>() ),
-	  m_spDerivative(SPNULL), m_initial_consistency_error(0.0)
+	  m_spDerivative(nullptr), m_initial_consistency_error(0.0)
 
 	{}
 
@@ -74,7 +74,7 @@ public:
 	)
 	: base_type(), ITimeDiscDependentObject<TAlgebra>(tDisc),
 	  m_spBanachSpace(spSpace),
-	  m_spDerivative(SPNULL), m_initial_consistency_error(0.0)
+	  m_spDerivative(nullptr), m_initial_consistency_error(0.0)
 	{}
 
 

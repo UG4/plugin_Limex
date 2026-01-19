@@ -76,29 +76,29 @@ class LinearImplicitEuler
 {
 public:
 /// Type of base class
-	typedef ITimeDiscretization<TAlgebra> base_type;
+	using base_type = ITimeDiscretization<TAlgebra>;
 
 /// Type of algebra
-	typedef TAlgebra algebra_type;
+	using algebra_type = TAlgebra;
 
 /// Type of algebra matrix
-	typedef typename algebra_type::matrix_type matrix_type;
+	using matrix_type = typename algebra_type::matrix_type;
 
 /// Type of algebra vector
-	typedef typename algebra_type::vector_type vector_type;
+	using vector_type = typename algebra_type::vector_type;
 
 /// Domain Discretization type
-	typedef IDomainDiscretization<algebra_type>	domain_discretization_type;
+	using domain_discretization_type = IDomainDiscretization<algebra_type>;
 
 public:
 	/// CTOR
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDD)
 		: ITimeDiscretization<TAlgebra>(spDD),
-		  m_pPrevSol(NULL),
+		  m_pPrevSol(nullptr),
 		  m_dt(0.0),
 		  m_futureTime(0.0),
-		  m_spMatrixJDisc(spDD), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false),
-		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+		  m_spMatrixJDisc(spDD), m_spMatrixJOp(nullptr), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false),
+		  m_spGammaDisc(nullptr), m_spGammaOp(nullptr), m_bGammaNeedsUpdate(true),
 		  m_useCachedMatrices(true)
 	{}
 
@@ -106,11 +106,11 @@ public:
 	LinearImplicitEuler(SmartPtr<IDomainDiscretization<algebra_type> > spDefectDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc)
 		: ITimeDiscretization<TAlgebra>(spDefectDisc),
-		  m_pPrevSol(NULL),
+		  m_pPrevSol(nullptr),
 		  m_dt(0.0),
 		  m_futureTime(0.0),
-		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false), 
-		  m_spGammaDisc(SPNULL), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(nullptr), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false),
+		  m_spGammaDisc(nullptr), m_spGammaOp(nullptr), m_bGammaNeedsUpdate(true),
 		  m_useCachedMatrices(true)
 	{}
 
@@ -119,16 +119,16 @@ public:
 						SmartPtr<IDomainDiscretization<algebra_type> > spMatrixJDisc,
 						SmartPtr<IDomainDiscretization<algebra_type> > spGammaDisc)
 		: ITimeDiscretization<TAlgebra>(spDefectDisc),
-		  m_pPrevSol(NULL),
+		  m_pPrevSol(nullptr),
 		  m_dt(0.0),
 		  m_futureTime(0.0),
-		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(SPNULL), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false), 
-		  m_spGammaDisc(spGammaDisc), m_spGammaOp(SPNULL), m_bGammaNeedsUpdate(true),
+		  m_spMatrixJDisc(spMatrixJDisc), m_spMatrixJOp(nullptr), m_bMatrixJNeedsUpdate(true), m_useLinearMode(false),
+		  m_spGammaDisc(spGammaDisc), m_spGammaOp(nullptr), m_bGammaNeedsUpdate(true),
 		  m_useCachedMatrices(true)
 	{}
 
 	/// DTOR
-	virtual ~LinearImplicitEuler(){};
+	virtual ~LinearImplicitEuler()= default;
 
 public:
 	/// \copydoc ITimeDiscretization::num_prev_steps()

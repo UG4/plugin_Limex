@@ -191,15 +191,15 @@ class PlotRefOutputObserver
 : public ITimeIntegratorObserver<TDomain, TAlgebra>
 {
 public:
-	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef VTKOutput<TDomain::dim> vtk_type;
+	using base_type = ITimeIntegratorObserver<TDomain, TAlgebra>;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
+	using vtk_type = VTKOutput<TDomain::dim>;
 
-	PlotRefOutputObserver(SmartPtr<UserData<number, grid_function_type::dim> > spExactSol)
+	explicit PlotRefOutputObserver(SmartPtr<UserData<number, grid_function_type::dim> > spExactSol)
 	{ m_spReference = spExactSol; }
 
 #ifdef UG_FOR_LUA
-	PlotRefOutputObserver(const char *ExactSol)
+	explicit PlotRefOutputObserver(const char *ExactSol)
 	: m_sp_vtk(SPNULL)
 	{ m_spReference = make_sp(new LuaUserData<number, grid_function_type::dim>(ExactSol)); }
 
@@ -209,8 +209,7 @@ public:
 
 #endif
 
-	virtual ~PlotRefOutputObserver()
-	{}
+	~PlotRefOutputObserver() override = default;
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
 	bool step_process(SmartPtr<grid_function_type> uNew, /* SmartPtr<grid_function_type> uOld, */ int step, number time, number dt) OVERRIDE
@@ -243,9 +242,9 @@ class IntegrationOutputObserver
 : public ITimeIntegratorObserver<TDomain, TAlgebra>
 {
 public:
-	typedef ITimeIntegratorObserver<TDomain, TAlgebra> base_type;
-	typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-	typedef VTKOutput<TDomain::dim> vtk_type;
+	using base_type = ITimeIntegratorObserver<TDomain, TAlgebra>;
+	using grid_function_type = GridFunction<TDomain, TAlgebra>;
+	using vtk_type = VTKOutput<TDomain::dim>;
 protected:
 	struct IntegralSpecs
 	{
@@ -262,8 +261,7 @@ public:
 	IntegrationOutputObserver() : m_vIntegralData()
 	{}
 
-	virtual ~IntegrationOutputObserver()
-	{}
+	~IntegrationOutputObserver() override = default;
 
 	// TODO: replace by call 'func (SmartPtr<G> u, int step, number dt, number t)'
 	bool step_process(SmartPtr<grid_function_type> uNew, /*SmartPtr<grid_function_type> uOld,*/ int step, number time, number dt) OVERRIDE

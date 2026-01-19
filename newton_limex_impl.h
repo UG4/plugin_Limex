@@ -57,10 +57,10 @@ namespace ug{
 template <typename TAlgebra>
 LimexNewtonSolver<TAlgebra>::
 LimexNewtonSolver()
-: m_spLinearSolver(NULL),
-  m_N(NULL),
-  m_J(NULL),
-  m_spAss(NULL),
+: m_spLinearSolver(nullptr),
+  m_N(nullptr),
+  m_J(nullptr),
+  m_spAss(nullptr),
   m_linSolverSteps(0),
   m_linSolverRate(0.0)
 {}
@@ -69,10 +69,10 @@ LimexNewtonSolver()
 template <typename TAlgebra>
 LimexNewtonSolver<TAlgebra>::
 LimexNewtonSolver(SmartPtr<IOperator<vector_type> > N)
-: m_spLinearSolver(NULL),
-  m_N(NULL),
-  m_J(NULL),
-  m_spAss(NULL),
+: m_spLinearSolver(nullptr),
+  m_N(nullptr),
+  m_J(nullptr),
+  m_spAss(nullptr),
   m_linSolverSteps(0),
   m_linSolverRate(0.0)
 {
@@ -83,9 +83,9 @@ LimexNewtonSolver(SmartPtr<IOperator<vector_type> > N)
 template <typename TAlgebra>
 LimexNewtonSolver<TAlgebra>::
 LimexNewtonSolver(SmartPtr<IAssemble<TAlgebra> > spAss)
-: m_spLinearSolver(NULL),
+: m_spLinearSolver(nullptr),
   m_N(new AssembledOperator<TAlgebra>(spAss)),
-  m_J(NULL),
+  m_J(nullptr),
   m_spAss(spAss),
   m_linSolverSteps(0),
   m_linSolverRate(0.0)

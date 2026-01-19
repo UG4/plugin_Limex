@@ -60,12 +60,13 @@
 #include "lib_disc/function_spaces/grid_function_util.h" // SaveVectorForConnectionViewer
 #include "lib_disc/function_spaces/metric_spaces.h"
 #include "lib_disc/io/vtkoutput.h"
+#include "simple_integrator.hpp"
 
 #include "lib_grid/refinement/refiner_interface.h"
-#include "simple_integrator.hpp"
-#include "linear_implicit_timestep.h"
+
 
 // own headers
+#include "linear_implicit_timestep.h"
 #include "time_extrapolation.h"
 #include "time_integrator.hpp"
 #include "../limex_tools.h"
@@ -111,7 +112,7 @@ static void MyPrintError(UGError &err)
 
 class ILimexRefiner
 {
-	virtual ~ILimexRefiner() = default;
+	virtual ~ILimexRefiner(){};
 
 protected:
 	SmartPtr<IRefiner> m_spRefiner;
@@ -123,7 +124,7 @@ class ILimexCostStrategy
 {
 public:
 	/// destructor
-	virtual ~ILimexCostStrategy()= default;
+	virtual ~ILimexCostStrategy(){}
 
 	/// provides the cost for all 0...nstages stages.
 	virtual void update_cost(std::vector<number> &costA, const std::vector<size_t> &vSteps, const size_t nstages) = 0;
@@ -134,9 +135,7 @@ public:
 class LimexDefaultCost : public ILimexCostStrategy
 {
 public:
-
-	LimexDefaultCost()= default;
-
+	LimexDefaultCost() = default;
 	void update_cost(std::vector<number> &m_costA, const std::vector<size_t> &m_vSteps, const size_t nstages)
 	{
 		UG_ASSERT(m_costA.size() >= nstages, "Huhh: Vectors match in size:" << m_costA.size() << "vs." << nstages);
@@ -258,48 +257,41 @@ class LimexTimeIntegrator
 
 
 public:
-		typedef TAlgebra algebra_type;
-		typedef typename algebra_type::matrix_type matrix_type;
-		typedef typename algebra_type::vector_type vector_type;
-		typedef GridFunction<TDomain, TAlgebra> grid_function_type;
-		typedef INonlinearTimeIntegrator<TDomain, TAlgebra> base_type;
-		typedef typename base_type::solver_type solver_type;
+	using algebra_type = TAlgebra;
+		using matrix_type = typename algebra_type::matrix_type;
+		using vector_type = typename algebra_type::vector_type;
+		using grid_function_type = GridFunction<TDomain, TAlgebra>;
+		using base_type = INonlinearTimeIntegrator<TDomain, TAlgebra>;
+		using solver_type = typename base_type::solver_type;
 
-		typedef IDomainDiscretization<algebra_type>	domain_discretization_type;
-		typedef LinearImplicitEuler<algebra_type> timestep_type;
-		typedef AitkenNevilleTimex<vector_type> timex_type;
-		typedef INonlinearTimeIntegrator<TDomain, TAlgebra> itime_integrator_type;
-		typedef SimpleTimeIntegrator<TDomain, TAlgebra> time_integrator_type;
-		typedef ISubDiagErrorEst<vector_type> error_estim_type;
+		using domain_discretization_type = IDomainDiscretization<algebra_type>;
+		using timestep_type = LinearImplicitEuler<algebra_type>;
+		using timex_type = AitkenNevilleTimex<vector_type>;
+		using itime_integrator_type = INonlinearTimeIntegrator<TDomain, TAlgebra>;
+		using time_integrator_type = SimpleTimeIntegrator<TDomain, TAlgebra>;
+		using error_estim_type = ISubDiagErrorEst<vector_type>;
 
 		//! Contains all data for parallel execution of time steps
 		class ThreadData
 		{
-			//typedef boost::thread thread_type;
+			//using thread_type = boost::thread;
 		public:
 
 			ThreadData(SmartPtr<timestep_type> spTimeStep)
 			: m_stepper(spTimeStep)
 			{}
 
-			ThreadData(){}
+			ThreadData() = default;
+
 			SmartPtr<timestep_type> get_time_stepper()
 			{ return m_stepper; }
 
 
-			void set_solver(SmartPtr<solver_type> solver) {
-				if (solver  != SPNULL) {
-					std::cout << "limex integrator solver set" << std::endl;
-				} else {
-					std::cout << "solver is nullptr" << std::endl;
-				}
-				m_solver = solver;
-			}
+			void set_solver(SmartPtr<solver_type> solver)
+			{ m_solver = solver;}
 
-			SmartPtr<solver_type> get_solver() {
-				return this->m_solver;
-
-			}
+			SmartPtr<solver_type> get_solver()
+			{ return m_solver;}
 
 			void set_error(int e)
 			{ m_error=e; }
@@ -331,7 +323,7 @@ public:
 			int m_error;
 		};
 
-		typedef std::vector<SmartPtr<ThreadData> > thread_vector_type;
+		using thread_vector_type = std::vector<SmartPtr<ThreadData> >;
 
 public:
 
@@ -352,7 +344,7 @@ protected:
 
 
 public:
-		LimexTimeIntegrator(int nstages):
+	explicit LimexTimeIntegrator(int nstages):
 		  LimexTimeIntegratorConfig(nstages),
 		  m_gamma(m_nstages+1),
 		  m_costA(m_nstages+1),
@@ -376,7 +368,7 @@ public:
 		/// tolerance
 		void set_tolerance(double tol) { m_tol = tol;m_epsmin=tol;}
 		void set_stepsize_safety_factor(double rho) { m_rhoSafety = rho;}
-		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;} // unused function?
+		void set_stepsize_reduction_factor(double sigma) { m_sigmaReduction = sigma;}
 		void set_stepsize_greedy_order_factor(double sigma) { m_greedyOrderIncrease = sigma;}
 
 		void set_max_reductions(size_t nred) { m_max_reductions = nred;}
@@ -698,9 +690,13 @@ int LimexTimeIntegrator<TDomain,TAlgebra>::apply_integrator_threads(number dtcur
 		/*integrator.set_dt_min(dtcurr/m_vSteps[i]);
 		integrator.set_dt_max(dtcurr/m_vSteps[i]);*/
 		number dtFactor=1.0;
-		if(m_tol>0 && m_epsmin>0)
-			 dtFactor=std::max(1.0, std::log(m_epsmin)/std::log(m_tol));
-		
+		if(m_tol>0 && m_epsmin>0) {
+
+			dtFactor=std::max(1.0, std::log(m_epsmin)/std::log(m_tol));
+			std::cout << "m_tol = " << m_tol << ", m_epsmin = " << m_epsmin << ", dt_factor = " << dtFactor << std::endl;
+		}
+
+		std::cout << "set_dt_min/max = " << dtcurr/m_vSteps[i]/dtFactor << std::endl;
 		integrator.set_dt_min(dtcurr/m_vSteps[i]/dtFactor); // /(log(m_epsmin)/log(m_tol))
 		integrator.set_dt_max(dtcurr/m_vSteps[i]*dtFactor); // *log(m_epsmin)/log(m_tol)
 		integrator.set_reduction_factor(0.0);                 // quit immediately, if step fails
@@ -821,6 +817,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 #endif
 
+	m_epsmin = m_tol;
 	// NOTE: we use u as common storage for future (and intermediate) solution(s)
 	if (u.get() != u0.get())    // only copy if not already identical, otherwise: PST_UNDEFINED!
 		*u = *u0;
@@ -863,8 +860,8 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 	//bool bProbation = false;
 	bool bAsymptoticReduction = false;
 
-	const size_t nSwitchHistory=16;
-	const size_t nSwitchLookBack=5;
+	constexpr size_t nSwitchHistory=16;
+	constexpr size_t nSwitchLookBack=5;
 	int vSwitchHistory[nSwitchHistory] ={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 	timex_type timex(m_vSteps);
@@ -1169,7 +1166,7 @@ apply(SmartPtr<grid_function_type> u, number t1, ConstSmartPtr<grid_function_typ
 
 		// output compute time for Limex step
 		number watchTime = stopwatch.ms()/1000.0;
-		UG_LOGN("Time: " << std::setprecision(3) << watchTime << "s");
+		UG_LOGN("Time: " << /*std::setprecision(3) <<*/ watchTime << "s");
 
 		if ((err==0) && limexConverged)
 		{

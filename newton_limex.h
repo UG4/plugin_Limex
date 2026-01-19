@@ -50,28 +50,28 @@ namespace ug {
 /// Newton solver for assembling-based discretizations solved using Limex
 template <typename TAlgebra>
 class LimexNewtonSolver
-	: 	public IOperatorInverse<typename TAlgebra::vector_type>
-		//public DebugWritingObject<TAlgebra>
+	: 	public IOperatorInverse<typename TAlgebra::vector_type>,
+		public DebugWritingObject<TAlgebra>
 {
 	public:
 		/// algebra type
-		typedef TAlgebra algebra_type;
+		using algebra_type = TAlgebra;
 
 		/// vector type
-		typedef typename TAlgebra::vector_type vector_type;
+		using vector_type = typename TAlgebra::vector_type;
 
 		/// matrix type
-		typedef typename TAlgebra::matrix_type matrix_type;
+		using matrix_type = typename TAlgebra::matrix_type;
 
 	public:
 		/// default constructor
 		LimexNewtonSolver();
 
 		/// constructor setting operator
-		LimexNewtonSolver(SmartPtr<IOperator<vector_type> > N);
+		explicit LimexNewtonSolver(SmartPtr<IOperator<vector_type> > N);
 
 		/// constructor using assembling
-		LimexNewtonSolver(SmartPtr<IAssemble<TAlgebra> > spAss);
+		explicit LimexNewtonSolver(SmartPtr<IAssemble<TAlgebra> > spAss);
 
 		/// sets the linear solver
 		void set_linear_solver(SmartPtr<ILinearOperatorInverse<vector_type> > LinearSolver)
@@ -104,8 +104,8 @@ class LimexNewtonSolver
 	private:
 		/// help functions for debug output
 		/// @{
-		void write_debug(const vector_type& vec, const char* filename);
-		void write_debug(const matrix_type& mat, const char* filename);
+		// void write_debug(const vector_type& vec, const char* filename);
+		// void write_debug(const matrix_type& mat, const char* filename);
 		/// @}
 
 	private:
