@@ -161,24 +161,21 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply
 	SmartPtr<typename base_type::assembled_operator_type> spAssOp = SPNULL;
 
 	// select number of steps
-	 double t = t0;
-	 int numSteps = round((t1-t0) / base_type::m_dt);
-	 number currdt = (t1-t0) / numSteps;
+	double t = t0;
+	int numSteps = round((t1-t0) / base_type::m_dt);
+
+	 // determine step size
+	const double dt = (t1-t0) / numSteps;
 	
-
-
-	 //std::cerr << "+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << currdt << "("<< numSteps<< " iters)\n";
+	 //std::cerr << "+++ Integrating: ["<< t0 <<", "<< t1 <<"] with dt=" << dt << "("<< numSteps<< " iters)\n";
 	if(!base_type::m_bNoLogOut)
 	{
-		UG_LOG("+++ Integrating: [\t"<< t0 <<"\t, \t"<< t1 <<"\t] with dt=\t" << currdt << "("<< numSteps<< " iters)" << std::endl);
+		UG_LOG("+++ Integrating: [\t"<< t0 <<"\t, \t"<< t1 <<"\t] with dt=\t" << dt << "("<< numSteps<< " iters)" << std::endl);
 	}
 	 
 	 // integrate
 	 for(int step = 1; step<=numSteps; ++step)
 	 {
-	     // determine step size
-	     // number dt = std::min(currdt, t1-t);
-		 const number dt = currdt;
 
 		if(!base_type::m_bNoLogOut)
 		{
@@ -191,31 +188,32 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply
 		 if (spAssOp==SPNULL)
 		 {
 			 // Assemble operator.
-			if(!base_type::m_bNoLogOut) UG_LOG("+++ Assemble (t=" << t << ", dt=" << dt <<")" << std::endl);
+			if(!base_type::m_bNoLogOut)
+			{ UG_LOG("+++ Assemble (t=" << t << ", dt=" << dt <<")" << std::endl); }
 
-			 spAssOp=make_sp(new typename base_type::assembled_operator_type(tdisc_dep_type::m_spTimeDisc, gl));
-			 tdisc.assemble_linear(*spAssOp, *b, gl);
-			 (base_type::m_spLinearSolver)->init(spAssOp, *u1);
+			spAssOp=make_sp(new typename base_type::assembled_operator_type(tdisc_dep_type::m_spTimeDisc, gl));
+			tdisc.assemble_linear(*spAssOp, *b, gl);
+			(base_type::m_spLinearSolver)->init(spAssOp, *u1);
 		 }
 		 else
 		 {
-			 // Recycle existing operator.
-			 // std::cerr << "Recycling timestep " << step << "\n";
-			 tdisc.assemble_rhs(*b, gl);
+			// Recycle existing operator.
+			// std::cerr << "Recycling timestep " << step << "\n";
+			tdisc.assemble_rhs(*b, gl);
 		 }
 
 		 // execute step
 		 if (base_type::m_spLinearSolver->apply(*u1, *b))
 		 {
-			 // ACCEPTING: 
+			// ACCEPTING:
 			// Notify observers (which could modify u1!)
-			 this->notify_finalize_step(u1, step, t+dt, dt);  
+			this->notify_finalize_step(u1, step, t+dt, dt);
 
-			 // push updated solution into time series
-			 t += dt; // Update time.
-			 SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
-			 VecAssign(*tmp,  *u1.template cast_dynamic<typename base_type::vector_type>());
-			 m_spSolTimeSeries->push_discard_oldest(tmp, t);
+			// push updated solution into time series
+			t += dt; // Update time.
+			SmartPtr<typename base_type::vector_type> tmp = m_spSolTimeSeries->oldest();
+			VecAssign(*tmp,  *u1.template cast_dynamic<typename base_type::vector_type>());
+			m_spSolTimeSeries->push_discard_oldest(tmp, t);
 			
 		 }
 		 else
@@ -226,7 +224,7 @@ bool ConstStepLinearTimeIntegrator<TDomain, TAlgebra>::apply
 
 	 }
 
-	 this->notify_end(u1, numSteps, t1, currdt);
+	 this->notify_end(u1, numSteps, t1, dt);
 
 	 return true;
 };
